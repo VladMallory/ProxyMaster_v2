@@ -1,14 +1,28 @@
 package config
 
+import (
+	"fmt"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
 // хранит глобальные настройки для панели
 type Config struct {
 	RemnaPanelURL string // страница панели
+	RemnaLogin    string // логин
+	RemnaPass     string // пароль
 	RemnawaveKey  string // ключ для разработчика, чтобы подключиться
 }
 
 func New() (*Config, error) {
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Не удалось загрузить .env")
+	}
 	return &Config{
-		RemnaPanelURL: "https://panel.moment-was-da.ru/auth/login?eyMjBapF=OXaAOjtG",
-		RemnawaveKey:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiYWE2NWRiZTctNDAyMy00NGIzLThiYzQtOWM1NjJjZGI2ZTFjIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjE3NjYyMTU1MzAsImV4cCI6MTA0MDYxMjkxMzB9.5XToqcCL4v8aMBmBa6UcoM_DaYRPQbqJAwLkK4ZZIPQ",
+		RemnaPanelURL: os.Getenv("REMNA_PANEL"),
+		RemnaLogin:    os.Getenv("REMNA_LOGIN"),
+		RemnaPass:     os.Getenv("REMNA_PASS"),
+		RemnawaveKey:  os.Getenv("REMNA_TOKEN"),
 	}, nil
 }
