@@ -9,4 +9,4 @@ run2:
 	go run ./cmd/testLoginRemna/remna.go
 
 run3:
-	go run ./cmd/test/test1.go
+	go run ./cmd/testGetClientInfoRemna/test.go
