@@ -24,8 +24,6 @@ func New() (*App, error) {
 	// Если есть логин и пароль, пробуем получить свежий токен
 	if err := remnawaveAdapter.Login(context.Background(), cfg.RemnaLogin, cfg.RemnaPass); err != nil {
 		fmt.Printf("Ошибка входа (используем старый токен): %v\n", err)
-	} else {
-		fmt.Println("Успешная авторизация!")
 	}
 
 	return &App{

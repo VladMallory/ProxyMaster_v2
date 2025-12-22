@@ -71,20 +71,21 @@ func (c *Client) Login(ctx context.Context, username, password string) error {
 		}
 	}()
 
-	//
+	// читаем что вернул сервер, а вернул он resp.Body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "ошибка в чтении ответа", err)
 	}
 
+	// вернул ли сервер OK (200) или Created (201) иначе ошибка
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("ошибка входа: %d, ответ: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var loginResp LoginResponse
-	if err := json.Unmarshal(bodyBytes, &loginResp); err != nil {
-		// Иногда токен приходит просто как текст, или JSON другой структуры.
-		// Но пока пробуем стандартный Unmarshal
+	// получаем пропуск (токен)
+	// после получения json преобразуем обратно в GOOO код
+	if err = json.Unmarshal(bodyBytes, &loginResp); err != nil {
 		return fmt.Errorf("ошибка разбора ответа: %w, тело: %s", err, string(bodyBytes))
 	}
 
@@ -147,13 +148,6 @@ func (c *Client) GetServiceInfo(ctx context.Context, serviceID string) (string, 
 	// Важно: всегда закрываем тело ответа, чтобы не было утечек памяти
 	defer resp.Body.Close()
 
-	// TODO: верну попозже
-	// 5. Проверяем статус код ответа
-	// if resp.StatusCode != http.StatusOK {
-	// 	return "", fmt.Errorf("некорректный статус ответа: %d", resp.StatusCode)
-	// }
-	//
-
 	// 5 читаем тело ответа
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -169,12 +163,6 @@ func (c *Client) GetServiceInfo(ctx context.Context, serviceID string) (string, 
 		}
 		return "", fmt.Errorf("неккоректный статус ответа: %d, тело: %s", resp.StatusCode, bodyString)
 	}
-
-	// TODO: первый вариант
-	// Тут должна быть логика чтения body и анмаршалинга JSON
-	// Для примера вернем заглушку
-	// return "Service Data for " + serviceID, nil
-	//
 
 	// проверяю какая вообще ошибка возвращения
 	return bodyString, nil
