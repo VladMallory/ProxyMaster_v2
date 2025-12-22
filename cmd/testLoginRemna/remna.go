@@ -20,7 +20,7 @@ func main() {
 
 	login := os.Getenv("REMNA_LOGIN")
 	pass := os.Getenv("REMNA_PASS")
-	secretToken := os.Getenv("REMNA_SECRET_TOKEN")
+	secretUrlToken := os.Getenv("REMNA_SECRET_TOKEN")
 
 	// Важно: используем чистый домен
 	baseURL := os.Getenv("REMNA_BASE_PANEL")
@@ -34,7 +34,7 @@ func main() {
 	}
 	jsonData, _ := json.Marshal(authBody)
 
-	totalBaseUrl := baseURL + "/api/auth/login?" + secretToken
+	totalBaseUrl := baseURL + "/api/auth/login?" + secretUrlToken
 
 	// Создаем запрос на Login с секретным параметром
 	req, err := http.NewRequest("POST", totalBaseUrl, bytes.NewBuffer(jsonData))
