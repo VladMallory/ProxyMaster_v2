@@ -180,14 +180,15 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 		UUIDs: []string{userUUID},
 		Days:  days,
 	}
-
-	//преобразуем тело запроса в байты
 	json, _ := json.Marshal(payload)
+
 	//создаем запрос
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer(json))
 	if err != nil {
 		return err
 	}
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", c.cfg.SecretURLToken)
 
 	//делаем запрос и получаем ответ
 	response, err := c.httpClient.Do(request)
