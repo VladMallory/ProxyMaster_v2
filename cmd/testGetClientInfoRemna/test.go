@@ -18,59 +18,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// ==========================================
-// Models (Слой данных)
-// ==========================================
-
-// LoginRequest описывает тело запроса для авторизации.
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-// LoginResponse описывает ответ сервера после успешной авторизации.
-// Обновлено на основе реального ответа сервера: {"response": {"accessToken": "..."}}
-type LoginResponse struct {
-	Response struct {
-		AccessToken string `json:"accessToken"`
-	} `json:"response"`
-}
-
-// UsersResponse описывает структуру ответа API со списком пользователей.
-type UsersResponse struct {
-	Response struct {
-		Total int    `json:"total"`
-		Users []User `json:"users"`
-	} `json:"response"`
-}
-
-// User описывает данные одного пользователя.
-type User struct {
-	ID          int         `json:"id"`
-	Username    string      `json:"username"`
-	Status      string      `json:"status"`
-	UserTraffic UserTraffic `json:"userTraffic"`
-	// Можно добавить остальные поля по необходимости
-}
-
-// UserTraffic описывает статистику трафика пользователя.
-type UserTraffic struct {
-	UsedTrafficBytes int64 `json:"usedTrafficBytes"`
-}
-
-// ==========================================
-// Configuration (Слой конфигурации)
-// ==========================================
-
-// Config хранит настройки приложения.
-// Используется для передачи зависимостей (Dependency Injection).
-type Config struct {
-	BaseURL        string
-	Login          string
-	Pass           string
-	SecretURLToken string
-	APIToken       string // Токен для API запросов (из REMNA_TOKEN)
-}
+//модели все в models.go, нехуй их здесь оставлять
 
 // LoadConfig загружает настройки из .env и переменных окружения.
 // Возвращает структуру Config или ошибку.
@@ -176,7 +124,7 @@ func (c *RemnaClient) Login() (string, error) {
 func (c *RemnaClient) GetClients(token string) error {
 	// ВАЖНО: Добавляем секретный токен в URL, чтобы пройти через Nginx
 	// Пробуем эндпоинт /api/users (частый стандарт)
-	endpoint := "/api/users" 
+	endpoint := "/api/users"
 	url := fmt.Sprintf("%s%s?%s", c.cfg.BaseURL, endpoint, c.cfg.SecretURLToken)
 
 	fmt.Printf("[GetClients] Запрос клиентов: %s\n", url)
@@ -220,6 +168,50 @@ func (c *RemnaClient) GetClients(token string) error {
 	fmt.Println("------------------------------------------------------------")
 	fmt.Printf("Всего клиентов: %d\n", usersResp.Response.Total)
 
+	return nil
+}
+
+// метод увеличивает время подписки пользователя
+func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
+	//формирует url для запроса в api
+	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date", c.cfg.BaseURL)
+
+	payload := BulkExtendRequest{
+		UUIDs: []string{userUUID},
+		Days:  days,
+	}
+	json, _ := json.Marshal(payload)
+
+	//создаем запрос
+	request, err := http.NewRequest("POST", url, bytes.NewBuffer(json))
+	if err != nil {
+		return err
+	}
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", c.cfg.SecretURLToken)
+
+	//делаем запрос и получаем ответ
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+	//закрытие тела запроса, хз зачем, в гошке есть сборщик мусора, ну а хули пусть будет
+	defer response.Body.Close()
+
+	//если ок, то заебок
+	if response.StatusCode == http.StatusOK {
+		log.Printf("%s | Период подписки юзера с UUID: %s увеличен на %d дней.\n", time.Now(), userUUID, days)
+	} else {
+		//ну плохо все
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Println("Не удалось преобразовать тело ответа")
+			return fmt.Errorf("Не удалось преобразовать тело ответа.")
+		}
+		log.Printf(
+			"%s | Не удалось увеличить период подписки юзера с UUID: %s. Тело ошибки: %s.\n", time.Now(), userUUID, string(body))
+		return fmt.Errorf("Не удалось увеличить период подписки.")
+	}
 	return nil
 }
 
