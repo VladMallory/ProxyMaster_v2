@@ -1,6 +1,5 @@
-// Файл: test.go
-// Предназначение: Тестирование работы через официальную библиотеку remnawave-api-go.
-// Использует кастомный Transport для внедрения секретного параметра URL.
+// cmd/testApiGo/test.go - Файл предназначен для демонстрации и тестирования работы с API Remnawave.
+// Он выполняет базовые операции: создание пользователя и продление подписки, используя кастомный транспорт для авторизации.
 
 package main
 
@@ -18,156 +17,143 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// SecretTransport - middleware для http.Client
-// Автоматически добавляет секретный query-параметр ко всем запросам.
+// SecretTransport реализует интерфейс http.RoundTripper.
+// Он используется для перехвата HTTP-запросов перед отправкой, чтобы автоматически добавлять
+// необходимые параметры авторизации (секретный ключ) и корректный базовый URL.
 type SecretTransport struct {
-	Base       http.RoundTripper
-	QueryParam string // Например: "eyMjBapF=OXaAOjtG"
-	BaseURL    string // Базовый URL
+	Base       http.RoundTripper // Базовый транспорт (обычно http.DefaultTransport)
+	QueryParam string            // Секретный параметр запроса (например, secret=value)
+	BaseURL    string            // Базовый URL API, к которому нужно обращаться
 }
 
+// RoundTrip выполняет HTTP-запрос.
+// Эта функция вызывается для каждого запроса, проходящего через наш http.Client.
+// Здесь мы модифицируем URL запроса, добавляя хост и секретные параметры.
 func (t *SecretTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// 1. ЧИНИМ URL (Библиотека почему-то шлет относительные пути)
-	if req.URL.Scheme == "" && t.BaseURL != "" {
-		if base, err := url.Parse(t.BaseURL); err == nil {
-			// Создаем новый URL на основе базового, добавляя путь из запроса
-			newURL := *base
-			newURL.Path = strings.TrimRight(base.Path, "/") + req.URL.Path
-			newURL.RawQuery = req.URL.RawQuery // сохраняем параметры если были
-			req.URL = &newURL
+	// Если схема URL не указана (например, просто "/api/users"), мы добавляем BaseURL.
+	if req.URL.Scheme == "" {
+		// Парсим базовый URL из конфигурации
+		if base, _ := url.Parse(t.BaseURL); base != nil {
+			u := *base
+			// Объединяем путь из базового URL и путь из текущего запроса
+			u.Path, u.RawQuery = strings.TrimRight(u.Path, "/")+req.URL.Path, req.URL.RawQuery
+			req.URL = &u
 		}
 	}
 
-	// 2. ДОБАВЛЯЕМ СЕКРЕТНЫЙ ПАРАМЕТР
-	parts := strings.SplitN(t.QueryParam, "=", 2)
-	if len(parts) == 2 {
-		key, value := parts[0], parts[1]
+	// Разбираем секретный параметр (ожидается формат "key=value") и добавляем его в Query параметры
+	if p := strings.Split(t.QueryParam, "="); len(p) == 2 {
 		q := req.URL.Query()
-		q.Set(key, value)
+		q.Set(p[0], p[1]) // Устанавливаем ключ и значение
 		req.URL.RawQuery = q.Encode()
 	}
 
-	// Выполняем запрос через базовый транспорт
-	base := t.Base
-	if base == nil {
-		base = http.DefaultTransport
+	// Если базовый транспорт не задан, используем стандартный
+	if t.Base == nil {
+		return http.DefaultTransport.RoundTrip(req)
 	}
-	resp, err := base.RoundTrip(req)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	// Передаем запрос дальше оригинальному транспорту
+	return t.Base.RoundTrip(req)
 }
 
-func main() {
-	ctx := context.Background()
-	// 1. Загрузка переменных окружения
-	// Пытаемся загрузить .env файл, но не паникуем, если его нет (может быть в Docker или CI)
-	if err := godotenv.Load(); err != nil {
-		log.Println("Инфо: .env файл не найден, используем системные переменные окружения")
+// Config хранит конфигурационные данные, необходимые для работы приложения.
+// Эти данные загружаются из переменных окружения.
+type Config struct {
+	BaseURL string // Адрес панели Remnawave
+	Token   string // Основной токен доступа
+	Secret  string // Секретный токен для подписи запросов (если требуется)
+}
+
+// LoadConfig считывает настройки из .env файла и переменных окружения.
+// Возвращает заполненную структуру Config или ошибку, если чего-то не хватает.
+func LoadConfig() (*Config, error) {
+	// Загружаем переменные из файла .env, если он есть (игнорируем ошибку, если файла нет)
+	_ = godotenv.Load()
+
+	// Карта обязательных переменных, которые мы ожидаем найти
+	requiredVars := map[string]*string{
+		"REMNA_BASE_PANEL":   new(string),
+		"REMNA_TOKEN":        new(string),
+		"REMNA_SECRET_TOKEN": new(string),
 	}
 
-	// 2. Конфигурация из переменных окружения
-	// Загружаем данные из .env файла или системного окружения
-	baseURL := os.Getenv("REMNA_BASE_PANEL")
-	token := os.Getenv("REMNA_TOKEN")
-	urlSecret := os.Getenv("REMNA_SECRET_TOKEN") // Используем правильное имя переменной из .env
+	var missing []string
+	// Проходим по всем ожидаемым ключам и пытаемся получить их значения
+	for key, ptr := range requiredVars {
+		val := os.Getenv(key)
+		if val == "" {
+			// Если переменной нет, запоминаем её как отсутствующую
+			missing = append(missing, key)
+		}
+		*ptr = val
+	}
 
-	if baseURL == "" || token == "" || urlSecret == "" {
-		log.Fatal("Ошибка: Не все переменные окружения заданы (REMNA_BASE_PANEL, REMNA_TOKEN, REMNA_SECRET_TOKEN)")
+	// Если есть пропущенные переменные, возвращаем ошибку со списком отсутствующих ключей
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("отсутствуют обязательные переменные: %s", strings.Join(missing, ", "))
+	}
+
+	// Возвращаем успешно загруженную конфигурацию
+	return &Config{
+		BaseURL: *requiredVars["REMNA_BASE_PANEL"],
+		Token:   *requiredVars["REMNA_TOKEN"],
+		Secret:  *requiredVars["REMNA_SECRET_TOKEN"],
+	}, nil
+}
+
+// main - главная функция, точка входа в приложение.
+func main() {
+	// 1. Загружаем конфигурацию
+	cfg, err := LoadConfig()
+	if err != nil {
+		log.Fatal("Ошибка конфигурации: ", err)
 	}
 
 	fmt.Println("=== Запуск теста через библиотеку remnawave-api-go ===")
 
-	// 2. Настройка HTTP клиента с "секретным" транспортом
-	// Это ключевой момент: мы учим библиотеку стучаться в "секретную дверь"
-	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &SecretTransport{
-			QueryParam: urlSecret,
-			BaseURL:    baseURL,
-		},
-	}
+	// 2. Инициализируем клиент API.
+	// Используем кастомный SecretTransport для обработки авторизации и URL.
+	cli, _ := remapi.NewClient(cfg.BaseURL, remapi.StaticToken{Token: cfg.Token}, remapi.WithClient(&http.Client{
+		Transport: &SecretTransport{QueryParam: cfg.Secret, BaseURL: cfg.BaseURL},
+		Timeout:   10 * time.Second, // Устанавливаем таймаут, чтобы не зависнуть навечно
+	}))
+	// Создаем расширенный клиент для доступа к методам API
+	client := remapi.NewClientExt(cli)
 
-	// 3. Инициализация клиента библиотеки
-	// Используем опцию WithClient для подмены стандартного http клиента
-	// ВАЖНО: При использовании WithClient, ogen может игнорировать переданный URL в NewClient,
-	// если клиент настроен определенным образом.
-	// Но главная проблема была в том, что мы пытались чинить URL в транспорте, хотя библиотека
-	// должна сама это делать.
+	// 3. Генерируем уникальное имя пользователя для теста (чтобы не было конфликтов)
+	username := fmt.Sprintf("library_user_%d", time.Now().Unix())
+	fmt.Printf("Попытка создать пользователя: %s\n", username)
 
-	// Пробуем другой подход: если ogen генерирует относительные URL, значит он ожидает,
-	// что базовый URL где-то сохранен.
-	baseClient, err := remapi.NewClient(
-		baseURL,
-		remapi.StaticToken{Token: token},
-		remapi.WithClient(httpClient),
-	)
-	// В библиотеке ogen, если передан http.Client, он используется "как есть".
-	// Но если клиент не имеет настроенного транспорта с базовым URL (как это часто бывает в сгенерированных клиентах),
-	// то он просто посылает запрос на путь.
-	// ОДНАКО: NewClient принимает serverURL. Куда он девается?
-	// Внутри NewClient обычно парсится URL и сохраняется.
-	// При выполнении запроса, ogen склеивает serverURL и путь.
-	// НО ПОЧЕМУ у нас приходит /api/users без хоста?
-
-	// Возможно, библиотека `remnawave-api-go` версии v2 ведет себя специфично.
-	// Попробуем грязный хак: вернем восстановление URL в транспорт, но сделаем это ПРАВИЛЬНО.
-	// Проблема в том, что req.URL.Scheme пустой.
-	// Значит, http.Client получил запрос с URL "/api/users".
-	// Это значит, что библиотека сформировала такой запрос.
-
-	// Попробуем добавить восстановление URL обратно в транспорт, но с полным парсингом.
-	// И добавим импорт net/url обратно.
-	if err != nil {
-		log.Fatalf("Ошибка инициализации клиента: %v", err)
-	}
-
-	// Обертка для удобного доступа к методам (Users(), Nodes() и т.д.)
-	client := remapi.NewClientExt(baseClient)
-
-	// 4. Тест: Получение списка пользователей (проверка подключения)
-	// В библиотеке нет метода GetAllUsers напрямую в Users(), нужно искать подходящий или использовать поиск
-	// Попробуем получить конкретного пользователя по UUID (того, что создали ранее) или просто проверим доступ
-	// Библиотека сгенерирована через ogen, методы могут отличаться.
-	// Попробуем создать нового пользователя, так как это была задача.
-
-	// Попробуем создать пользователя с уникальным именем, чтобы избежать коллизий
-	newUsername := fmt.Sprintf("library_user_%d", time.Now().Unix())
-	fmt.Printf("Попытка создать пользователя: %s\n", newUsername)
-
-	// Создаем DTO запроса
-	// Важно: используем remapi.Option для необязательных полей, если они так определены,
-	// или просто заполняем структуру.
-	// Ogen генерирует структуры, где обязательные поля - значения, а опциональные - generic Opt...
-
-	// Вычисляем дату истечения
+	// создание периода подписки
 	expireAt := time.Now().Add(30 * 24 * time.Hour)
 
-	createUserReq := &remapi.CreateUserRequestDto{
-		Username: newUsername,
-		ExpireAt: expireAt, // Поле, видимо, требует time.Time, а не OptDateTime
-	}
-
-	resp, err := client.Users().CreateUser(ctx, createUserReq)
+	//
+	resp, err := client.Users().CreateUser(context.Background(), &remapi.CreateUserRequestDto{
+		Username: username,
+		ExpireAt: expireAt,
+	})
 	if err != nil {
-		log.Printf("Ошибка при создании пользователя: %v", err)
-		return
+		log.Fatalf("Ошибка создания: %v", err)
 	}
 
-	// Обработка ответа (он может быть разных типов)
-	switch r := resp.(type) {
-	case *remapi.UserResponse:
-		fmt.Printf("✅ УСПЕХ! Пользователь создан.\n")
-		fmt.Printf("UUID: %s\n", r.Response.UUID) // Исправлено: UUID вместо Uuid
-		fmt.Printf("Username: %s\n", r.Response.Username)
-	case *remapi.BadRequestError:
-		fmt.Println("❌ Ошибка валидации (400):")
-		for _, e := range r.Errors {
-			fmt.Printf("- %s: %s\n", e.Code, e.Message)
-		}
-	default:
-		fmt.Printf("Получен ответ неожиданного типа: %T\n", r)
+	// Приводим ответ к ожидаемому типу UserResponse
+	user, ok := resp.(*remapi.UserResponse)
+	if !ok {
+		log.Fatalf("Неожиданный ответ при создании: %T", resp)
 	}
+	fmt.Printf("✅ УСПЕХ! Пользователь создан.\nUUID: %s\nUsername: %s\n", user.Response.UUID, user.Response.Username)
+
+	// 5. Тестируем обновление пользователя (продление подписки)
+	fmt.Println("\n=== Тест: Продление подписки на 5 дней ===")
+	newExpire := expireAt.Add(5 * 24 * time.Hour) // Добавляем еще 5 дней
+	fmt.Printf("Новая дата истечения: %s\n", newExpire)
+
+	_, err = client.Users().UpdateUser(context.Background(), &remapi.UpdateUserRequestDto{
+		UUID:     remapi.NewOptUUID(user.Response.UUID), // Используем UUID созданного пользователя
+		ExpireAt: remapi.NewOptDateTime(newExpire),      // Передаем новую дату
+	})
+	if err != nil {
+		log.Fatalf("Ошибка обновления: %v", err)
+	}
+	fmt.Println("✅ УСПЕХ! Подписка продлена.")
 }
