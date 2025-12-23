@@ -3,7 +3,7 @@ package main
 // структура для запроса в апи remanwave
 type BulkExtendRequest struct {
 	UUIDs []string `json:"uuids"`
-	Days  int      `json:"days"`
+	Days  int      `json:"extendDays"`
 }
 
 // LoginRequest описывает тело запроса для авторизации.
