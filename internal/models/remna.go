@@ -46,8 +46,8 @@ type User struct {
 // Config хранит настройки приложения.
 // Используется для передачи зависимостей (Dependency Injection).
 
-// мб переименовать в AppToken или конфиг панели /internal/config/config.go
-// переименовать в PanelConfig т.к можно запутаться
+// todo мб переименовать в AppToken или конфиг панели /internal/config/config.go
+// todo переименовать в PanelConfig т.к можно запутаться
 
 //legacy стурктура
 // type Config struct {
@@ -126,6 +126,39 @@ type GetUUIDByUsernameResponse struct {
 		CreatedAt              time.Time             `json:"createdAt"`
 		UpdatedAt              time.Time             `json:"updatedAt"`
 		SubscriptionURL        string                `json:"subscriptionUrl"`
+		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
+		UserTraffic            UserTraffic           `json:"userTraffic"`
+	} `json:"response"`
+}
+
+// Ответ
+type GetUserInfoResponse struct {
+	Response struct {
+		Uuid                   string                `json:"uuid"`
+		Id                     int                   `json:"id"`
+		ShortUuid              string                `json:"shortUuid"`
+		Username               string                `json:"username"`
+		Status                 string                `json:"status"`
+		TrafficLimitBytes      int                   `json:"trafficLimitBytes"`
+		TrafficLimitStrategy   string                `json:"trafficLimitStrategy"`
+		ExpireAt               time.Time             `json:"expireAt"`
+		TelegramId             *string               `json:"telegramId,omitempty"` // nullable field
+		Email                  *string               `json:"email,omitempty"`      // nullable field
+		Description            string                `json:"description"`
+		Tag                    *string               `json:"tag,omitempty"` // nullable field
+		HwidDeviceLimit        int                   `json:"hwidDeviceLimit"`
+		ExternalSquadUuid      *string               `json:"externalSquadUuid,omitempty"` // nullable field
+		TrojanPassword         string                `json:"trojanPassword"`
+		VlessUuid              string                `json:"vlessUuid"`
+		SsPassword             string                `json:"ssPassword"`
+		LastTriggeredThreshold int                   `json:"lastTriggeredThreshold"`
+		SubRevokedAt           time.Time             `json:"subRevokedAt"`
+		SubLastUserAgent       string                `json:"subLastUserAgent"`
+		SubLastOpenedAt        time.Time             `json:"subLastOpenedAt"`
+		LastTrafficResetAt     *time.Time            `json:"lastTrafficResetAt,omitempty"` // nullable field
+		CreatedAt              time.Time             `json:"createdAt"`
+		UpdatedAt              time.Time             `json:"updatedAt"`
+		SubscriptionUrl        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
 		UserTraffic            UserTraffic           `json:"userTraffic"`
 	} `json:"response"`
