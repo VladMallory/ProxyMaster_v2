@@ -1,25 +1,29 @@
+
+// domain/types.go
 // Предназначение: Описание контрактов (интерфейсов) для работы с платежными системами
-package domain
+package domain	
 
 import "context"
 
-// PaymentStatus - статус платежа (собственный тип, чтобы не зависеть от строк провайдера)
 type PaymentStatus string
 
 const (
-	PaymentStatusPending PaymentStatus = "pending" // Ожидает оплаты
-	PaymentStatusSuccess PaymentStatus = "success" // Оплачен
-	PaymentStatusFailed  PaymentStatus = "failed"  // Ошибка
+	PaymentStatusPending PaymentStatus = "pending"
+	PaymentStatusSuccess PaymentStatus = "success"
+	PaymentStatusFailed  PaymentStatus = "failed"
 )
 
-// PaymentGateway - абстракция любой платежной системы.
-// Позволяет бизнес-логике не зависеть от конкретного провайдера (Platega, Stripe и т.д.).
+// Общий интерфейс для всех платежных систем
 type PaymentGateway interface {
-	// CreatePayment создает ссылку на оплату.
-	// Принимает: контекст, сумму, ID заказа.
-	// Возвращает: URL для оплаты, ID платежа во внешней системе, ошибку.
-	CreatePayment(ctx context.Context, amount float64, orderID string) (paymentURL string, externalID string, err error)
+	CreateTransaction(ctx context.Context, amount float64, orderID string) (paymentURL, externalID string, err error)
+	//CheckStatus(ctx context.Context, transactionID string) (PaymentStatus, error)
+	//GetTransactionInfo(ctx context.Context, transactionID string) (TransactionInfo, error)
+}
 
-	// CheckStatus проверяет статус платежа по его ID во внешней системе.
-	CheckStatus(ctx context.Context, externalID string) (PaymentStatus, error)
+// Общий интерфейс для информации о транзакции
+type TransactionInfo interface {
+	GetID() string
+	GetAmount() float64
+	GetStatus() string
+	GetRawResponse() interface{}
 }
