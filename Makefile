@@ -10,3 +10,6 @@ run2:
 
 run3:
 	go run ./cmd/testGetClientInfoRemna/test.go
+
+run4:
+	go run ./cmd/testTransactions/testMain.go
