@@ -54,13 +54,14 @@ type UserTraffic struct {
 // мб переименовать в AppToken или конфиг панели /internal/config/config.go
 // переименовать в PanelConfig т.к можно запутаться
 
-type Config struct {
-	BaseURL        string
-	Login          string
-	Pass           string
-	SecretURLToken string
-	APIToken       string // Токен для API запросов (из REMNA_TOKEN)
-}
+//legacy стурктура
+// type Config struct {
+// 	BaseURL        string
+// 	Login          string
+// 	Pass           string
+// 	SecretURLToken string
+// 	APIToken       string // Токен для API запросов (из REMNA_TOKEN)
+// }
 
 type CreateRequestUserDTO struct {
 	Username             string `json:"username"`
