@@ -1,7 +1,6 @@
-
 // domain/types.go
 // Предназначение: Описание контрактов (интерфейсов) для работы с платежными системами
-package domain	
+package domain
 
 import "context"
 
