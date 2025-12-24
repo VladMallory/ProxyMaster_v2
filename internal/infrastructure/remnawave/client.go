@@ -10,7 +10,10 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type RemnaClient struct {
@@ -79,12 +82,38 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.UUID, nil
 }
 
-// TODO: создание клиента
-// remnawave.CreateClient("123")
+func newShortSecret() string {
+	raw := strings.ReplaceAll(uuid.NewString(), "-", "")
+	if len(raw) <= 31 {
+		return raw
+	}
+	return raw[:31]
+}
 
-func (c *RemnaClient) CreateClient(userData *models.CreateRequestUserDTO) error {
+func (c *RemnaClient) CreateClient(username string, days int) error {
+	if days <= 0 {
+		return fmt.Errorf("дней не может быть ноль при создании подписки")
+	}
+
+	now := time.Now().UTC()
+
+	userData := &models.CreateRequestUserDTO{
+		Username:             username,
+		Status:               "ACTIVE",
+		TrojanPassword:       newShortSecret(),
+		VLessUUID:            uuid.NewString(),
+		SsPassword:           newShortSecret(),
+		TrafficLimitStrategy: "NO_RESET",
+		ExpireAt:             now.AddDate(0, 0, days).Format(time.RFC3339),
+		CreatedAt:            now.Format(time.RFC3339),
+		LastTrafficResetAt:   now.Format(time.RFC3339),
+	}
+	// формируем строку куда идет запрос
 	url := fmt.Sprintf("%s/api/users?%s", c.cfg.BaseURL, c.cfg.SecretURLToken)
-	rt := time.Now()
+
+	// время для логирования
+	start := time.Now()
+
 	jsonData, err := json.Marshal(userData)
 	if err != nil {
 		slog.Error("ошибка маршалинга тела запроса")
@@ -105,7 +134,11 @@ func (c *RemnaClient) CreateClient(userData *models.CreateRequestUserDTO) error 
 		slog.Error("не удалось получить ответ")
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			return
+		}
+	}()
 
 	switch response.StatusCode {
 	case http.StatusBadRequest:
@@ -121,7 +154,7 @@ func (c *RemnaClient) CreateClient(userData *models.CreateRequestUserDTO) error 
 	}
 	slog.Info(
 		"User created",
-		"time taken", time.Since(rt),
+		"time taken", time.Since(start),
 		"status code", 201,
 		"username", userData.Username,
 	)
