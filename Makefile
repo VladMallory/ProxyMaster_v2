@@ -10,3 +10,13 @@ run2:
 
 run3:
 	go run ./cmd/testGetClientInfoRemna/test.go
+
+run4:
+	go run ./cmd/testTransactions/testMain.go
+
+# docker
+docker-build:
+	docker build -t proxymaster_v2 .
+
+docker: docker-build
+	docker run --env-file .env proxymaster_v2

@@ -173,22 +173,25 @@ func (c *RemnaClient) GetClients(token string) error {
 
 // метод увеличивает время подписки пользователя
 func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
-	//формирует url для запроса в api
-	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date", c.cfg.BaseURL)
+	//формирует url для запроса в api с секретным токеном для прохода через Nginx
+	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.BaseURL, c.cfg.SecretURLToken)
 
 	payload := BulkExtendRequest{
 		UUIDs: []string{userUUID},
 		Days:  days,
 	}
-	json, _ := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("ошибка маршалинга тела запроса: %w", err)
+	}
 
 	//создаем запрос
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer(json))
+	request, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return err
 	}
 	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", c.cfg.SecretURLToken)
+	request.Header.Add("Authorization", "Bearer "+c.cfg.APIToken)
 
 	//делаем запрос и получаем ответ
 	response, err := c.httpClient.Do(request)
@@ -236,5 +239,9 @@ func main() {
 	// 3. Получение данных о клиентах (сразу, без логина)
 	if err := client.GetClients(cfg.APIToken); err != nil {
 		log.Printf("Ошибка при получении клиентов: %v", err)
+	}
+
+	if err := client.ExtendClientSubscription("3380eb3a-d9bd-418a-bb2c-b42d5ec282b7", 500); err != nil {
+		log.Fatal(err)
 	}
 }
