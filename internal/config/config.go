@@ -18,7 +18,7 @@ type Config struct {
 
 func New() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
-		fmt.Println("Не удалось загрузить .env")
+		fmt.Println("не удалось загрузить .env")
 	}
 	return &Config{
 		RemnaPanelURL:       os.Getenv("REMNA_BASE_PANEL"),
