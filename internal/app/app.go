@@ -27,7 +27,7 @@ func New() (*App, error) {
 	}
 	remnaClient := remnawave.NewRemnaClient(clientConfig)
 
-	if err := remnaClient.CreateClient("873925522", 5); err != nil {
+	if err := remnaClient.CreateClient("873925524", 5); err != nil {
 		return nil, err
 	}
 
