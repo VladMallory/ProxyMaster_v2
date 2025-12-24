@@ -82,7 +82,6 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 		log.Fatal(fmt.Errorf("platega.CreateTransaction: GetResponseError: %v", err))
 	}
 	defer resp.Body.Close()
-	fmt.Println("Запрос успешный")
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -100,23 +99,12 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 	}
 
 	URL = CreateTransactionResponse.Redirect
+	ID := CreateTransactionResponse.TransactionID
+
+	fmt.Println()
+	fmt.Printf("URL для оплаты: %v\n", URL)
+	fmt.Printf("ID оплаты: %v", ID)
+	fmt.Println()
 
 	return URL, nil
 }
-
-/*
-// CheckStatus - проверяет статус транзакции
-func (c *Client) CheckStatus(ctx context.Context, transactionID string) (domain.PaymentStatus, error) {
-
-	// Заглушка
-	return domain.PaymentStatusPending, nil
-}
-
-// GetTransactionInfo - получает информацию о транзакции
-func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (domain.TransactionInfo, error) {
-
-	// Заглушка
-
-	return &TransactionInfo{response: response}, nil
-}
-*/
