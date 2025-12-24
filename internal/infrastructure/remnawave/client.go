@@ -172,8 +172,6 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnasecretUrlToken)
 	rt := time.Now()
 
-	fmt.Println(url)
-
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		slog.Error(err.Error())
