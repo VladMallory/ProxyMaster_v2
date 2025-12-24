@@ -245,7 +245,7 @@ func (c *RemnaClient) CreateClient(username string, days int) error {
 	}
 
 	// формируем строку куда идет запрос
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.BaseURL, c.cfg.SecretURLToken)
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
 
 	// время для логирования
 	start := time.Now()
@@ -411,16 +411,6 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	}
 	slog.Info("Пользователь успешно выключен")
 	return nil
-}
-
-// GetServiceInfo - получение информации о сервисе
-// Реализует интерфейс domain.RemnawaveClient
-func (c *RemnaClient) GetServiceInfo(ctx context.Context, serviceID string) (string, error) {
-	// TODO: Здесь должен быть реальный запрос к API Remnawave для получения информации о сервисе.
-	// Поскольку эндпоинт неизвестен из текущего контекста, возвращаем ошибку, чтобы не было молчаливого сбоя.
-	slog.Info("Запрос информации о сервисе", "serviceID", serviceID)
-
-	return "", fmt.Errorf("метод GetServiceInfo еще не реализован: отсутствует URL эндпоинта")
 }
 
 func newShortSecret() string {

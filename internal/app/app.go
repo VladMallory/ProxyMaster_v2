@@ -25,6 +25,7 @@ func New() (*App, error) {
 	if err := remnawaveClient.Login(context.Background(), cfg.RemnaLogin, cfg.RemnaPass); err != nil {
 		fmt.Printf("Ошибка входа (используем старый токен): %v\n", err)
 	}
+	remnawaveClient.CreateClient("123123", 30)
 
 	return &App{
 		remnawaveClient: remnawaveClient,
