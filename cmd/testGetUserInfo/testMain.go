@@ -10,14 +10,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type UserInfoRequest struct {
-}
-
-type GetUserInfoResponse struct {
-}
-
 func main() {
-	//
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
@@ -26,10 +19,16 @@ func main() {
 	cfg, err := config.New()
 	remnaClient := remnawave.NewRemnaClient(cfg)
 
-	user, err := remnaClient.GetUUIDByUsername("admin")
+	//получене uuid юзера
+	uuid, err := remnaClient.GetUUIDByUsername("admin")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(user)
+	//получение инфы о юзере//
+	_, err = remnaClient.GetUserInfo(uuid)
+	//получение статуса юзера
+	status, err := remnaClient.GetUserStatus(uuid)
+
+	fmt.Println(status)
 }

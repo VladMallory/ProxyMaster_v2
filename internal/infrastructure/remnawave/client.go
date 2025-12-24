@@ -425,6 +425,61 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	return nil
 }
 
+// todo норм ли возвращать пустые структуры при ошибке?
+func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnasecretUrlToken)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: NewRequestError: %v", err)
+	}
+
+	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: GetResponseError: %v", err)
+	}
+
+	switch resp.StatusCode {
+
+	case http.StatusNotFound:
+		slog.Error(ErrNotFound.Error())
+		return models.GetUserInfoResponse{}, ErrNotFound
+
+	case http.StatusInternalServerError:
+		slog.Error(ErrInternalServerError.Error())
+		return models.GetUserInfoResponse{}, ErrInternalServerError
+
+	case http.StatusBadRequest:
+		slog.Error(ErrBadRequestUUID.Error())
+		return models.GetUserInfoResponse{}, ErrBadRequestUUID
+	}
+
+	var userInfo models.GetUserInfoResponse
+
+	//возвращение пустой структуры и ошибки
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: ReadBodyError")
+	}
+
+	//возвращение пустой структуры и ошибки
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: UnmarshalingError")
+	}
+
+	return userInfo, nil
+}
+
+func (c *RemnaClient) GetUserStatus(uuid string) (status string, err error) {
+	userInfo, err := c.GetUserInfo(uuid)
+	if err != nil {
+		return "", err
+	}
+
+	return userInfo.Response.Status, nil
+}
+
 func newShortSecret() string {
 	raw := strings.ReplaceAll(uuid.NewString(), "-", "")
 	if len(raw) <= 31 {
