@@ -18,16 +18,16 @@ func New() (*App, error) {
 		return nil, err
 	}
 
-	baseURL := cfg.RemnaPanelURL
+	// baseURL := cfg.RemnaPanelURL
 
-	remnawaveAdapter := remnawave.New(baseURL, cfg.RemnasecretUrlToken, cfg.RemnawaveKey)
+	remnawaveClient := remnawave.NewRemnaClient(cfg)
 	// Если есть логин и пароль, пробуем получить свежий токен
-	if err := remnawaveAdapter.Login(context.Background(), cfg.RemnaLogin, cfg.RemnaPass); err != nil {
+	if err := remnawaveClient.Login(context.Background(), cfg.RemnaLogin, cfg.RemnaPass); err != nil {
 		fmt.Printf("Ошибка входа (используем старый токен): %v\n", err)
 	}
 
 	return &App{
-		remnawaveClient: remnawaveAdapter,
+		remnawaveClient: remnawaveClient,
 	}, nil
 }
 
