@@ -11,7 +11,10 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type RemnaClient struct {
@@ -213,12 +216,40 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.UUID, nil
 }
 
-// TODO: создание клиента
-// remnawave.CreateClient("123")
+// CreateClient - создает нового клиента в remnawave. Если уже
+// существует клиент, нечего не делает (сыпит ошибку о неверном запросе)
+func (c *RemnaClient) CreateClient(username string, days int) error {
+	if days <= 0 {
+		return fmt.Errorf("дней не может быть ноль при создании подписки")
+	}
 
-func (c *RemnaClient) CreateClient(userData *models.CreateRequestUserDTO) error {
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
-	rt := time.Now()
+	now := time.Now().UTC()
+
+	// указываем лимиты трафика
+	const oneGb int = 1024 * 1024 * 1024
+	// лимит 100 гигов
+	var tratrafficLimitsTotal int = 100 * oneGb
+
+	// заполняем структуру для ремны, чтобы она указала параметры в панели
+	userData := &models.CreateRequestUserDTO{
+		Username:             username,
+		Status:               "ACTIVE",
+		TrojanPassword:       newShortSecret(), // пароль для протокола trojan
+		VLessUUID:            uuid.NewString(),
+		SsPassword:           newShortSecret(), // пароль для shadowsocks
+		TrafficLimitBytes:    tratrafficLimitsTotal,
+		TrafficLimitStrategy: "MONTH", // период сброса трафика
+		ExpireAt:             now.AddDate(0, 0, days).Format(time.RFC3339),
+		CreatedAt:            now.Format(time.RFC3339),
+		LastTrafficResetAt:   now.Format(time.RFC3339),
+	}
+
+	// формируем строку куда идет запрос
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.BaseURL, c.cfg.SecretURLToken)
+
+	// время для логирования
+	start := time.Now()
+
 	jsonData, err := json.Marshal(userData)
 	if err != nil {
 		slog.Error("ошибка маршалинга тела запроса")
@@ -239,7 +270,11 @@ func (c *RemnaClient) CreateClient(userData *models.CreateRequestUserDTO) error 
 		slog.Error("не удалось получить ответ")
 		return err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			return
+		}
+	}()
 
 	switch response.StatusCode {
 	case http.StatusBadRequest:
@@ -255,7 +290,7 @@ func (c *RemnaClient) CreateClient(userData *models.CreateRequestUserDTO) error 
 	}
 	slog.Info(
 		"User created",
-		"time taken", time.Since(rt),
+		"time taken", time.Since(start),
 		"status code", 201,
 		"username", userData.Username,
 	)
@@ -376,4 +411,22 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	}
 	slog.Info("Пользователь успешно выключен")
 	return nil
+}
+
+// GetServiceInfo - получение информации о сервисе
+// Реализует интерфейс domain.RemnawaveClient
+func (c *RemnaClient) GetServiceInfo(ctx context.Context, serviceID string) (string, error) {
+	// TODO: Здесь должен быть реальный запрос к API Remnawave для получения информации о сервисе.
+	// Поскольку эндпоинт неизвестен из текущего контекста, возвращаем ошибку, чтобы не было молчаливого сбоя.
+	slog.Info("Запрос информации о сервисе", "serviceID", serviceID)
+
+	return "", fmt.Errorf("метод GetServiceInfo еще не реализован: отсутствует URL эндпоинта")
+}
+
+func newShortSecret() string {
+	raw := strings.ReplaceAll(uuid.NewString(), "-", "")
+	if len(raw) <= 31 {
+		return raw
+	}
+	return raw[:31]
 }
