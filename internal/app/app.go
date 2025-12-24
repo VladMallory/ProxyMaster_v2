@@ -4,8 +4,8 @@ import (
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/models"
 	"context"
+	"fmt"
 )
 
 type App struct {
@@ -18,21 +18,17 @@ func New() (*App, error) {
 		return nil, err
 	}
 
-	clientConfig := &models.Config{
-		BaseURL:        cfg.RemnaPanelURL,
-		Login:          cfg.RemnaLogin,
-		Pass:           cfg.RemnaPass,
-		SecretURLToken: cfg.RemnasecretUrlToken,
-		APIToken:       cfg.RemnawaveKey,
-	}
-	remnaClient := remnawave.NewRemnaClient(clientConfig)
+	// baseURL := cfg.RemnaPanelURL
 
-	if err := remnaClient.CreateClient("873925524", 5); err != nil {
-		return nil, err
+	remnawaveClient := remnawave.NewRemnaClient(cfg)
+	// Если есть логин и пароль, пробуем получить свежий токен
+	if err := remnawaveClient.Login(context.Background(), cfg.RemnaLogin, cfg.RemnaPass); err != nil {
+		fmt.Printf("Ошибка входа (используем старый токен): %v\n", err)
 	}
+	remnawaveClient.CreateClient("123123", 30)
 
 	return &App{
-		remnawaveClient: remnaClient,
+		remnawaveClient: remnawaveClient,
 	}, nil
 }
 
