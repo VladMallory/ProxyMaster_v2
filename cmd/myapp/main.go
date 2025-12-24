@@ -8,18 +8,20 @@ import (
 )
 
 func main() {
-	// 1. сборка приложения
+	// настройка логирования
 	handler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 		AddSource: true,
 		Level:     slog.LevelDebug,
 	})
 	logger := slog.New(handler)
+
+	// сборка приложения
 	myApp, err := app.New()
 	slog.SetDefault(logger)
 	if err != nil {
 		log.Fatal("ошибка сборки приложения: %w", err)
 	}
 
-	// 1. запуск приложения
+	// запуск приложения
 	myApp.Run()
 }

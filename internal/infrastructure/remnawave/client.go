@@ -3,6 +3,7 @@ package remnawave
 import (
 	"ProxyMaster_v2/internal/models"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -241,4 +242,14 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	}
 	slog.Info("Пользователь успешно выключен")
 	return nil
+}
+
+// GetServiceInfo - получение информации о сервисе
+// Реализует интерфейс domain.RemnawaveClient
+func (c *RemnaClient) GetServiceInfo(ctx context.Context, serviceID string) (string, error) {
+	// TODO: Здесь должен быть реальный запрос к API Remnawave для получения информации о сервисе.
+	// Поскольку эндпоинт неизвестен из текущего контекста, возвращаем ошибку, чтобы не было молчаливого сбоя.
+	slog.Info("Запрос информации о сервисе", "serviceID", serviceID)
+
+	return "", fmt.Errorf("метод GetServiceInfo еще не реализован: отсутствует URL эндпоинта")
 }
