@@ -13,3 +13,10 @@ run3:
 
 run4:
 	go run ./cmd/testTransactions/testMain.go
+
+# docker
+docker-build:
+	docker build -t proxymaster_v2 .
+
+docker: docker-build
+	docker run --env-file .env proxymaster_v2
