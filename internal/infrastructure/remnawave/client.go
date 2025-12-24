@@ -219,6 +219,12 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		"username", userData.Response.Username,
 	)
 
+	// todo: изменить мб обработку этой ошибки, + возврат ошибки. Или убрать эту проверку на nil если не нужно.
+	//проверка что не ниловый ответ, дабы не повторять что было
+	if userData.Response.UUID == "" || userData.Response.Username == "" {
+		return "", fmt.Errorf("UUID or Username Is nil")
+	}
+
 	return userData.Response.UUID, nil
 }
 
