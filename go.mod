@@ -5,6 +5,11 @@ go 1.25.5
 require github.com/joho/godotenv v1.5.1
 
 require (
+	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible // indirect
+	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
+)
+
+require (
 	github.com/Jolymmiles/remnawave-api-go/v2 v2.3.2
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
