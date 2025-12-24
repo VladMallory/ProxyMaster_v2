@@ -5,7 +5,6 @@ package ukassa
 import (
 	"ProxyMaster_v2/internal/domain"
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -39,12 +38,12 @@ func NewClient(shopID, secretKey string) *Client {
 // и все на интерфейсы повесить
 
 // CreateTransaction - создает платеж в UKassa
-func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMethod, amount int, currency Currency, description string, payload string) (URL string, err error) {
-	_ = ctx
+// func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMethod, amount int, currency Currency, description string, payload string) (URL string, err error) {
+// 	_ = ctx
 
-	// Заглушка
-	return fmt.Sprintf("%s/payment/test_456", c.baseURL), "ukassa_payment_123", nil
-}
+// 	// Заглушка
+// 	return fmt.Sprintf("%s/payment/test_456", c.baseURL), "ukassa_payment_123", nil
+// }
 
 // CheckStatus - проверяет статус платежа
 func (c *Client) CheckStatus(ctx context.Context, transactionID string) (domain.PaymentStatus, error) {
@@ -56,21 +55,21 @@ func (c *Client) CheckStatus(ctx context.Context, transactionID string) (domain.
 }
 
 // GetTransactionInfo - получает информацию о платеже
-func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (domain.TransactionInfo, error) {
-	_ = ctx
-	_ = transactionID
+// func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (domain.TransactionInfo, error) {
+// 	_ = ctx
+// 	_ = transactionID
 
-	// Заглушка
-	response := &CreatePaymentResponse{
-		ID:     transactionID,
-		Status: "pending",
-		Amount: map[string]interface{}{
-			"value":    "100.50",
-			"currency": "RUB",
-		},
-		Description: "Тестовый платеж",
-		Paid:        false,
-	}
+// 	// Заглушка
+// 	response := &CreatePaymentResponse{
+// 		ID:     transactionID,
+// 		Status: "pending",
+// 		Amount: map[string]interface{}{
+// 			"value":    "100.50",
+// 			"currency": "RUB",
+// 		},
+// 		Description: "Тестовый платеж",
+// 		Paid:        false,
+// 	}
 
-	return &TransactionInfo{response: response}, nil
-}
+// 	return &TransactionInfo{response: response}, nil
+// }
