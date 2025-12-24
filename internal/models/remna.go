@@ -39,11 +39,6 @@ type User struct {
 	// Можно добавить остальные поля по необходимости
 }
 
-// UserTraffic описывает статистику трафика пользователя.
-type UserTraffic struct {
-	UsedTrafficBytes int64 `json:"usedTrafficBytes"`
-}
-
 // ==========================================
 // Configuration (Слой конфигурации)
 // ==========================================
@@ -85,81 +80,97 @@ type CreateRequestUserDTO struct {
 	// ExternalSquadUUID    *string  `json:"externalSquadUuid"` доп поля, хз нужны будут или нет
 }
 
+//
+//
+//
+//
+
+// Представляет активную внутреннюю группу
+type ActiveInternalSquad struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
+}
+
+// Информация о трафике пользователя
+type UserTraffic struct {
+	UsedTrafficBytes         uint64    `json:"usedTrafficBytes"`
+	LifetimeUsedTrafficBytes uint64    `json:"lifetimeUsedTrafficBytes"`
+	OnlineAt                 time.Time `json:"onlineAt"`
+	LastConnectedNodeUUID    string    `json:"lastConnectedNodeUuid"`
+	FirstConnectedAt         time.Time `json:"firstConnectedAt"`
+}
 type GetUUIDByUsernameResponse struct {
-	UUID                   string      `json:"uuid"`
+	Response struct {
+		UUID                   string                `json:"uuid"`
+		ID                     int                   `json:"id"`
+		ShortUUID              string                `json:"shortUuid"`
+		Username               string                `json:"username"`
+		Status                 string                `json:"status"`
+		TrafficLimitBytes      uint64                `json:"trafficLimitBytes"`
+		TrafficLimitStrategy   string                `json:"trafficLimitStrategy"`
+		ExpireAt               *time.Time            `json:"expireAt"`
+		TelegramID             *string               `json:"telegramId,omitempty"`
+		Email                  *string               `json:"email,omitempty"`
+		Description            string                `json:"description"`
+		Tag                    *string               `json:"tag,omitempty"`
+		HWIDDeviceLimit        int                   `json:"hwidDeviceLimit"`
+		ExternalSquadUUID      *string               `json:"externalSquadUuid,omitempty"`
+		TrojanPassword         string                `json:"trojanPassword"`
+		VLESSUUID              string                `json:"vlessUuid"`
+		SSPassword             string                `json:"ssPassword"`
+		LastTriggeredThreshold int                   `json:"lastTriggeredThreshold"`
+		SubRevokedAt           *time.Time            `json:"subRevokedAt,omitempty"`
+		SubLastUserAgent       string                `json:"subLastUserAgent"`
+		SubLastOpenedAt        time.Time             `json:"subLastOpenedAt"`
+		LastTrafficResetAt     *time.Time            `json:"lastTrafficResetAt,omitempty"`
+		CreatedAt              time.Time             `json:"createdAt"`
+		UpdatedAt              time.Time             `json:"updatedAt"`
+		SubscriptionURL        string                `json:"subscriptionUrl"`
+		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
+		UserTraffic            UserTraffic           `json:"userTraffic"`
+	} `json:"response"`
+}
+
+//
+//
+//
+/*
+хз нужно ли будет ответ сохранять
+ 	type CreateResponseUserDTO struct {
+ 	UUID                   string      `json:"uuid"`
 	ID                     int         `json:"id"`
 	ShortUUID              string      `json:"shortUuid"`
 	Username               string      `json:"username"`
 	Status                 string      `json:"status"`
-	TrafficLimitBytes      int         `json:"trafficLimitBytes"`
-	TrafficLimitStrategy   string      `json:"trafficLimitStrategy"`
-	ExpireAt               time.Time   `json:"expireAt"`
-	TelegramID             interface{} `json:"telegramId"`
-	Email                  interface{} `json:"email"`
+ 	TrafficLimitBytes      int         `json:"trafficLimitBytes"`
+ 	TrafficLimitStrategy   string      `json:"trafficLimitStrategy"`
+ 	ExpireAt               time.Time   `json:"expireAt"`
+ 	TelegramID             interface{} `json:"telegramId"`
+ 	Email                  interface{} `json:"email"`
 	Description            interface{} `json:"description"`
-	Tag                    interface{} `json:"tag"`
-	HwidDeviceLimit        interface{} `json:"hwidDeviceLimit"`
-	ExternalSquadUUID      interface{} `json:"externalSquadUuid"`
+ 	Tag                    interface{} `json:"tag"`
+ 	HwidDeviceLimit        interface{} `json:"hwidDeviceLimit"`
+ 	ExternalSquadUUID      interface{} `json:"externalSquadUuid"`
 	TrojanPassword         string      `json:"trojanPassword"`
 	VlessUUID              string      `json:"vlessUuid"`
-	SsPassword             string      `json:"ssPassword"`
-	LastTriggeredThreshold int         `json:"lastTriggeredThreshold"`
-	SubRevokedAt           interface{} `json:"subRevokedAt"`
+ 	SsPassword             string      `json:"ssPassword"`
+ 	LastTriggeredThreshold int         `json:"lastTriggeredThreshold"`
 	SubLastUserAgent       interface{} `json:"subLastUserAgent"`
 	SubLastOpenedAt        interface{} `json:"subLastOpenedAt"`
-	LastTrafficResetAt     interface{} `json:"lastTrafficResetAt"`
-	CreatedAt              time.Time   `json:"createdAt"`
-	UpdatedAt              time.Time   `json:"updatedAt"`
-	SubscriptionURL        string      `json:"subscriptionUrl"`
-	ActiveInternalSquads   []struct {
-		UUID string `json:"uuid"`
-		Name string `json:"name"`
-	} `json:"activeInternalSquads"`
-	UserTraffic struct {
-		UsedTrafficBytes         int         `json:"usedTrafficBytes"`
+ 	LastTrafficResetAt     interface{} `json:"lastTrafficResetAt"`
+ 	CreatedAt              time.Time   `json:"createdAt"`
+ 	UpdatedAt              time.Time   `json:"updatedAt"`
+ 	SubscriptionURL        string      `json:"subscriptionUrl"`
+ 	ActiveInternalSquads   []struct {
+ 		UUID string `json:"uuid"`
+ 		Name string `json:"name"`
+ 	} `json:"activeInternalSquads"`
+ 	UserTraffic struct {
+ 		UsedTrafficBytes         int         `json:"usedTrafficBytes"`
 		LifetimeUsedTrafficBytes int         `json:"lifetimeUsedTrafficBytes"`
-		OnlineAt                 interface{} `json:"onlineAt"`
-		FirstConnectedAt         interface{} `json:"firstConnectedAt"`
-		LastConnectedNodeUUID    interface{} `json:"lastConnectedNodeUuid"`
-	} `json:"userTraffic"`
-}
-
-//хз нужно ли будет ответ сохранять
-// type CreateResponseUserDTO struct {
-// 	UUID                   string      `json:"uuid"`
-// 	ID                     int         `json:"id"`
-// 	ShortUUID              string      `json:"shortUuid"`
-// 	Username               string      `json:"username"`
-// 	Status                 string      `json:"status"`
-// 	TrafficLimitBytes      int         `json:"trafficLimitBytes"`
-// 	TrafficLimitStrategy   string      `json:"trafficLimitStrategy"`
-// 	ExpireAt               time.Time   `json:"expireAt"`
-// 	TelegramID             interface{} `json:"telegramId"`
-// 	Email                  interface{} `json:"email"`
-// 	Description            interface{} `json:"description"`
-// 	Tag                    interface{} `json:"tag"`
-// 	HwidDeviceLimit        interface{} `json:"hwidDeviceLimit"`
-// 	ExternalSquadUUID      interface{} `json:"externalSquadUuid"`
-// 	TrojanPassword         string      `json:"trojanPassword"`
-// 	VlessUUID              string      `json:"vlessUuid"`
-// 	SsPassword             string      `json:"ssPassword"`
-// 	LastTriggeredThreshold int         `json:"lastTriggeredThreshold"`
-// 	SubRevokedAt           interface{} `json:"subRevokedAt"`
-// 	SubLastUserAgent       interface{} `json:"subLastUserAgent"`
-// 	SubLastOpenedAt        interface{} `json:"subLastOpenedAt"`
-// 	LastTrafficResetAt     interface{} `json:"lastTrafficResetAt"`
-// 	CreatedAt              time.Time   `json:"createdAt"`
-// 	UpdatedAt              time.Time   `json:"updatedAt"`
-// 	SubscriptionURL        string      `json:"subscriptionUrl"`
-// 	ActiveInternalSquads   []struct {
-// 		UUID string `json:"uuid"`
-// 		Name string `json:"name"`
-// 	} `json:"activeInternalSquads"`
-// 	UserTraffic struct {
-// 		UsedTrafficBytes         int         `json:"usedTrafficBytes"`
-// 		LifetimeUsedTrafficBytes int         `json:"lifetimeUsedTrafficBytes"`
-// 		OnlineAt                 interface{} `json:"onlineAt"`
-// 		FirstConnectedAt         interface{} `json:"firstConnectedAt"`
-// 		LastConnectedNodeUUID    interface{} `json:"lastConnectedNodeUuid"`
-// 	} `json:"userTraffic"`
-// }
+ 		OnlineAt                 interface{} `json:"onlineAt"`
+ 		FirstConnectedAt         interface{} `json:"firstConnectedAt"`
+ 		LastConnectedNodeUUID    interface{} `json:"lastConnectedNodeUuid"`
+ 	} `json:"userTraffic"`
+ }
+*/
