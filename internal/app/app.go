@@ -16,7 +16,7 @@ import (
 // зависимости приложения
 type App struct {
 	remnawaveClient domain.RemnawaveClient
-	telegramHandler *telegram.Handler
+	telegramClient  *telegram.Client
 }
 
 func New() (*App, error) {
@@ -31,7 +31,7 @@ func New() (*App, error) {
 
 	if err = remnawaveClient.CreateUser("asd11213", 30); err != nil {
 		if errors.Is(err, remnawave.ErrBadRequestCreate) {
-			slog.Warn("Пользователь уже существует", "error", err)
+			slog.Warn("Пользователь нажал /start, в панели уже есть подписка", "TEXT", err)
 		} else {
 			return nil, err
 		}
@@ -45,11 +45,14 @@ func New() (*App, error) {
 	}
 
 	// запускаем бота
-	telegranHandler := telegram.NewHandler(bot)
+	telegramClient := telegram.NewClient(bot)
+
+	// регистрируем команды
+	telegramClient.RegisterCommand(&telegram.StartCommand{})
 
 	return &App{
 		remnawaveClient: remnawaveClient,
-		telegramHandler: telegranHandler,
+		telegramClient:  telegramClient,
 	}, nil
 }
 
@@ -60,5 +63,5 @@ func (a *App) Run() {
 	a.remnawaveClient.GetServiceInfo(ctx, "")
 
 	// ===telegram bot===
-	a.telegramHandler.Run()
+	a.telegramClient.Run()
 }
