@@ -9,11 +9,14 @@ import (
 
 // хранит глобальные настройки для панели
 type Config struct {
+	// remnawave
 	RemnaPanelURL       string // страница панели
 	RemnasecretUrlToken string // секретный токен для подключения
 	RemnaLogin          string // логин
 	RemnaPass           string // пароль
 	RemnawaveKey        string // ключ для разработчика
+	// telegram
+	TelegramToken string
 }
 
 func New() (*Config, error) {
@@ -26,5 +29,6 @@ func New() (*Config, error) {
 		RemnaLogin:          os.Getenv("REMNA_LOGIN"),
 		RemnaPass:           os.Getenv("REMNA_PASS"),
 		RemnawaveKey:        os.Getenv("REMNA_TOKEN"),
+		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
 	}, nil
 }

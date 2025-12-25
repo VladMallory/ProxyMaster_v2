@@ -363,7 +363,7 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 
 // Илья/ я сделаю или сделал отдельную функцию перевода username в userUUID
 // затести эту функцию пж я не могу сам тестить(не знаю как, но по сути все норм должно быть)
-func (c *RemnaClient) EnableUser(userUUID string) error {
+func (c *RemnaClient) EnableClient(userUUID string) error {
 	url := fmt.Sprintf("%s/api/users/%s/actions/enable?%s", c.cfg.RemnaPanelURL, userUUID, c.cfg.RemnasecretUrlToken)
 
 	request, err := http.NewRequest("POST", url, nil)
