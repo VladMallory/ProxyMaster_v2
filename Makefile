@@ -5,18 +5,20 @@ cmd=./cmd/myapp/main.go
 run:
 	@go run $(cmd)
 
-run2:
-	go run ./cmd/testLoginRemna/remna.go
-
-run3:
-	go run ./cmd/testGetClientInfoRemna/test.go
-
-run4:
-	go run ./cmd/testTransactions/testMain.go
+ run2:
+	go run ./cmd/testGetUserInfo/testMain.go
 
 # docker
+# натив
 docker-build:
 	docker build -t proxymaster_v2 .
 
 docker: docker-build
 	docker run --env-file .env proxymaster_v2
+
+# эмуляция под linux
+docker-build-linux:
+	docker build --platform linux/amd64 -t proxymaster_v2 .
+
+docker-linux: docker-build-linux
+	docker run --platform linux/amd64 --env-file .env proxymaster_v2 
