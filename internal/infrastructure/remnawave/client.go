@@ -47,7 +47,7 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 		return fmt.Errorf("ошибка кодирования данных: %w", err)
 	}
 
-	// делаем итоговую ссылку куда идем логниться
+	// делаем итоговую ссылку куда идем логиниться
 	// Сохраняем адрес в requestURL поскольку remna
 	// разрешает вход только по секретному адресу
 	requestURL := fmt.Sprintf("%s/api/auth/login?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
@@ -186,6 +186,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		slog.Error("не удалось получить ответ")
 		return "", err
 	}
+
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		slog.Warn("не удалось преобразовать тело ответа")
@@ -197,28 +198,39 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	}
 
 	switch response.StatusCode {
+
 	case http.StatusBadRequest:
 		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestUsername.Error(), string(body)))
 		return "", ErrBadRequestUsername
+
 	case http.StatusInternalServerError:
 		slog.Error(ErrInternalServerError.Error())
 		return "", ErrInternalServerError
+
 	case http.StatusNotFound:
 		slog.Error(ErrNotFound.Error())
 		return "", ErrNotFound
 	}
+
 	slog.Info(
 		"getting UUID succeded",
 		"time taken", time.Since(rt),
-		"status code", 200,
-		"username", userData.Username,
+		"status code", response.StatusCode,
+		"username", userData.Response.Username,
 	)
-	return userData.UUID, nil
+
+	// todo: изменить мб обработку этой ошибки, + возврат ошибки. Или убрать эту проверку на nil если не нужно.
+	//проверка что не ниловый ответ, дабы не повторять что было
+	if userData.Response.UUID == "" || userData.Response.Username == "" {
+		return "", fmt.Errorf("UUID or Username Is nil")
+	}
+
+	return userData.Response.UUID, nil
 }
 
 // CreateClient - создает нового клиента в remnawave. Если уже
 // существует клиент, нечего не делает (сыпит ошибку о неверном запросе)
-func (c *RemnaClient) CreateClient(username string, days int) error {
+func (c *RemnaClient) CreateUser(username string, days int) error {
 	if days <= 0 {
 		return fmt.Errorf("дней не может быть ноль при создании подписки")
 	}
@@ -291,14 +303,14 @@ func (c *RemnaClient) CreateClient(username string, days int) error {
 	slog.Info(
 		"User created",
 		"time taken", time.Since(start),
-		"status code", 201,
+		"status code", http.StatusCreated,
 		"username", userData.Username,
 	)
 	return nil
 }
 
 // TODO: продление подписки. Указываем id и на сколько дней
-// remnawave.ExtendClientSubscriptio("123", 30)
+// remnawave.ExtendClientSubscription("123", 30)
 // TODO: сделать ветвление статус кодов и переделать логированиеы
 func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
 	//формирует url для запроса в api с секретным токеном для прохода через Nginx
@@ -351,7 +363,7 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 
 // Илья/ я сделаю или сделал отдельную функцию перевода username в userUUID
 // затести эту функцию пж я не могу сам тестить(не знаю как, но по сути все норм должно быть)
-func (c *RemnaClient) EnableClient(userUUID string) error {
+func (c *RemnaClient) EnableUser(userUUID string) error {
 	url := fmt.Sprintf("%s/api/users/%s/actions/enable?%s", c.cfg.RemnaPanelURL, userUUID, c.cfg.RemnasecretUrlToken)
 
 	request, err := http.NewRequest("POST", url, nil)
@@ -411,6 +423,61 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	}
 	slog.Info("Пользователь успешно выключен")
 	return nil
+}
+
+// todo норм ли возвращать пустые структуры при ошибке?
+func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnasecretUrlToken)
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: NewRequestError: %v", err)
+	}
+
+	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: GetResponseError: %v", err)
+	}
+
+	switch resp.StatusCode {
+
+	case http.StatusNotFound:
+		slog.Error(ErrNotFound.Error())
+		return models.GetUserInfoResponse{}, ErrNotFound
+
+	case http.StatusInternalServerError:
+		slog.Error(ErrInternalServerError.Error())
+		return models.GetUserInfoResponse{}, ErrInternalServerError
+
+	case http.StatusBadRequest:
+		slog.Error(ErrBadRequestUUID.Error())
+		return models.GetUserInfoResponse{}, ErrBadRequestUUID
+	}
+
+	var userInfo models.GetUserInfoResponse
+
+	//возвращение пустой структуры и ошибки
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: ReadBodyError")
+	}
+
+	//возвращение пустой структуры и ошибки
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: UnmarshalingError")
+	}
+
+	return userInfo, nil
+}
+
+func (c *RemnaClient) GetUserStatus(uuid string) (status string, err error) {
+	userInfo, err := c.GetUserInfo(uuid)
+	if err != nil {
+		return "", err
+	}
+
+	return userInfo.Response.Status, nil
 }
 
 func newShortSecret() string {
