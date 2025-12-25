@@ -60,7 +60,9 @@ func (a *App) Run() {
 	ctx := context.Background()
 
 	// ===remnawave===
-	a.remnawaveClient.GetServiceInfo(ctx, "")
+	if _, err := a.remnawaveClient.GetServiceInfo(ctx, ""); err != nil {
+		log.Fatal(err)
+	}
 
 	// ===telegram bot===
 	a.telegramClient.Run()

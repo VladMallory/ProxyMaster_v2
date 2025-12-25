@@ -22,3 +22,12 @@ docker-build-linux:
 
 docker-linux: docker-build-linux
 	docker run --platform linux/amd64 --env-file .env proxymaster_v2 
+
+# Проверки и прочее
+gosec:
+	@clear
+	gosec ./...
+
+list:
+	@clear
+	golangci-lint run
