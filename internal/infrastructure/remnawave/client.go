@@ -292,10 +292,14 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 	if err != nil {
 		return err
 	}
-	// закрытие тела запроса, хз зачем, в гошке есть сборщик мусора, ну а хули пусть будет
-	defer response.Body.Close()
 
-	// если ок, то заебок
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			return
+		}
+	}()
+
+	// если соединение прошло, то все отлично
 	if response.StatusCode == http.StatusOK {
 		log.Printf("%s | Период подписки юзера с UUID: %s увеличен на %d дней.\n", time.Now(), userUUID, days)
 	} else {
@@ -303,11 +307,11 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			log.Println("Не удалось преобразовать тело ответа")
-			return fmt.Errorf("Не удалось преобразовать тело ответа.")
+			return fmt.Errorf("не удалось преобразовать тело ответа")
 		}
 		log.Printf(
 			"%s | Не удалось увеличить период подписки юзера с UUID: %s. Тело ошибки: %s.\n", time.Now(), userUUID, string(body))
-		return fmt.Errorf("Не удалось увеличить период подписки.")
+		return fmt.Errorf("не удалось увеличить период подписки")
 	}
 	return nil
 }

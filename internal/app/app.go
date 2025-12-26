@@ -5,15 +5,12 @@ import (
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/infrastructure/telegram"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-// зависимости приложения
+// App зависимости приложения
 type App struct {
 	remnawaveClient domain.RemnawaveClient
 	telegramClient  *telegram.Client
@@ -29,22 +26,12 @@ func New() (*App, error) {
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
 
-	if err = remnawaveClient.CreateUser("asd112131", 30); err != nil {
-		if !errors.Is(err, remnawave.ErrBadRequestCreate) {
-			return nil, err
-		}
-	}
-
 	// ===telegram bot===
 	// инициализация
 	bot, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
 	if err != nil {
 		log.Fatal("ошибка в инициализации бота", err)
 	}
-
-	data, _ := remnawaveClient.GetUserInfo("f4d45e65-8a85-4731-9858-1a3545fc68a8")
-	jsonDa, _ := json.MarshalIndent(data, "", " ")
-	fmt.Println(string(jsonDa))
 
 	// запускаем бота
 	telegramClient := telegram.NewClient(bot)
