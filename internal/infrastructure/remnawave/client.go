@@ -119,52 +119,6 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 	return nil
 }
 
-func (c *RemnaClient) GetServiceInfo(ctx context.Context, serviceID string) (string, error) {
-	// 1. Формируем URL для запроса
-	// Если serviceID пустой, запрашиваем список всех сервисов без слэша на конце
-	requestURL := fmt.Sprintf("%s/api/services", c.cfg.RemnaPanelURL)
-	if serviceID != "" {
-		requestURL = fmt.Sprintf("%s/%s", requestURL, serviceID)
-	}
-
-	// 2. Создаем новый HTTP запрос с контекстом (важно для отмены запросов)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("не удалось создать запрос: %w", err)
-	}
-
-	// 3. Добавляем необходимые заголовки авторизации
-	req.Header.Set("Authorization", "Bearer "+c.cfg.RemnawaveKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	// 4. Выполняем запрос
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("ошибка выполнения запроса: %w", err)
-	}
-	// Важно: всегда закрываем тело ответа, чтобы не было утечек памяти
-	defer resp.Body.Close()
-
-	// 5 читаем тело ответа
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("ошибка чтения ответа: %w", err)
-	}
-	bodyString := string(bodyBytes)
-
-	// 6 проверяем статус код ответа
-	if resp.StatusCode != http.StatusOK {
-		// Если это HTML (например 404 от nginx), не нужно выводить все тело
-		if resp.StatusCode == http.StatusNotFound {
-			return "", fmt.Errorf("ошибка: ресурс не найден (404) по адресу %s", requestURL)
-		}
-		return "", fmt.Errorf("неккоректный статус ответа: %d, тело: %s", resp.StatusCode, bodyString)
-	}
-
-	// проверяю какая вообще ошибка возвращения
-	return bodyString, nil
-}
-
 // метод нахождения пользователя через UUID
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	var userData models.GetUUIDByUsernameResponse

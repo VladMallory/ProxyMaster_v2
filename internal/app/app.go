@@ -5,7 +5,6 @@ import (
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/infrastructure/telegram"
-	"context"
 	"errors"
 	"log"
 	"log/slog"
@@ -44,6 +43,8 @@ func New() (*App, error) {
 		log.Fatal("ошибка в инициализации бота", err)
 	}
 
+	// data, err := remnawaveClient.GetUserInfo("f4d45e65-8a85-4731-9858-1a3545fc68a8")
+	// fmt.Println(data)
 	// запускаем бота
 	telegramClient := telegram.NewClient(bot)
 
@@ -57,12 +58,6 @@ func New() (*App, error) {
 }
 
 func (a *App) Run() {
-	ctx := context.Background()
-
-	// ===remnawave===
-	if _, err := a.remnawaveClient.GetServiceInfo(ctx, ""); err != nil {
-		log.Fatal(err)
-	}
 
 	// ===telegram bot===
 	a.telegramClient.Run()
