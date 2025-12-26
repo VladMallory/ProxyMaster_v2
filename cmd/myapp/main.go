@@ -16,6 +16,7 @@ func main() {
 	logger := slog.New(handler)
 
 	// сборка приложения
+	var myApp app.Application
 	myApp, err := app.New()
 	slog.SetDefault(logger)
 	if err != nil {

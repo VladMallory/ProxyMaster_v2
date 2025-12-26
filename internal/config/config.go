@@ -7,14 +7,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// хранит глобальные настройки для панели
+// Config хранит глобальные настройки для панели
 type Config struct {
 	// remnawave
-	RemnaPanelURL       string // страница панели
-	RemnasecretUrlToken string // секретный токен для подключения
+	RemnaPanelURL       string // Страница панели
+	RemnaSecretUrlToken string // Секретный токен для подключения
 	RemnaLogin          string // логин
 	RemnaPass           string // пароль
-	RemnawaveKey        string // ключ для разработчика
+	RemnawaveKey        string // Ключ для разработчика
 	// telegram
 	TelegramToken string
 }
@@ -25,7 +25,7 @@ func New() (*Config, error) {
 	}
 	return &Config{
 		RemnaPanelURL:       os.Getenv("REMNA_BASE_PANEL"),
-		RemnasecretUrlToken: os.Getenv("REMNA_SECRET_TOKEN"),
+		RemnaSecretUrlToken: os.Getenv("REMNA_SECRET_TOKEN"),
 		RemnaLogin:          os.Getenv("REMNA_LOGIN"),
 		RemnaPass:           os.Getenv("REMNA_PASS"),
 		RemnawaveKey:        os.Getenv("REMNA_TOKEN"),

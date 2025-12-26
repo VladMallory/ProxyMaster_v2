@@ -22,7 +22,7 @@ type RemnaClient struct {
 	httpClient *http.Client
 }
 
-// NewRemnaClient - конструктор для создания клиента.
+// NewRemnaClient конструктор для создания клиента.
 func NewRemnaClient(cfg *config.Config) *RemnaClient {
 	return &RemnaClient{
 		cfg: cfg,
@@ -32,98 +32,11 @@ func NewRemnaClient(cfg *config.Config) *RemnaClient {
 	}
 }
 
-// функция спизженна из старого клиента, на переделанно логирование
-func (c *RemnaClient) Login(ctx context.Context, username, password string) error {
-	// подготавливаем данные для входа в панель
-	reqBody := models.LoginRequest{
-		Username: username,
-		Password: password,
-	}
-
-	// превращаем верхнюю структуру из GOOO кода в json чтобы панель нас поняла
-	// {"username":"admin","password":1234"}
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("ошибка кодирования данных: %w", err)
-	}
-
-	// делаем итоговую ссылку куда идем логиниться
-	// Сохраняем адрес в requestURL поскольку remna
-	// разрешает вход только по секретному адресу
-	requestURL := fmt.Sprintf("%s/api/auth/login?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
-
-	// создаем запрос на отправку. Как письмо перед отправкой.
-	// Кладем итоговый путь и json который делали как паспорт при
-	// http.MethodPost - даем метом POST, отправляем данные на сервер
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("ошибка создания запроса: %w", err)
-	}
-
-	// сервер может принимать видео, текст и т.д.
-	// тут мы говорим прям что даем json
-	// Content-Type - указываем какой тип контента
-	req.Header.Set("Content-Type", "application/json")
-
-	// вот тут идет коннект с сервером
-	// httpClient.Do() отправляет данные и в
-	// него кладем что отправим на сервер
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("ошибка отправки запроса: %w", err)
-	}
-	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			slog.Error(
-				"Ошибка закрыьия соединения",
-				"error", err,
-			)
-		}
-	}()
-
-	// читаем что вернул сервер, а вернул он resp.Body
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error(
-			"ошибка чтения тела ответа",
-			"response_body", string(bodyBytes),
-		)
-	}
-
-	// вернул ли сервер OK (200) или Created (201) иначе ошибка
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		slog.Error(
-			"ошибка входа",
-			"status_code", resp.StatusCode,
-			"response_body", string(bodyBytes),
-		)
-		return fmt.Errorf("ошибка входа: %d, ответ: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	var loginResp models.LoginResponse
-	// получаем пропуск (токен)
-	// после получения json преобразуем обратно в GOOO код
-	if err = json.Unmarshal(bodyBytes, &loginResp); err != nil {
-		return fmt.Errorf("ошибка разбора ответа: %w, тело: %s", err, string(bodyBytes))
-	}
-
-	// Сохраняем полученный токен
-	c.cfg.RemnawaveKey = loginResp.Response.AccessToken
-
-	// Логирование успеха как в remna.go
-	slog.Info(
-		"Login is succesful",
-		"status", resp.Status,
-		"response_body", string(bodyBytes),
-	)
-	return nil
-}
-
-// метод нахождения пользователя через UUID
+// GetUUIDByUsername - метод нахождения пользователя через UUID
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	var userData models.GetUUIDByUsernameResponse
 	// /api/users/by-username/{username}
-	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnasecretUrlToken)
+	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnaSecretUrlToken)
 	rt := time.Now()
 
 	request, err := http.NewRequest("GET", url, nil)
@@ -167,14 +80,13 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	}
 
 	slog.Info(
-		"getting UUID succeded",
+		"getting UUID succeeded",
 		"time taken", time.Since(rt),
 		"status code", response.StatusCode,
 		"username", userData.Response.Username,
 	)
 
-	// todo: изменить мб обработку этой ошибки, + возврат ошибки. Или убрать эту проверку на nil если не нужно.
-	// проверка что не ниловый ответ, дабы не повторять что было
+	// проверка что не nil ответ, дабы не повторять что было
 	if userData.Response.UUID == "" || userData.Response.Username == "" {
 		return "", fmt.Errorf("UUID or Username Is nil")
 	}
@@ -182,8 +94,8 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.Response.UUID, nil
 }
 
-// CreateUser - создает нового клиента в remnawave. Если уже
-// существует клиент, нечего не делает (сыпит ошибку о неверном запросе)
+// CreateUser создает нового клиента в remnawave. Если уже
+// существует клиент, нечего не делает (дает ошибку о неверном запросе)
 func (c *RemnaClient) CreateUser(username string, days int) error {
 	if days <= 0 {
 		return fmt.Errorf("дней не может быть ноль при создании подписки")
@@ -194,9 +106,9 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	// указываем лимиты трафика
 	const oneGb int = 1024 * 1024 * 1024
 	// лимит 100 gb
-	var trafficLimit int = 100 * oneGb
+	var trafficLimit = 100 * oneGb
 
-	// заполняем структуру для ремны, чтобы она указала параметры в панели
+	// заполняем структуру для remnawave, чтобы она указала параметры в панели
 	userData := &models.CreateRequestUserDTO{
 		Username:             username,
 		Status:               "ACTIVE",
@@ -211,14 +123,14 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	}
 
 	// формируем строку куда идет запрос
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
 
 	// время для логирования
 	start := time.Now()
 
 	jsonData, err := json.Marshal(userData)
 	if err != nil {
-		slog.Error("ошибка маршалинга тела запроса")
+		slog.Error("ошибка создания json тела запроса")
 		return err
 	}
 
@@ -263,12 +175,10 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	return nil
 }
 
-// TODO: продление подписки. Указываем id и на сколько дней
-// remnawave.ExtendClientSubscription("123", 30)
-// TODO: сделать ветвление статус кодов и переделать логированиеы
+// ExtendClientSubscription продлевает подписку в панели
 func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
-	// формирует url для запроса в api с секретным токеном для прохода через Nginx
-	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
+	// формирует url для запроса в api с секретным token для прохода через Nginx
+	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
 
 	payload := models.BulkExtendRequest{
 		UUIDs: []string{userUUID},
@@ -292,7 +202,6 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 	if err != nil {
 		return err
 	}
-
 	defer func() {
 		if err := response.Body.Close(); err != nil {
 			return
@@ -316,73 +225,72 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 	return nil
 }
 
-// EnableClient - включает клиента в панели remnawave
-func (c *RemnaClient) EnableClient(userUUID string) error {
-	url := fmt.Sprintf("%s/api/users/%s/actions/enable?%s", c.cfg.RemnaPanelURL, userUUID, c.cfg.RemnasecretUrlToken)
+// actionUrl отдаем методам строку, чтобы избежать дублирование кода в методах
+func (c *RemnaClient) actionUrl(userUUID string, action string) string {
+	return fmt.Sprintf("%s/api/users/%s/actions/%s?%s",
+		c.cfg.RemnaPanelURL,
+		userUUID,
+		action,
+		c.cfg.RemnaSecretUrlToken,
+	)
+}
 
-	request, err := http.NewRequest("POST", url, nil)
+// changeUserState изменяет состояние пользователя в панели Remnawave
+func (c *RemnaClient) changeUserState(userUUID string, action string) error {
+	url := c.actionUrl(userUUID, action)
+
+	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {
-		slog.Error(err.Error())
 		return err
 	}
 
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
-	response, err := c.httpClient.Do(request)
+	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		slog.Warn("не удалось сделать запрос")
 		return err
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			return
+		}
+	}()
 
-	switch response.StatusCode {
+	switch resp.StatusCode {
 	case http.StatusNotFound:
-		slog.Error(ErrNotFound.Error())
 		return ErrNotFound
 	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
 		return ErrInternalServerError
 	case http.StatusBadRequest:
-		slog.Error(ErrBadRequestUUID.Error())
 		return ErrBadRequestUUID
 	}
+
+	return nil
+}
+
+// EnableClient включает клиента в панели remnawave
+func (c *RemnaClient) EnableClient(userUUID string) error {
+	if err := c.changeUserState(userUUID, "enable"); err != nil {
+		return err
+	}
+
 	slog.Info("Пользователь успешно включен")
 	return nil
 }
 
-// TODO: Выключение подписки - сделал
-// remnawave.DisableClient("123")
+// DisableClient выключает подписку в панели
 func (c *RemnaClient) DisableClient(userUUID string) error {
-	url := fmt.Sprintf("%s/api/users/%s/actions/disable?%s", c.cfg.RemnaPanelURL, userUUID, c.cfg.RemnasecretUrlToken)
-
-	request, err := http.NewRequest("POST", url, nil)
-	if err != nil {
-		slog.Error(err.Error())
-		return err
-	}
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		slog.Warn("не удалось сделать запрос")
+	if err := c.changeUserState(userUUID, "disable"); err != nil {
 		return err
 	}
 
-	switch response.StatusCode {
-	case http.StatusNotFound:
-		slog.Error(ErrNotFound.Error())
-		return ErrNotFound
-	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
-		return ErrInternalServerError
-	case http.StatusBadRequest:
-		slog.Error(ErrBadRequestUUID.Error())
-		return ErrBadRequestUUID
-	}
 	slog.Info("Пользователь успешно выключен")
 	return nil
 }
 
 // GetUserInfo - возвращает информацию
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
-	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnasecretUrlToken)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretUrlToken)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -441,4 +349,96 @@ func newShortSecret() string {
 		return raw
 	}
 	return raw[:31]
+}
+
+// ====LEGACY====
+// НЕ ИСПОЛЬЗУЕТСЯ
+
+// Deprecated: Login является legacy-методом и сохранён на случай если понадобится снова
+// В текущей реализации клиент использует секретный URL,
+// поэтому аутентификация не требуется и метод можно не вызывать
+func (c *RemnaClient) Login(ctx context.Context, username, password string) error {
+	// подготавливаем данные для входа в панель
+	reqBody := models.LoginRequest{
+		Username: username,
+		Password: password,
+	}
+
+	// превращаем верхнюю структуру из go кода в json чтобы панель нас поняла
+	// {"username":"admin","password":1234"}
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("ошибка кодирования данных: %w", err)
+	}
+
+	// делаем итоговую ссылку куда идем логиниться
+	// Сохраняем адрес в requestURL поскольку remna
+	// разрешает вход только по секретному адресу
+	requestURL := fmt.Sprintf("%s/api/auth/login?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
+
+	// Создаем запрос на отправку. Как письмо перед отправкой.
+	// Кладем итоговый путь и json который делали как паспорт при
+	// http. MethodPost - даем POST, отправляем данные на сервер
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("ошибка создания запроса: %w", err)
+	}
+
+	// Сервер может принимать видео, текст и т.д.
+	// Тут мы говорим прям, что даем json
+	// Content-Type - указываем какой тип контента
+	req.Header.Set("Content-Type", "application/json")
+
+	// вот тут идет коннект с сервером
+	// httpClient.Do() отправляет данные и в
+	// него кладем что отправим на сервер
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки запроса: %w", err)
+	}
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			slog.Error(
+				"Ошибка закрытия соединения",
+				"error", err,
+			)
+		}
+	}()
+
+	// Читаем что вернул сервер, а вернул он resp. Body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error(
+			"ошибка чтения тела ответа",
+			"response_body", string(bodyBytes),
+		)
+	}
+
+	// вернул ли сервер OK (200) или Created (201) иначе ошибка
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		slog.Error(
+			"ошибка входа",
+			"status_code", resp.StatusCode,
+			"response_body", string(bodyBytes),
+		)
+		return fmt.Errorf("ошибка входа: %d, ответ: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var loginResp models.LoginResponse
+	// получаем пропуск (токен)
+	// после получения json преобразуем обратно в go код
+	if err = json.Unmarshal(bodyBytes, &loginResp); err != nil {
+		return fmt.Errorf("ошибка разбора ответа: %w, тело: %s", err, string(bodyBytes))
+	}
+
+	// Сохраняем полученный токен
+	c.cfg.RemnawaveKey = loginResp.Response.AccessToken
+
+	// Логирование успеха как в remna.go
+	slog.Info(
+		"Login is successful",
+		"status", resp.Status,
+		"response_body", string(bodyBytes),
+	)
+	return nil
 }
