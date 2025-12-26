@@ -5,9 +5,10 @@ import (
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/infrastructure/telegram"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
-	"log/slog"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -28,10 +29,8 @@ func New() (*App, error) {
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
 
-	if err = remnawaveClient.CreateUser("asd11213", 30); err != nil {
-		if errors.Is(err, remnawave.ErrBadRequestCreate) {
-			slog.Warn("Пользователь нажал /start, в панели уже есть подписка", "TEXT", err)
-		} else {
+	if err = remnawaveClient.CreateUser("asd112131", 30); err != nil {
+		if !errors.Is(err, remnawave.ErrBadRequestCreate) {
 			return nil, err
 		}
 	}
@@ -43,8 +42,10 @@ func New() (*App, error) {
 		log.Fatal("ошибка в инициализации бота", err)
 	}
 
-	// data, err := remnawaveClient.GetUserInfo("f4d45e65-8a85-4731-9858-1a3545fc68a8")
-	// fmt.Println(data)
+	data, _ := remnawaveClient.GetUserInfo("f4d45e65-8a85-4731-9858-1a3545fc68a8")
+	jsonDa, _ := json.MarshalIndent(data, "", " ")
+	fmt.Println(string(jsonDa))
+
 	// запускаем бота
 	telegramClient := telegram.NewClient(bot)
 
