@@ -24,10 +24,11 @@ type RemnaClient struct {
 
 // NewRemnaClient конструктор для создания клиента.
 func NewRemnaClient(cfg *config.Config) *RemnaClient {
+	fmt.Println("Создан экземпляр RemnaClient")
 	return &RemnaClient{
 		cfg: cfg,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Хорошая практика: всегда задавать таймаут
+			Timeout: 10 * time.Second, // Хорошая практика: всегда задавать тайм-аут
 		},
 	}
 }
@@ -60,7 +61,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	}
 
 	if err := json.Unmarshal(body, &userData); err != nil {
-		slog.Error("не удалось заанмаршалить тело ответа")
+		slog.Error("не удалось распарсить тело ответа")
 		return "", err
 	}
 
@@ -112,7 +113,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	userData := &models.CreateRequestUserDTO{
 		Username:             username,
 		Status:               "ACTIVE",
-		TrojanPassword:       newShortSecret(), // пароль для протокола trojan
+		TrojanPassword:       newShortSecret(), // пароль для протокола Trojan
 		VLessUUID:            uuid.NewString(),
 		SsPassword:           newShortSecret(), // пароль для shadow socks
 		TrafficLimitBytes:    trafficLimit,     // устанавливаем лимит трафика
@@ -328,7 +329,7 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 
 	// возвращение пустой структуры и ошибки
 	if err := json.Unmarshal(body, &userInfo); err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: UnmarshalingError")
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: UnmarshallingError")
 	}
 
 	return userInfo, nil
