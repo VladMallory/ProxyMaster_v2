@@ -122,7 +122,7 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 // метод нахождения пользователя через UUID
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	var userData models.GetUUIDByUsernameResponse
-	///api/users/by-username/{username}
+	// /api/users/by-username/{username}
 	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnasecretUrlToken)
 	rt := time.Now()
 
@@ -174,7 +174,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	)
 
 	// todo: изменить мб обработку этой ошибки, + возврат ошибки. Или убрать эту проверку на nil если не нужно.
-	//проверка что не ниловый ответ, дабы не повторять что было
+	// проверка что не ниловый ответ, дабы не повторять что было
 	if userData.Response.UUID == "" || userData.Response.Username == "" {
 		return "", fmt.Errorf("UUID or Username Is nil")
 	}
@@ -182,7 +182,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.Response.UUID, nil
 }
 
-// CreateClient - создает нового клиента в remnawave. Если уже
+// CreateUser - создает нового клиента в remnawave. Если уже
 // существует клиент, нечего не делает (сыпит ошибку о неверном запросе)
 func (c *RemnaClient) CreateUser(username string, days int) error {
 	if days <= 0 {
@@ -193,8 +193,8 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 
 	// указываем лимиты трафика
 	const oneGb int = 1024 * 1024 * 1024
-	// лимит 100 гигов
-	var tratrafficLimitsTotal int = 100 * oneGb
+	// лимит 100 gb
+	var trafficLimit int = 100 * oneGb
 
 	// заполняем структуру для ремны, чтобы она указала параметры в панели
 	userData := &models.CreateRequestUserDTO{
@@ -202,9 +202,9 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 		Status:               "ACTIVE",
 		TrojanPassword:       newShortSecret(), // пароль для протокола trojan
 		VLessUUID:            uuid.NewString(),
-		SsPassword:           newShortSecret(), // пароль для shadowsocks
-		TrafficLimitBytes:    tratrafficLimitsTotal,
-		TrafficLimitStrategy: "MONTH", // период сброса трафика
+		SsPassword:           newShortSecret(), // пароль для shadow socks
+		TrafficLimitBytes:    trafficLimit,     // устанавливаем лимит трафика
+		TrafficLimitStrategy: "MONTH",          // период сброса трафика
 		ExpireAt:             now.AddDate(0, 0, days).Format(time.RFC3339),
 		CreatedAt:            now.Format(time.RFC3339),
 		LastTrafficResetAt:   now.Format(time.RFC3339),
@@ -267,7 +267,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 // remnawave.ExtendClientSubscription("123", 30)
 // TODO: сделать ветвление статус кодов и переделать логированиеы
 func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
-	//формирует url для запроса в api с секретным токеном для прохода через Nginx
+	// формирует url для запроса в api с секретным токеном для прохода через Nginx
 	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnasecretUrlToken)
 
 	payload := models.BulkExtendRequest{
@@ -279,7 +279,7 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 		return fmt.Errorf("ошибка маршалинга тела запроса: %w", err)
 	}
 
-	//создаем запрос
+	// создаем запрос
 	request, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return err
@@ -287,19 +287,19 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
 
-	//делаем запрос и получаем ответ
+	// делаем запрос и получаем ответ
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		return err
 	}
-	//закрытие тела запроса, хз зачем, в гошке есть сборщик мусора, ну а хули пусть будет
+	// закрытие тела запроса, хз зачем, в гошке есть сборщик мусора, ну а хули пусть будет
 	defer response.Body.Close()
 
-	//если ок, то заебок
+	// если ок, то заебок
 	if response.StatusCode == http.StatusOK {
 		log.Printf("%s | Период подписки юзера с UUID: %s увеличен на %d дней.\n", time.Now(), userUUID, days)
 	} else {
-		//ну плохо все
+		// ну плохо все
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			log.Println("Не удалось преобразовать тело ответа")
@@ -312,11 +312,7 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 	return nil
 }
 
-// TODO: включение подписки -- сделал
-// remnawave.EnableClient("13123")
-
-// Илья/ я сделаю или сделал отдельную функцию перевода username в userUUID
-// затести эту функцию пж я не могу сам тестить(не знаю как, но по сути все норм должно быть)
+// EnableClient - включает клиента в панели remnawave
 func (c *RemnaClient) EnableClient(userUUID string) error {
 	url := fmt.Sprintf("%s/api/users/%s/actions/enable?%s", c.cfg.RemnaPanelURL, userUUID, c.cfg.RemnasecretUrlToken)
 
@@ -325,6 +321,7 @@ func (c *RemnaClient) EnableClient(userUUID string) error {
 		slog.Error(err.Error())
 		return err
 	}
+
 	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -379,7 +376,7 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	return nil
 }
 
-// todo норм ли возвращать пустые структуры при ошибке?
+// GetUserInfo - возвращает информацию
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
 	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnasecretUrlToken)
 
@@ -411,13 +408,13 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 
 	var userInfo models.GetUserInfoResponse
 
-	//возвращение пустой структуры и ошибки
+	// возвращение пустой структуры и ошибки
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: ReadBodyError")
 	}
 
-	//возвращение пустой структуры и ошибки
+	// возвращение пустой структуры и ошибки
 	if err := json.Unmarshal(body, &userInfo); err != nil {
 		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: UnmarshalingError")
 	}
