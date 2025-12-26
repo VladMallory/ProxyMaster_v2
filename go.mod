@@ -7,7 +7,10 @@ require (
 	github.com/joho/godotenv v1.5.1
 )
 
-require github.com/technoweenie/multipartstreamer v1.0.1 // indirect
+require (
+	github.com/jmoiron/sqlx v1.4.0 // indirect
+	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
+)
 
 require (
 	github.com/Jolymmiles/remnawave-api-go/v2 v2.3.2
