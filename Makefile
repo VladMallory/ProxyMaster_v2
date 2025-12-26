@@ -1,9 +1,16 @@
 .PHONY: run
 binary=ProxyMaster_v2
-cmd=./cmd/myapp/main.go
+cmdMacos&Linux=./cmd/myapp/main.go
+cmdWindows=.\cmd\myapp\main.go
 
 run:
-	@go run $(cmd)
+	@clear
+	@go run $(cmdMacos&Linux)
+
+run-windows:
+	go run $(cmdWindows)
+
+
 
  run2:
 	go run ./cmd/testGetUserInfo/testMain.go
