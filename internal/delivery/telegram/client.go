@@ -1,8 +1,12 @@
 package telegram
 
 import (
+	"ProxyMaster_v2/internal/domain"
 	"fmt"
+	"log"
 	"log/slog"
+	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -28,14 +32,18 @@ type Client struct {
 	bot *tgbotapi.BotAPI
 	// Команды которые бот должен обработать. /start /help и т.д.
 	commands map[string]command
+
+	// Задаем зависимость от клиента Remnawave
+	remna domain.RemnawaveClient
 }
 
 // NewClient - экземпляр бота
-func NewClient(bot *tgbotapi.BotAPI) *Client {
+func NewClient(bot *tgbotapi.BotAPI, remna domain.RemnawaveClient) *Client {
 	fmt.Println("Создан экземпляр TelegramClient")
 	return &Client{
 		bot:      bot,
 		commands: make(map[string]command),
+		remna:    remna,
 	}
 }
 
@@ -55,15 +63,70 @@ func (c *Client) Run() {
 
 	// читаем сообщения из канала в бесконечном цикле
 	for update := range updates {
-		// если пришло обновления, но нет сообщения, пропускаем
-		if update.Message == nil {
-			continue
+		// Если пришло сообщение. Обрабатываем как команду
+		if update.Message != nil {
+			fmt.Println("telegram message:", update.Message.From.ID, update.Message.Text)
+			if update.Message.IsCommand() {
+				c.handleUpdate(update)
+			}
 		}
 
-		fmt.Println("telegram:", update.Message.From.ID, update.Message.Text)
+		// Если пришел callback (кнопка), обрабатываем ее
+		if update.CallbackQuery != nil {
+			fmt.Println("telegram callback:", update.CallbackQuery.From.ID, update.CallbackQuery.Data)
+			c.handleCallback(update)
+			continue
+		}
+	}
+}
 
-		// сообщение идет в роутинг команд
-		c.handleUpdate(update)
+func (c *Client) handleCallback(update tgbotapi.Update) {
+	callback := update.CallbackQuery
+	log.Println("callback data:", callback.Data, callback.From.ID)
+
+	// Отвечаем на callback чтобы пропало отображение загрузки в телеграм
+	ack := tgbotapi.NewCallback(callback.ID, "")
+	if _, err := c.bot.AnswerCallbackQuery(ack); err != nil {
+		log.Println("ошибка при ответе на callback", err)
+	}
+
+	// Парсим данные. Ожидаем формат "prefix_action_value"
+	parts := strings.Split(callback.Data, "_")
+	if len(parts) != 3 || parts[0] != "create" || parts[1] != "user" {
+		log.Println("неверный формат callback data:", callback.Data)
+		return
+	}
+	log.Println("callback успешно обработан:", callback.Data)
+
+	months, err := strconv.Atoi(parts[2])
+	if err != nil {
+		log.Println("ошибка при парсинге количества месяцев:", err, parts[2])
+		return
+	}
+
+	log.Println("месяцы подписки определены:", months)
+
+	days := months * 30
+	username := strconv.FormatInt(int64(callback.From.ID), 10)
+
+	log.Println("вызов c.remna.CreateUser", username, days)
+
+	err = c.remna.CreateUser(username, days)
+	if err != nil {
+		log.Println("ошибка при создании пользователя:", err)
+		return
+	}
+
+	log.Println("Пользователь", username, "создан на", days, "дней")
+
+	msg := tgbotapi.NewEditMessageText(
+		callback.Message.Chat.ID,
+		callback.Message.MessageID,
+		fmt.Sprintf("пользователь %s создан на %d дней", username, days),
+	)
+
+	if _, err := c.bot.Send(msg); err != nil {
+		log.Println("ошибка при отправке сообщения:", err)
 	}
 }
 
@@ -76,7 +139,7 @@ func (c *Client) handleUpdate(update tgbotapi.Update) {
 
 	if exists {
 		if err := command.Execute(update, c.bot); err != nil {
-			slog.Error("ошибка при выполнении команды", "command", cmdName, "error", err)
+			slog.Error("пользователь существует", "command", cmdName, "error", err)
 		}
 	}
 }
@@ -106,6 +169,7 @@ func (c *Client) initUpdatesChannel() (tgbotapi.UpdatesChannel, error) {
 
 // --------- команды ---------
 
+// StartCommand обработчик команды /start
 type StartCommand struct{}
 
 func (s *StartCommand) Name() string {
@@ -113,10 +177,10 @@ func (s *StartCommand) Name() string {
 }
 
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Привет")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать, выберите тариф:")
+
+	msg.ReplyMarkup = NewTrafficKeyboard()
+
 	_, err := bot.Send(msg)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
