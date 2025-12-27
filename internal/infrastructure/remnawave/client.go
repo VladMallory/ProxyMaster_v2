@@ -47,7 +47,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	}
 
 	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -121,6 +121,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 		ExpireAt:             now.AddDate(0, 0, days).Format(time.RFC3339),
 		CreatedAt:            now.Format(time.RFC3339),
 		LastTrafficResetAt:   now.Format(time.RFC3339),
+		ActiveInternalSquads: []string{c.cfg.RemnaSquadUUID},
 	}
 
 	// формируем строку куда идет запрос
@@ -142,7 +143,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	}
 
 	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -196,7 +197,7 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 		return err
 	}
 	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	// делаем запрос и получаем ответ
 	response, err := c.httpClient.Do(request)
@@ -245,7 +246,7 @@ func (c *RemnaClient) changeUserState(userUUID string, action string) error {
 		return err
 	}
 
-	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -298,7 +299,7 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: NewRequestError: %v", err)
 	}
 
-	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnawaveKey)
+	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: GetResponseError: %v", err)
@@ -433,7 +434,7 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 	}
 
 	// Сохраняем полученный токен
-	c.cfg.RemnawaveKey = loginResp.Response.AccessToken
+	c.cfg.RemnaKey = loginResp.Response.AccessToken
 
 	// Логирование успеха как в remna.go
 	slog.Info(
