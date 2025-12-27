@@ -30,6 +30,13 @@ func New() (Application, error) {
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
 
+	err = remnawaveClient.CreateUser("anna2", 30)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(cfg.RemnaSquadUUID)
+
 	// ===telegram bot===
 	// инициализация
 	bot, err := tgbotapi.NewBotAPI(cfg.TelegramToken)

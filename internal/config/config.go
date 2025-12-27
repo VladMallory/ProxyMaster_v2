@@ -14,7 +14,9 @@ type Config struct {
 	RemnaSecretUrlToken string // Секретный токен для подключения
 	RemnaLogin          string // логин
 	RemnaPass           string // пароль
-	RemnawaveKey        string // Ключ для разработчика
+	RemnaKey            string // Ключ для разработчика
+	RemnaSquadUUID      string // ID клана
+
 	// telegram
 	TelegramToken string
 }
@@ -28,7 +30,8 @@ func New() (*Config, error) {
 		RemnaSecretUrlToken: os.Getenv("REMNA_SECRET_TOKEN"),
 		RemnaLogin:          os.Getenv("REMNA_LOGIN"),
 		RemnaPass:           os.Getenv("REMNA_PASS"),
-		RemnawaveKey:        os.Getenv("REMNA_TOKEN"),
+		RemnaKey:            os.Getenv("REMNA_TOKEN"),
+		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
 	}, nil
 }
