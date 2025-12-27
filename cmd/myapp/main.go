@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+// main da
 func main() {
 	// настройка логирования
 	handler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
