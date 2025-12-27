@@ -34,10 +34,10 @@ func main() {
 	}
 	jsonData, _ := json.Marshal(authBody)
 
-	totalBaseUrl := baseURL + "/api/auth/login?" + secretUrlToken
+	totalUrl := baseURL + "/api/auth/login?" + secretUrlToken
 
 	// Создаем запрос на Login с секретным параметром
-	req, err := http.NewRequest("POST", totalBaseUrl, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", totalUrl, bytes.NewBuffer(jsonData))
 
 	if err != nil {
 		log.Fatal(err)
