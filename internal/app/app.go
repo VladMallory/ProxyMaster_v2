@@ -1,3 +1,4 @@
+// Package app тут собирается и запускается приложение
 package app
 
 import (
@@ -5,6 +6,7 @@ import (
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
+	"ProxyMaster_v2/internal/service"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -21,6 +23,7 @@ type app struct {
 	telegramClient  *telegram.Client
 }
 
+// New собирает приложение
 func New() (Application, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
@@ -31,6 +34,10 @@ func New() (Application, error) {
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
 
+	// ===services===
+	// Создает сервис подписок и передает его remnawave клиенту
+	subscriptionService := service.NewSubscriptionService(remnawaveClient)
+
 	// ===telegram bot===
 	// инициализация
 	bot, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
@@ -39,7 +46,7 @@ func New() (Application, error) {
 	}
 
 	// запускаем бота
-	telegramClient := telegram.NewClient(bot, remnawaveClient)
+	telegramClient := telegram.NewClient(bot, subscriptionService)
 
 	// регистрируем команды
 	telegramClient.RegisterCommand(&telegram.StartCommand{})
@@ -50,8 +57,8 @@ func New() (Application, error) {
 	}, nil
 }
 
+// Run запуск приложения
 func (a *app) Run() {
-
 	// ===telegram bot===
 	a.telegramClient.Run()
 }

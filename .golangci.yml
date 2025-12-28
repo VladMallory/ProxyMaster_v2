@@ -1,0 +1,65 @@
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    # Base
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck # Checks for capitalized log messages, etc.
+    - typecheck
+    - unused      # Finds unused variables/constants
+
+    # Style and Comments (Godoc imitation)
+    - revive      # Replacement for golint. Checks comments, package names, etc.
+    - stylecheck  # Style checks (STxxxx errors)
+    - misspell    # Typos
+
+    # Strict Inspections (GoLand-like features)
+    - gocritic    # VERY powerful. Checks for "idiomatic go"
+    - unparam     # Reports if a function parameter is always the same
+    - prealloc    # Suggests pre-allocating slices
+    - unconvert   # Unnecessary type conversions
+    - whitespace  # Checks specific whitespace rules
+
+    - gosec
+    - bodyclose
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        arguments:
+          - "checkPrivateReceivers"
+          # - "sayRepetitive" # Removed because it causes errors in some versions
+      - name: package-comments
+        severity: warning
+
+  stylecheck:
+    # Checks that error strings are lowercase, package names are correct, etc.
+    checks: ["all", "-ST1000", "-ST1003"]
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - unnamedResult
+
+  # Configuring errcheck to be strict but manageable
+  errcheck:
+    check-type-assertions: true
+    check-blank: true 
+    # If you want to globally ignore Close errors (not recommended for max strictness, but common):
+    # exclude-functions:
+    #   - (*net/http.Response).Body.Close
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

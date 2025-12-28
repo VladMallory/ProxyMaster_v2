@@ -2,8 +2,6 @@ package telegram
 
 import (
 	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -35,17 +33,17 @@ type Client struct {
 	// Команды которые бот должен обработать. /start /help и т.д.
 	commands map[string]command
 
-	// Задаем зависимость от клиента Remnawave
-	remna domain.RemnawaveClient
+	// Сервис подписок (бизнес логика)
+	subService domain.SubscriptionService
 }
 
 // NewClient - экземпляр бота
-func NewClient(bot *tgbotapi.BotAPI, remna domain.RemnawaveClient) *Client {
+func NewClient(bot *tgbotapi.BotAPI, subService domain.SubscriptionService) *Client {
 	fmt.Println("Создан экземпляр TelegramClient")
 	return &Client{
-		bot:      bot,
-		commands: make(map[string]command),
-		remna:    remna,
+		bot:        bot,
+		commands:   make(map[string]command),
+		subService: subService,
 	}
 }
 
@@ -98,7 +96,7 @@ func (c *Client) handleCallback(update tgbotapi.Update) {
 		log.Println("неверный формат callback data:", callback.Data)
 		return
 	}
-	log.Println("callback успешно обработан:", callback.Data)
+	log.Println("callback обработан:", callback.Data)
 
 	months, err := strconv.Atoi(parts[2])
 	if err != nil {
@@ -106,48 +104,20 @@ func (c *Client) handleCallback(update tgbotapi.Update) {
 		return
 	}
 
-	log.Println("месяцы подписки определены:", months)
-
-	days := months * 30
-	username := strconv.FormatInt(int64(callback.From.ID), 10)
-	userUUID, err := c.remna.GetUUIDByUsername(username)
+	msgText, err := c.subService.ActivateSubscription(int64(callback.From.ID), months)
+	// Обработка ошибки бизнес-логики
 	if err != nil {
-		if errors.Is(err, remnawave.ErrNotFound) {
-			log.Println("пользователь не найден, создаем нового:", username)
-			err = c.remna.CreateUser(username, days)
-			if err != nil {
-				log.Println("ошибка при создании пользователя:", err)
-				return
-			}
-			log.Println("Пользователь", username, "создан на", days, "дней")
-			msg := tgbotapi.NewEditMessageText(
-				callback.Message.Chat.ID,
-				callback.Message.MessageID,
-				fmt.Sprintf("пользователь %s создан на %d дней", username, days),
-			)
-			if _, err := c.bot.Send(msg); err != nil {
-				log.Println("ошибка при отправке сообщения:", err)
-			}
-		} else {
-			log.Println("ошибка при получении UUID пользователя:", err)
-			return
-		}
-	} else {
-		log.Println("пользователь найден, продлеваем подписку:", username)
-		err = c.remna.ExtendClientSubscription(userUUID, days)
-		if err != nil {
-			log.Println("ошибка при продлении подписки:", err)
-			return
-		}
-		log.Println("Подписка для пользователя", username, "продлена на", days, "дней")
-		msg := tgbotapi.NewEditMessageText(
-			callback.Message.Chat.ID,
-			callback.Message.MessageID,
-			fmt.Sprintf("подписка для пользователя %s продлена на %d дней", username, days),
-		)
-		if _, err := c.bot.Send(msg); err != nil {
-			log.Println("ошибка при отправке сообщения:", err)
-		}
+		log.Println("ошибка бизнес логики:", err)
+		msgText = "Произошла ошибка. Обратитесь к администратору."
+	}
+
+	msg := tgbotapi.NewEditMessageText(
+		callback.Message.Chat.ID,
+		callback.Message.MessageID,
+		msgText,
+	)
+	if _, err := c.bot.Send(msg); err != nil {
+		log.Println("ошибка при отправки сообщения: ", err)
 	}
 }
 
