@@ -14,8 +14,7 @@ const (
 	Crypto                PaymentMethod = 13
 )
 
-// валюты которые принимает platega
-// . todo: дополнить
+// currency валюты которые принимает platega
 type Currency string
 
 const (
