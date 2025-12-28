@@ -7,7 +7,7 @@ run:
 	@clear
 	@go run $(cmdMacosAndLinux)
 
-run-windows:
+windows:
 	go run $(cmdWindows)
 
  run2:

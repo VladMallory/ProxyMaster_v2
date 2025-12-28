@@ -178,7 +178,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 }
 
 // ExtendClientSubscription продлевает подписку в панели
-func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
+func (c *RemnaClient) ExtendClientSubscription(userUUID string, username string, days int) error {
 	// формирует url для запроса в api с секретным token для прохода через Nginx
 	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
 
@@ -212,16 +212,15 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 
 	// если соединение прошло, то все отлично
 	if response.StatusCode == http.StatusOK {
-		log.Printf("%s | Период подписки юзера с UUID: %s увеличен на %d дней.\n", time.Now(), userUUID, days)
+		log.Printf("период подписки клиента: %s.UUID: %s увеличен на %d дней.\n", username, userUUID, days)
 	} else {
 		// ну плохо все
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			log.Println("Не удалось преобразовать тело ответа")
+			log.Println("не удалось преобразовать тело ответа")
 			return fmt.Errorf("не удалось преобразовать тело ответа")
 		}
-		log.Printf(
-			"%s | Не удалось увеличить период подписки юзера с UUID: %s. Тело ошибки: %s.\n", time.Now(), userUUID, string(body))
+		log.Printf("не удалось увеличить период подписки клиента: %s. UUID: %s. Тело ошибки: %s.\n", username, userUUID, string(body))
 		return fmt.Errorf("не удалось увеличить период подписки")
 	}
 	return nil
