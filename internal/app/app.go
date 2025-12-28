@@ -2,38 +2,56 @@ package app
 
 import (
 	"ProxyMaster_v2/internal/config"
+	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"context"
 	"fmt"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-type App struct {
-	remnawaveClient domain.RemnawaveClient
+// Application главный интерфейс приложения
+type Application interface {
+	Run()
 }
 
-func New() (*App, error) {
+// App зависимости приложения
+type app struct {
+	remnawaveClient domain.RemnawaveClient
+	telegramClient  *telegram.Client
+}
+
+func New() (Application, error) {
+	// ===конфиг .env===
 	cfg, err := config.New()
 	if err != nil {
 		return nil, err
 	}
 
-	// baseURL := cfg.RemnaPanelURL
-
+	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
-	// Если есть логин и пароль, пробуем получить свежий токен
-	if err := remnawaveClient.Login(context.Background(), cfg.RemnaLogin, cfg.RemnaPass); err != nil {
-		fmt.Printf("Ошибка входа (используем старый токен): %v\n", err)
-	}
-	remnawaveClient.CreateClient("123123", 30)
 
-	return &App{
+	// ===telegram bot===
+	// инициализация
+	bot, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка инициализации бота: %w", err)
+	}
+
+	// запускаем бота
+	telegramClient := telegram.NewClient(bot, remnawaveClient)
+
+	// регистрируем команды
+	telegramClient.RegisterCommand(&telegram.StartCommand{})
+
+	return &app{
 		remnawaveClient: remnawaveClient,
+		telegramClient:  telegramClient,
 	}, nil
 }
 
-func (a *App) Run() {
-	ctx := context.Background()
+func (a *app) Run() {
 
-	a.remnawaveClient.GetServiceInfo(ctx, "")
+	// ===telegram bot===
+	a.telegramClient.Run()
 }

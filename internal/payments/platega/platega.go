@@ -1,4 +1,4 @@
-// platega/platega.go
+// Package platega
 package platega
 
 import (

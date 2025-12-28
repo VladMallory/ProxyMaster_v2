@@ -2,7 +2,7 @@
 package main
 
 import (
-	"ProxyMaster_v2/cmd/testTransactions/platega"
+	"ProxyMaster_v2/internal/payments/platega"
 	"context"
 	"log"
 	"os"
