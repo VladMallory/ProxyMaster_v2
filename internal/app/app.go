@@ -5,7 +5,6 @@ import (
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"errors"
 	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -31,18 +30,6 @@ func New() (Application, error) {
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
-
-	username, err := remnawaveClient.GetUUIDByUsername("admin1")
-
-	if err != nil {
-		if errors.Is(err, remnawave.ErrNotFound) {
-			fmt.Println("Пользователь не найден")
-		} else {
-			return nil, err
-		}
-	}
-
-	fmt.Println("UUID пользователя admin:", username)
 
 	// ===telegram bot===
 	// инициализация
