@@ -33,7 +33,7 @@ func NewRemnaClient(cfg *config.Config) *RemnaClient {
 	}
 }
 
-// GetUUIDByUsername - метод нахождения пользователя через UUID
+// GetUUIDByUsername - метод нахождения пользователя через username
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	var userData models.GetUUIDByUsernameResponse
 	// /api/users/by-username/{username}

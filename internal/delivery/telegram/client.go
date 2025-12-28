@@ -2,6 +2,8 @@ package telegram
 
 import (
 	"ProxyMaster_v2/internal/domain"
+	"ProxyMaster_v2/internal/infrastructure/remnawave"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -63,7 +65,7 @@ func (c *Client) Run() {
 
 	// читаем сообщения из канала в бесконечном цикле
 	for update := range updates {
-		// Если пришло сообщение. Обрабатываем как команду
+		// Если пришла команда, обрабатываем ее
 		if update.Message != nil {
 			fmt.Println("telegram message:", update.Message.From.ID, update.Message.Text)
 			if update.Message.IsCommand() {
@@ -82,7 +84,7 @@ func (c *Client) Run() {
 
 func (c *Client) handleCallback(update tgbotapi.Update) {
 	callback := update.CallbackQuery
-	log.Println("callback data:", callback.Data, callback.From.ID)
+	log.Println("callback получен:", callback.Data, callback.From.ID)
 
 	// Отвечаем на callback чтобы пропало отображение загрузки в телеграм
 	ack := tgbotapi.NewCallback(callback.ID, "")
@@ -108,25 +110,44 @@ func (c *Client) handleCallback(update tgbotapi.Update) {
 
 	days := months * 30
 	username := strconv.FormatInt(int64(callback.From.ID), 10)
-
-	log.Println("вызов c.remna.CreateUser", username, days)
-
-	err = c.remna.CreateUser(username, days)
+	userUUID, err := c.remna.GetUUIDByUsername(username)
 	if err != nil {
-		log.Println("ошибка при создании пользователя:", err)
-		return
-	}
-
-	log.Println("Пользователь", username, "создан на", days, "дней")
-
-	msg := tgbotapi.NewEditMessageText(
-		callback.Message.Chat.ID,
-		callback.Message.MessageID,
-		fmt.Sprintf("пользователь %s создан на %d дней", username, days),
-	)
-
-	if _, err := c.bot.Send(msg); err != nil {
-		log.Println("ошибка при отправке сообщения:", err)
+		if errors.Is(err, remnawave.ErrNotFound) {
+			log.Println("пользователь не найден, создаем нового:", username)
+			err = c.remna.CreateUser(username, days)
+			if err != nil {
+				log.Println("ошибка при создании пользователя:", err)
+				return
+			}
+			log.Println("Пользователь", username, "создан на", days, "дней")
+			msg := tgbotapi.NewEditMessageText(
+				callback.Message.Chat.ID,
+				callback.Message.MessageID,
+				fmt.Sprintf("пользователь %s создан на %d дней", username, days),
+			)
+			if _, err := c.bot.Send(msg); err != nil {
+				log.Println("ошибка при отправке сообщения:", err)
+			}
+		} else {
+			log.Println("ошибка при получении UUID пользователя:", err)
+			return
+		}
+	} else {
+		log.Println("пользователь найден, продлеваем подписку:", username)
+		err = c.remna.ExtendClientSubscription(userUUID, days)
+		if err != nil {
+			log.Println("ошибка при продлении подписки:", err)
+			return
+		}
+		log.Println("Подписка для пользователя", username, "продлена на", days, "дней")
+		msg := tgbotapi.NewEditMessageText(
+			callback.Message.Chat.ID,
+			callback.Message.MessageID,
+			fmt.Sprintf("подписка для пользователя %s продлена на %d дней", username, days),
+		)
+		if _, err := c.bot.Send(msg); err != nil {
+			log.Println("ошибка при отправке сообщения:", err)
+		}
 	}
 }
 
@@ -179,7 +200,7 @@ func (s *StartCommand) Name() string {
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать, выберите тариф:")
 
-	msg.ReplyMarkup = NewTrafficKeyboard()
+	msg.ReplyMarkup = newTrafficKeyboard()
 
 	_, err := bot.Send(msg)
 	return err

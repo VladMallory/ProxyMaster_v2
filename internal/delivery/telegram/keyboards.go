@@ -3,8 +3,8 @@ package telegram
 
 import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
-// NewTrafficKeyboard создает клавиатуру с выбором трафика
-func NewTrafficKeyboard() tgbotapi.InlineKeyboardMarkup {
+// newTrafficKeyboard создает клавиатуру с выбором трафика
+func newTrafficKeyboard() tgbotapi.InlineKeyboardMarkup {
 	// создаем кнопки
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
