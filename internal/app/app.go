@@ -5,6 +5,7 @@ import (
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
+	"ProxyMaster_v2/internal/domain/telegram_bot"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/service"
 	"fmt"
@@ -35,21 +36,26 @@ func New() (Application, error) {
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
 
 	// ===services===
-	// Создает сервис подписок и передает его remnawave клиенту
-	subscriptionService := service.NewSubscriptionService(remnawaveClient)
+	subService := service.NewSubscriptionService(remnawaveClient)
 
 	// ===telegram bot===
 	// инициализация
-	bot, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
+	botAPI, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации бота: %w", err)
 	}
 
 	// запускаем бота
-	telegramClient := telegram.NewClient(bot, subscriptionService)
+	telegramClient := telegram.NewClient(botAPI)
 
-	// регистрируем команды
-	telegramClient.RegisterCommand(&telegram.StartCommand{})
+	// регистрируем команды из бизнес-логики (domain/bot)
+	kbBuilder := telegram.NewKeyboardBuilder()
+	startCmd := telegram_bot.NewStartCommand(kbBuilder)
+	telegramClient.RegisterCommand(startCmd)
+
+	// Регистрируем обработчик кнопок
+	callbackHandler := telegram_bot.NewCallbackHandler(subService)
+	telegramClient.SetCallbackHandler(callbackHandler.Handle)
 
 	return &app{
 		remnawaveClient: remnawaveClient,
