@@ -1,12 +1,8 @@
 package telegram
 
 import (
-	"ProxyMaster_v2/internal/domain"
 	"fmt"
-	"log"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -15,7 +11,7 @@ import (
 // нужен, чтобы следовать принципам SOLID. Закрыт для изменений
 // добавлять будем через мапу, так минимальные шансы что-то
 // сломать из старого кода
-type command interface {
+type Command interface {
 	// Name то какая строка. /start, /help и т.д.
 	Name() string
 
@@ -31,24 +27,27 @@ type Client struct {
 	// Само апи телеграмма
 	bot *tgbotapi.BotAPI
 	// Команды которые бот должен обработать. /start /help и т.д.
-	commands map[string]command
-
-	// Сервис подписок (бизнес логика)
-	subService domain.SubscriptionService
+	commands map[string]Command
+	// Обработчик кнопок
+	callbackHandler func(tgbotapi.Update, *tgbotapi.BotAPI) error
 }
 
 // NewClient - экземпляр бота
-func NewClient(bot *tgbotapi.BotAPI, subService domain.SubscriptionService) *Client {
+func NewClient(bot *tgbotapi.BotAPI) *Client {
 	fmt.Println("Создан экземпляр TelegramClient")
 	return &Client{
-		bot:        bot,
-		commands:   make(map[string]command),
-		subService: subService,
+		bot:      bot,
+		commands: make(map[string]Command),
 	}
 }
 
+// SetCallbackHandler устанавливает обработчик кнопок
+func (c *Client) SetCallbackHandler(handler func(tgbotapi.Update, *tgbotapi.BotAPI) error) {
+	c.callbackHandler = handler
+}
+
 // RegisterCommand - занимается регистрацией команд в боте
-func (c *Client) RegisterCommand(cmd command) {
+func (c *Client) RegisterCommand(cmd Command) {
 	c.commands[cmd.Name()] = cmd
 }
 
@@ -81,43 +80,10 @@ func (c *Client) Run() {
 }
 
 func (c *Client) handleCallback(update tgbotapi.Update) {
-	callback := update.CallbackQuery
-	log.Println("callback получен:", callback.Data, callback.From.ID)
-
-	// Отвечаем на callback чтобы пропало отображение загрузки в телеграм
-	ack := tgbotapi.NewCallback(callback.ID, "")
-	if _, err := c.bot.AnswerCallbackQuery(ack); err != nil {
-		log.Println("ошибка при ответе на callback", err)
-	}
-
-	// Парсим данные. Ожидаем формат "prefix_action_value"
-	parts := strings.Split(callback.Data, "_")
-	if len(parts) != 3 || parts[0] != "create" || parts[1] != "user" {
-		log.Println("неверный формат callback data:", callback.Data)
-		return
-	}
-	log.Println("callback обработан:", callback.Data)
-
-	months, err := strconv.Atoi(parts[2])
-	if err != nil {
-		log.Println("ошибка при парсинге количества месяцев:", err, parts[2])
-		return
-	}
-
-	msgText, err := c.subService.ActivateSubscription(int64(callback.From.ID), months)
-	// Обработка ошибки бизнес-логики
-	if err != nil {
-		log.Println("ошибка бизнес логики:", err)
-		msgText = "Произошла ошибка. Обратитесь к администратору."
-	}
-
-	msg := tgbotapi.NewEditMessageText(
-		callback.Message.Chat.ID,
-		callback.Message.MessageID,
-		msgText,
-	)
-	if _, err := c.bot.Send(msg); err != nil {
-		log.Println("ошибка при отправки сообщения: ", err)
+	if c.callbackHandler != nil {
+		if err := c.callbackHandler(update, c.bot); err != nil {
+			slog.Error("ошибка в callback handler", "error", err)
+		}
 	}
 }
 
@@ -156,22 +122,4 @@ func (c *Client) initUpdatesChannel() (tgbotapi.UpdatesChannel, error) {
 	u.Timeout = 60
 
 	return c.bot.GetUpdatesChan(u)
-}
-
-// --------- команды ---------
-
-// StartCommand обработчик команды /start
-type StartCommand struct{}
-
-func (s *StartCommand) Name() string {
-	return "start"
-}
-
-func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать, выберите тариф:")
-
-	msg.ReplyMarkup = newTrafficKeyboard()
-
-	_, err := bot.Send(msg)
-	return err
 }
