@@ -212,16 +212,16 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, username string,
 
 	// если соединение прошло, то все отлично
 	if response.StatusCode == http.StatusOK {
-		log.Printf("период подписки клиента: %s.UUID: %s увеличен на %d дней.\n", username, userUUID, days)
+		log.Printf("remnawave: период подписки клиента: %s. UUID: %s увеличен на %d дней.\n", username, userUUID, days)
 	} else {
 		// ну плохо все
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			log.Println("не удалось преобразовать тело ответа")
-			return fmt.Errorf("не удалось преобразовать тело ответа")
+			log.Println("remnawave: не удалось преобразовать тело ответа")
+			return fmt.Errorf("remnawave: не удалось преобразовать тело ответа")
 		}
-		log.Printf("не удалось увеличить период подписки клиента: %s. UUID: %s. Тело ошибки: %s.\n", username, userUUID, string(body))
-		return fmt.Errorf("не удалось увеличить период подписки")
+		log.Printf("remnawave: не удалось увеличить период подписки клиента: %s. UUID: %s. Тело ошибки: %s.\n", username, userUUID, string(body))
+		return fmt.Errorf("remnawave: не удалось увеличить период подписки")
 	}
 	return nil
 }
