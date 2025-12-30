@@ -5,6 +5,7 @@ package telegramBot
 import (
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
+	"ProxyMaster_v2/internal/service"
 	"fmt"
 	"log"
 	"strconv"
@@ -18,15 +19,17 @@ type CallbackHandler struct {
 	// subService сервис подписки
 	subService      domain.SubscriptionService
 	telegramSupport string
+	remnawaveClient domain.RemnawaveClient
 }
 
 // NewCallbackHandler конструктор
-func NewCallbackHandler(subService domain.SubscriptionService, telegramSupport string) *CallbackHandler {
+func NewCallbackHandler(subService domain.SubscriptionService, telegramSupport string, remnawaveClient domain.RemnawaveClient) *CallbackHandler {
 	fmt.Println("Создан экземпляр подписочного сервиса")
 
 	return &CallbackHandler{
 		subService:      subService,
 		telegramSupport: telegramSupport,
+		remnawaveClient: remnawaveClient,
 	}
 }
 
@@ -47,7 +50,10 @@ func (h *CallbackHandler) Handle(update tgbotapi.Update, bot *tgbotapi.BotAPI) e
 	case data == "main_menu":
 		msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "Добро пожаловать в ProxyMaster! Выберите раздел:")
 		// Создаем клавиатуру с ссылкой на поддержку
-		keyboard := telegram.NewMainMenuKeyboard(h.telegramSupport)
+
+		urlSubscription := service.GetUrlSubscription(h.remnawaveClient, strconv.Itoa(userID))
+		keyboard := telegram.NewMainMenuKeyboard(h.telegramSupport, urlSubscription)
+
 		msg.ReplyMarkup = &keyboard
 		_, err := bot.Send(msg)
 		return err

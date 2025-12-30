@@ -50,11 +50,11 @@ func New() (Application, error) {
 
 	// регистрируем команды из бизнес-логики (domain/bot)
 	kbBuilder := telegram.NewKeyboardBuilder()
-	startCmd := telegramBot.NewStartCommand(kbBuilder, cfg.TelegramSupport)
+	startCmd := telegramBot.NewStartCommand(kbBuilder, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.RegisterCommand(startCmd)
 
 	// Регистрируем обработчик кнопок
-	callbackHandler := telegramBot.NewCallbackHandler(subService, cfg.TelegramSupport)
+	callbackHandler := telegramBot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
 
 	return &app{
