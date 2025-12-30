@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    
+    container_name: users_postgres
+    
+    environment:
+      POSTGRES_DB: usersdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: userspass
+    
+    ports:
+      - "5442:5442"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d userssdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
