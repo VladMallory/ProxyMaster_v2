@@ -1,4 +1,6 @@
-package telegram_bot
+// package telegramBot обрабатывает клавиатуру от пользователя. В данном случае
+// сколько на месяцев он хочет подписку.
+package telegramBot
 
 import (
 	"ProxyMaster_v2/internal/domain"
@@ -10,7 +12,9 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+// CallbackHandler то какие сервисы используем
 type CallbackHandler struct {
+	// subService сервис подписки
 	subService domain.SubscriptionService
 }
 

@@ -1,6 +1,6 @@
-//other.go
-//файл который убирает все не относящеесе к транзакциям
-//по типу создание клиента, загрузки конфига, и тд
+// other.go
+// файл который убирает все не относящеесе к транзакциям
+// по типу создание клиента, загрузки конфига, и тд
 
 package main
 
@@ -18,7 +18,6 @@ import (
 )
 
 func NewClient() (client *remapi.ClientExt, err error) {
-
 	// 1. Загружаем конфигурацию
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -38,7 +37,6 @@ func NewClient() (client *remapi.ClientExt, err error) {
 
 	log.Println("Клиент собран")
 	return client, nil
-
 }
 
 // Config хранит конфигурационные данные, необходимые для работы приложения.

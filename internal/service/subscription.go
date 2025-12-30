@@ -22,6 +22,7 @@ func NewSubscriptionService(remna domain.RemnawaveClient) *SubscriptionService {
 }
 
 // ActivateSubscription активирует подписку клиенту telegram на указанное количество месяцев.
+// Если имеется подписка - продлить. Если подписки нет - создать.
 func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int) (string, error) {
 	totalDays := months * 30
 	username := strconv.FormatInt(telegramID, 10)
