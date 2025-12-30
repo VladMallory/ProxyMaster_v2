@@ -18,7 +18,8 @@ type Config struct {
 	RemnaSquadUUID      string // ID клана
 
 	// telegram
-	TelegramToken string
+	TelegramToken   string
+	TelegramSupport string // Поддержка телеграмм при ошибках сервиса
 }
 
 func New() (*Config, error) {
@@ -33,5 +34,6 @@ func New() (*Config, error) {
 		RemnaKey:            os.Getenv("REMNA_TOKEN"),
 		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
+		TelegramSupport:     os.Getenv("TELEGRAM_SUPPORT"),
 	}, nil
 }
