@@ -30,6 +30,9 @@ func NewTrafficKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("2 месяца", "create_user_2"),
 			tgbotapi.NewInlineKeyboardButtonData("3 месяца", "create_user_3"),
 		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📜 Пользовательское соглашение", "agreement"),
+		),
 	)
 	return keyboard
 }
