@@ -5,7 +5,7 @@ import (
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/domain/telegram_bot"
+	"ProxyMaster_v2/internal/domain/telegramBot"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/service"
 	"fmt"
@@ -50,11 +50,11 @@ func New() (Application, error) {
 
 	// регистрируем команды из бизнес-логики (domain/bot)
 	kbBuilder := telegram.NewKeyboardBuilder()
-	startCmd := telegram_bot.NewStartCommand(kbBuilder)
+	startCmd := telegramBot.NewStartCommand(kbBuilder)
 	telegramClient.RegisterCommand(startCmd)
 
 	// Регистрируем обработчик кнопок
-	callbackHandler := telegram_bot.NewCallbackHandler(subService)
+	callbackHandler := telegramBot.NewCallbackHandler(subService)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
 
 	return &app{

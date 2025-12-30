@@ -1,4 +1,6 @@
-package telegram_bot
+// package telegramBot обрабатывает команды от пользователя.
+// В данном случае /start
+package telegramBot
 
 import (
 	"ProxyMaster_v2/internal/delivery/telegram"
