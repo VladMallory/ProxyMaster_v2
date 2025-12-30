@@ -13,14 +13,15 @@ type RemnawaveClient interface {
 	ExtendClientSubscription(userUUID string, username string, days int) error
 	EnableClient(userUUID string) error
 	DisableClient(userUUID string) error
+	GetUserInfo(uuid string) (models.GetUserInfoResponse, error)
 }
 
 type UserRepository interface {
 	CreateUser(models.CreateUserTGDTO) (models.UserTG, error)
 	GetAllUsers() []models.UserTG
 	GetUserByID(string) (*models.UserTG, error)
-	//UpdateUser
-	UpdateUser(string, models.UpdateUserTGDTO) (*models.UserTG, error) 
+	// UpdateUser
+	UpdateUser(string, models.UpdateUserTGDTO) (*models.UserTG, error)
 }
 
 // SubscriptionService - бизнес логика управления подписками
