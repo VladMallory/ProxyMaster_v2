@@ -27,6 +27,7 @@ func (s *StartCommand) Name() string {
 	return "start"
 }
 
+// Execute то как идет обработка команд
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ShadowFade! Выберите раздел:")
 
