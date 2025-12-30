@@ -8,6 +8,15 @@ require (
 )
 
 require (
+	github.com/jackc/pgx v3.6.2+incompatible // indirect
+	github.com/jmoiron/sqlx v1.4.0 // indirect
+	github.com/lib/pq v1.10.9 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+)
+
+require (
 	github.com/Jolymmiles/remnawave-api-go/v2 v2.3.2 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/fatih/color v1.18.0 // indirect
