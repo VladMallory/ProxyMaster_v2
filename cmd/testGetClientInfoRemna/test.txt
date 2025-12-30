@@ -22,7 +22,7 @@ import (
 
 // LoadConfig загружает настройки из .env и переменных окружения.
 // Возвращает структуру Config или ошибку.
-func LoadConfig() (*Config, error) {
+func loadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Инфо: .env файл не найден, пробуем брать из окружения ОС")
 	}
@@ -46,25 +46,25 @@ func LoadConfig() (*Config, error) {
 // Service (Слой бизнес-логики)
 // ==========================================
 
-// RemnaClient отвечает за взаимодействие с внешним API.
+// remnaClient отвечает за взаимодействие с внешним API.
 // Он инкапсулирует HTTP-клиент и базовый URL.
-type RemnaClient struct {
+type remnaClient struct {
 	cfg        *Config
 	httpClient *http.Client
 }
 
-// NewRemnaClient - конструктор для создания клиента.
-func NewRemnaClient(cfg *Config) *RemnaClient {
-	return &RemnaClient{
+// newRemnaClient - конструктор для создания клиента.
+func newRemnaClient(cfg *Config) *remnaClient {
+	return &remnaClient{
 		cfg: cfg,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Хорошая практика: всегда задавать таймаут
+			Timeout: 10 * time.Second, // Хорошая практика: всегда задавать тайм-аут
 		},
 	}
 }
 
 // Login выполняет вход в систему и возвращает токен доступа.
-func (c *RemnaClient) Login() (string, error) {
+func (c *remnaClient) Login() (string, error) {
 	// 1. Подготовка URL
 	url := fmt.Sprintf("%s/api/auth/login?%s", c.cfg.BaseURL, c.cfg.SecretURLToken)
 	fmt.Printf("[Login] Попытка входа: %s\n", url)
@@ -91,7 +91,12 @@ func (c *RemnaClient) Login() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("ошибка выполнения запроса: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("ошибка закрытия тела ответа: %v\n", err)
+		}
+	}(resp.Body)
 
 	// 5. Чтение ответа
 	body, err := io.ReadAll(resp.Body)
@@ -120,8 +125,8 @@ func (c *RemnaClient) Login() (string, error) {
 	return loginResp.Response.AccessToken, nil
 }
 
-// GetClients запрашивает список клиентов, используя полученный токен.
-func (c *RemnaClient) GetClients(token string) error {
+// getClients запрашивает список клиентов, используя полученный токен.
+func (c *remnaClient) getClients(token string) error {
 	// ВАЖНО: Добавляем секретный токен в URL, чтобы пройти через Nginx
 	// Пробуем эндпоинт /api/users (частый стандарт)
 	endpoint := "/api/users"
@@ -143,11 +148,16 @@ func (c *RemnaClient) GetClients(token string) error {
 	if err != nil {
 		return fmt.Errorf("ошибка выполнения запроса клиентов: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("ошибка закрытия тела ответа: %v\n", err)
+		}
+	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("ошибка чтения тела ответа: %w", err)
 	}
 
 	fmt.Printf("[GetClients] Status: %s\n", resp.Status)
@@ -171,8 +181,8 @@ func (c *RemnaClient) GetClients(token string) error {
 	return nil
 }
 
-// метод увеличивает время подписки пользователя
-func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error {
+// extendClientSubscription увеличивает время подписки пользователя на указанное количество дней.
+func (c *remnaClient) extendClientSubscription(userUUID string, username string, days int) error {
 	//формирует url для запроса в api с секретным токеном для прохода через Nginx
 	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.BaseURL, c.cfg.SecretURLToken)
 
@@ -198,22 +208,26 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 	if err != nil {
 		return err
 	}
-	//закрытие тела запроса, хз зачем, в гошке есть сборщик мусора, ну а хули пусть будет
-	defer response.Body.Close()
+	//закрытие тела запроса, хз зачем, в go есть сборщик мусора, ну а хули пусть будет
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("ошибка закрытия тела ответа: %v\n", err)
+		}
+	}(response.Body)
 
 	//если ок, то заебок
 	if response.StatusCode == http.StatusOK {
-		log.Printf("%s | Период подписки юзера с UUID: %s увеличен на %d дней.\n", time.Now(), userUUID, days)
+		log.Printf("период подписки клиента: %s. UUID: %s увеличен на %d дней.\n", username, userUUID, days)
 	} else {
 		//ну плохо все
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			log.Println("Не удалось преобразовать тело ответа")
-			return fmt.Errorf("Не удалось преобразовать тело ответа.")
+			log.Println("не удалось преобразовать тело ответа")
+			return fmt.Errorf("не удалось преобразовать тело ответа: %w", err)
 		}
-		log.Printf(
-			"%s | Не удалось увеличить период подписки юзера с UUID: %s. Тело ошибки: %s.\n", time.Now(), userUUID, string(body))
-		return fmt.Errorf("Не удалось увеличить период подписки.")
+		log.Printf("не удалось увеличить период подписки клиента: %s. UUID: %s. Тел", username, userUUID, string(body))
+		return fmt.Errorf("не удалось увеличить период подписки")
 	}
 	return nil
 }
@@ -224,24 +238,24 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, days int) error 
 
 func main() {
 	// 1. Инициализация конфигурации
-	cfg, err := LoadConfig()
+	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Fatal: %v", err)
 	}
 
 	// 2. Инициализация клиента
-	client := NewRemnaClient(cfg)
+	client := newRemnaClient(cfg)
 
 	fmt.Println("------------------------------------------------")
 	fmt.Println("Используем статический API токен из .env")
 	fmt.Println("------------------------------------------------")
 
 	// 3. Получение данных о клиентах (сразу, без логина)
-	if err := client.GetClients(cfg.APIToken); err != nil {
+	if err := client.getClients(cfg.APIToken); err != nil {
 		log.Printf("Ошибка при получении клиентов: %v", err)
 	}
 
-	if err := client.ExtendClientSubscription("3380eb3a-d9bd-418a-bb2c-b42d5ec282b7", 500); err != nil {
+	if err := client.extendClientSubscription("3380eb3a-d9bd-418a-bb2c-b42d5ec282b7", 500); err != nil {
 		log.Fatal(err)
 	}
 }

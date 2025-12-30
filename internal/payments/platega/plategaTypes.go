@@ -1,4 +1,6 @@
 // platega/types.go
+//
+//nolint:tagliatelle
 package platega
 
 import "net/http"
@@ -14,8 +16,7 @@ const (
 	Crypto                PaymentMethod = 13
 )
 
-// валюты которые принимает platega
-// . todo: дополнить
+// currency валюты которые принимает platega
 type Currency string
 
 const (
@@ -34,7 +35,7 @@ type CreateTransactionRequest struct {
 }
 
 type PaymentDetails struct {
-	Amount   int    `json:"amount,string"` //мб можно и флоат64?
+	Amount   int    `json:"amount,string"` // мб можно и флоат64?
 	Currency string `json:"currency"`
 }
 
