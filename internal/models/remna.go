@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// структура для запроса в апи remanwave
+// BulkExtendRequest структура для запроса в апи remnawave
 type BulkExtendRequest struct {
 	UUIDs []string `json:"uuids"`
 	Days  int      `json:"extendDays"`
@@ -26,16 +26,16 @@ type LoginResponse struct {
 type UsersResponse struct {
 	Response struct {
 		Total int    `json:"total"`
-		Users []User `json:"users"`
+		Users []user `json:"users"`
 	} `json:"response"`
 }
 
 // User описывает данные одного пользователя.
-type User struct {
+type user struct {
 	ID          int         `json:"id"`
 	Username    string      `json:"username"`
 	Status      string      `json:"status"`
-	UserTraffic UserTraffic `json:"userTraffic"`
+	UserTraffic userTraffic `json:"userTraffic"`
 	// Можно добавить остальные поля по необходимости
 }
 
@@ -49,7 +49,7 @@ type User struct {
 // todo мб переименовать в AppToken или конфиг панели /internal/config/config.go
 // todo переименовать в PanelConfig т.к можно запутаться
 
-//legacy стурктура
+//legacy структура конфига
 // type Config struct {
 // 	BaseURL        string
 // 	Login          string
@@ -75,7 +75,7 @@ type CreateRequestUserDTO struct {
 	// TelegramID           *string  `json:"telegramId"`
 	// Email                *string  `json:"email"`
 	// HWIDDeviceLimit      int      `json:"hwidDeviceLimit"`
-	// ActiveInternalSquads []string `json:"activeInternalSquads"`
+	ActiveInternalSquads []string `json:"activeInternalSquads"`
 	// UUID                 string   `json:"uuid"`
 	// ExternalSquadUUID    *string  `json:"externalSquadUuid"` доп поля, хз нужны будут или нет
 }
@@ -85,14 +85,14 @@ type CreateRequestUserDTO struct {
 //
 //
 
-// Представляет активную внутреннюю группу
+// ActiveInternalSquad Представляет активную внутреннюю группу
 type ActiveInternalSquad struct {
 	UUID string `json:"uuid"`
 	Name string `json:"name"`
 }
 
-// Информация о трафике пользователя
-type UserTraffic struct {
+// UserTraffic Информация о трафике пользователя
+type userTraffic struct {
 	UsedTrafficBytes         uint64    `json:"usedTrafficBytes"`
 	LifetimeUsedTrafficBytes uint64    `json:"lifetimeUsedTrafficBytes"`
 	OnlineAt                 time.Time `json:"onlineAt"`
@@ -127,11 +127,11 @@ type GetUUIDByUsernameResponse struct {
 		UpdatedAt              time.Time             `json:"updatedAt"`
 		SubscriptionURL        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
-		UserTraffic            UserTraffic           `json:"userTraffic"`
+		UserTraffic            userTraffic           `json:"userTraffic"`
 	} `json:"response"`
 }
 
-// Ответ
+// GetUserInfoResponse Ответ
 type GetUserInfoResponse struct {
 	Response struct {
 		Uuid                   string                `json:"uuid"`
@@ -160,7 +160,7 @@ type GetUserInfoResponse struct {
 		UpdatedAt              time.Time             `json:"updatedAt"`
 		SubscriptionUrl        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
-		UserTraffic            UserTraffic           `json:"userTraffic"`
+		UserTraffic            userTraffic           `json:"userTraffic"`
 	} `json:"response"`
 }
 

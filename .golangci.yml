@@ -1,0 +1,124 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable-all: true
+  disable:
+    - mnd        # magic numbers — выключен
+    - nestif    # вложенные if — выключен
+
+linters-settings:
+  # =========================
+  # ===== STYLE / DOCS =====
+  # =========================
+  revive:
+    rules:
+      - name: exported
+        severity: error
+        arguments:
+          - "checkPrivateReceivers"
+      - name: package-comments
+        severity: error
+      - name: var-naming
+      - name: line-length-limit
+        arguments: [120]
+
+  stylecheck:
+    checks:
+      - all
+      - -ST1000
+      - -ST1003
+
+  whitespace: {}
+  misspell: {}
+
+  lll:
+    line-length: 120
+
+  # =========================
+  # ===== ERRORS ===========
+  # =========================
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+
+  bodyclose: {}
+  nilnil: {}
+
+  # =========================
+  # ===== COMPLEXITY =======
+  # =========================
+  gocyclo:
+    min-complexity: 5
+
+  funlen:
+    lines: 40
+    statements: 20
+
+  dupl: {}
+
+  # =========================
+  # ===== PERFORMANCE ======
+  # =========================
+  prealloc: {}
+  unparam: {}
+  unconvert: {}
+
+  # =========================
+  # ===== DEEP ANALYSIS ====
+  # =========================
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - opinionated
+      - experimental
+    disabled-checks:
+      - unnamedResult
+
+  govet: {}
+  staticcheck: {}
+  gosimple: {}
+  ineffassign: {}
+  unused: {}
+  typecheck: {}
+
+  # =========================
+  # ===== SECURITY =========
+  # =========================
+  gosec: {}
+
+  # =========================
+  # ===== POLICY ===========
+  # =========================
+  depguard:
+    rules:
+      Main:
+        files:
+          - "main.go"
+        deny:
+          - pkg: "*"
+            desc: "main must not import external packages directly"
+
+  varnamelen:
+    min-name-length: 3
+
+  exhaustive:
+    default-signifies-exhaustive: false
+
+  tagliatelle:
+    case:
+      rules:
+        json: snake
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

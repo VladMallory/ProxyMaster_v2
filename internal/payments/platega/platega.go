@@ -1,4 +1,4 @@
-// platega/platega.go
+// Package platega
 package platega
 
 import (
@@ -42,14 +42,14 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 		log.Fatal("Не установленно PLATEGA_API_KEY в .env")
 	}
 
-	//сборка. URL
+	// сборка. URL
 	plategaBaseURL := os.Getenv("PLATEGA_BASE_URL")
 	if plategaBaseURL == "" {
 		log.Fatal("Не установленно PLATEGA_BASE_URL в .env")
 	}
 	plategaTotalURL := plategaBaseURL + "/transaction/process"
 
-	//сборка реквеста
+	// сборка реквеста
 	reqBody := CreateTransactionRequest{
 		PaymentMethod: int(paymentMethod),
 		PaymentDetails: PaymentDetails{
@@ -68,7 +68,7 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 		log.Fatal(fmt.Errorf("platega.CreateTransaction: MarshalingError: %v", err))
 	}
 
-	//запрос к апи platega
+	// запрос к апи platega
 	req, err := http.NewRequest("POST", plategaTotalURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatal(fmt.Errorf("platega.CreateTransaction: NewRequestError: %v", err))
@@ -85,7 +85,7 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: ReadingResponseBodyError: %v", err))
+		log.Printf("platega.CreateTransaction: ReadingResponseBodyError: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -95,16 +95,14 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 	var CreateTransactionResponse CreateTransactionResponse
 	err = json.Unmarshal(respBody, &CreateTransactionResponse)
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: UnmarshalingResponseError: %v", err))
+		log.Printf("platega.CreateTransaction: UnmarshalingResponseError: %v", err)
 	}
 
 	URL = CreateTransactionResponse.Redirect
 	ID := CreateTransactionResponse.TransactionID
 
-	fmt.Println()
-	fmt.Printf("URL для оплаты: %v\n", URL)
-	fmt.Printf("ID оплаты: %v", ID)
-	fmt.Println()
+	fmt.Printf("\nURL для оплаты: %v\n", URL)
+	fmt.Printf("\nID оплаты: %v\n", ID)
 
 	return URL, nil
 }

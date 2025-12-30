@@ -1,25 +1,31 @@
+// Package app тут собирается и запускается приложение
 package app
 
 import (
 	"ProxyMaster_v2/internal/config"
+	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
+	"ProxyMaster_v2/internal/domain/telegramBot"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/infrastructure/telegram"
-	"context"
-	"errors"
-	"log"
-	"log/slog"
+	"ProxyMaster_v2/internal/service"
+	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-// зависимости приложения
-type App struct {
+// Application главный интерфейс приложения
+type Application interface {
+	Run()
+}
+
+// App зависимости приложения
+type app struct {
 	remnawaveClient domain.RemnawaveClient
 	telegramClient  *telegram.Client
 }
 
-func New() (*App, error) {
+// New собирает приложение
+func New() (Application, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
 	if err != nil {
@@ -29,41 +35,36 @@ func New() (*App, error) {
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg)
 
-	if err = remnawaveClient.CreateUser("asd11213", 30); err != nil {
-		if errors.Is(err, remnawave.ErrBadRequestCreate) {
-			slog.Warn("Пользователь нажал /start, в панели уже есть подписка", "TEXT", err)
-		} else {
-			return nil, err
-		}
-	}
+	// ===services===
+	subService := service.NewSubscriptionService(remnawaveClient)
 
 	// ===telegram bot===
 	// инициализация
-	bot, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
+	botAPI, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
 	if err != nil {
-		log.Fatal("ошибка в инициализации бота", err)
+		return nil, fmt.Errorf("ошибка инициализации бота: %w", err)
 	}
 
 	// запускаем бота
-	telegramClient := telegram.NewClient(bot)
+	telegramClient := telegram.NewClient(botAPI)
 
-	// регистрируем команды
-	telegramClient.RegisterCommand(&telegram.StartCommand{})
+	// регистрируем команды из бизнес-логики (domain/bot)
+	kbBuilder := telegram.NewKeyboardBuilder()
+	startCmd := telegramBot.NewStartCommand(kbBuilder)
+	telegramClient.RegisterCommand(startCmd)
 
-	return &App{
+	// Регистрируем обработчик кнопок
+	callbackHandler := telegramBot.NewCallbackHandler(subService)
+	telegramClient.SetCallbackHandler(callbackHandler.Handle)
+
+	return &app{
 		remnawaveClient: remnawaveClient,
 		telegramClient:  telegramClient,
 	}, nil
 }
 
-func (a *App) Run() {
-	ctx := context.Background()
-
-	// ===remnawave===
-	if _, err := a.remnawaveClient.GetServiceInfo(ctx, ""); err != nil {
-		log.Fatal(err)
-	}
-
+// Run запуск приложения
+func (a *app) Run() {
 	// ===telegram bot===
 	a.telegramClient.Run()
 }
