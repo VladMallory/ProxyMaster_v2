@@ -23,10 +23,28 @@ func (k *KeyboardBuilder) BuildFromSlice(options []string) tgbotapi.InlineKeyboa
 }
 
 // NewMainMenuKeyboard создает главное меню
-func NewMainMenuKeyboard(telegramSupport string) tgbotapi.InlineKeyboardMarkup {
+func NewMainMenuKeyboard(telegramSupport string, subscriptionUrl string) tgbotapi.InlineKeyboardMarkup {
+	// Если подписки нет (URL пустой), показываем предложение купить
+	if subscriptionUrl == "" {
+		return tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("📦 Оформить подписку", "tariffs"),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonURL("🆘 Поддержка", telegramSupport),
+			),
+		)
+	}
+
+	// Если есть подписка, показываем полное меню
+	connectBtn := tgbotapi.NewInlineKeyboardButtonURL("🔗 Подключить", subscriptionUrl)
+
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Тарифы", "tariffs"),
+			connectBtn,
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📦 Продлить подписку", "tariffs"),
 			tgbotapi.NewInlineKeyboardButtonData("👤 Личный кабинет", "profile"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
