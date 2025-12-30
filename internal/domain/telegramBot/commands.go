@@ -11,11 +11,14 @@ import (
 // StartCommand это /start
 type StartCommand struct {
 	kbBuilder *telegram.KeyboardBuilder
+	// Передаем ссылку на телеграмм
+	telegramSupport string
 }
 
-func NewStartCommand(kb *telegram.KeyboardBuilder) *StartCommand {
+func NewStartCommand(kb *telegram.KeyboardBuilder, telegramSupport string) *StartCommand {
 	return &StartCommand{
-		kbBuilder: kb,
+		kbBuilder:       kb,
+		telegramSupport: telegramSupport,
 	}
 }
 
@@ -25,12 +28,10 @@ func (s *StartCommand) Name() string {
 }
 
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать, выберите тариф:")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ShadowFade! Выберите раздел:")
 
-	// options := []string{"1 месяц", "2 месяца", "3 месяца"}
-	// msg.ReplyMarkup = s.kbBuilder.BuildFromSlice(options)
-
-	msg.ReplyMarkup = telegram.NewTrafficKeyboard()
+	// Отправляем клавиатуру с поддержкой
+	msg.ReplyMarkup = telegram.NewMainMenuKeyboard(s.telegramSupport)
 
 	_, err := bot.Send(msg)
 
