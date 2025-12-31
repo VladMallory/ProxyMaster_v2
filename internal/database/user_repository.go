@@ -28,13 +28,13 @@ func (s *UserStorage) CreateUser(user_data models.CreateUserTGDTO) (*models.User
 	RETURNING id, balance, trial, created_at
 	`
 
-	time.Now()
+	now := time.Now()
 	err := s.db.QueryRowx(
 		query,
 		user_data.ID,
 		user_data.Balance,
 		user_data.Trial,
-		time.Now,
+		now,
 	).StructScan(&user)
 	if err != nil {
 		slog.Error(
@@ -66,9 +66,9 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 }
 
 func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
-	var user *models.UserTG
+	var user models.UserTG
 	query := `
-	SELECT *
+	SELECT id, balance, trial, created_at
 	FROM users
 	WHERE id = $1
 	`
@@ -88,7 +88,7 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 			"error_message", err,
 		)
 	}
-	return user, nil
+	return &user, nil
 }
 
 //обновляет юзера, можно че кайф обновить(пока только баланс или триал), логику того, что обновляем будет писать в хэндлере бота
