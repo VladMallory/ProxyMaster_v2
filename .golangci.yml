@@ -5,8 +5,9 @@ run:
 linters:
   enable-all: true
   disable:
-    - mnd        # magic numbers — выключен
-    - nestif    # вложенные if — выключен
+    - mnd     # magic numbers — выключен
+    - nestif  # вложенные if — выключен
+    - tenv    # Устарел, заменяет usetesting
 
 linters-settings:
   # =========================

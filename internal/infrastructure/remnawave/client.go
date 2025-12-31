@@ -37,7 +37,7 @@ func NewRemnaClient(cfg *config.Config) *RemnaClient {
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	var userData models.GetUUIDByUsernameResponse
 	// /api/users/by-username/{username}
-	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnaSecretUrlToken)
+	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnaSecretURLToken)
 	rt := time.Now()
 
 	request, err := http.NewRequest("GET", url, nil)
@@ -107,7 +107,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	// указываем лимиты трафика
 	const oneGb int = 1024 * 1024 * 1024
 	// лимит 100 gb
-	var trafficLimit = 100 * oneGb
+	trafficLimit := 100 * oneGb
 
 	// заполняем структуру для remnawave, чтобы она указала параметры в панели
 	userData := &models.CreateRequestUserDTO{
@@ -125,7 +125,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	}
 
 	// формируем строку куда идет запрос
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
 
 	// время для логирования
 	start := time.Now()
@@ -180,7 +180,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 // ExtendClientSubscription продлевает подписку в панели
 func (c *RemnaClient) ExtendClientSubscription(userUUID string, username string, days int) error {
 	// формирует url для запроса в api с секретным token для прохода через Nginx
-	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
+	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
 
 	payload := models.BulkExtendRequest{
 		UUIDs: []string{userUUID},
@@ -232,7 +232,7 @@ func (c *RemnaClient) actionUrl(userUUID string, action string) string {
 		c.cfg.RemnaPanelURL,
 		userUUID,
 		action,
-		c.cfg.RemnaSecretUrlToken,
+		c.cfg.RemnaSecretURLToken,
 	)
 }
 
@@ -291,7 +291,7 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 
 // GetUserInfo - возвращает информацию
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
-	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretUrlToken)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -375,7 +375,7 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 	// делаем итоговую ссылку куда идем логиниться
 	// Сохраняем адрес в requestURL поскольку remna
 	// разрешает вход только по секретному адресу
-	requestURL := fmt.Sprintf("%s/api/auth/login?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretUrlToken)
+	requestURL := fmt.Sprintf("%s/api/auth/login?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
 
 	// Создаем запрос на отправку. Как письмо перед отправкой.
 	// Кладем итоговый путь и json который делали как паспорт при
