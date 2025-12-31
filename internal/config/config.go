@@ -25,7 +25,6 @@ type Config struct {
 
 	//database
 	DatabaseURL string
-	TelegramSupport string // Поддержка телеграмм при ошибках сервиса.
 }
 
 // New создает новый экземпляр конфигурации env.
