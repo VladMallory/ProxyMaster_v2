@@ -20,6 +20,9 @@ type Config struct {
 	// telegram
 	TelegramToken   string
 	TelegramSupport string // Поддержка телеграмм при ошибках сервиса
+
+	//database
+	DatabaseURL string
 }
 
 func New() (*Config, error) {
