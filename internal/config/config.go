@@ -1,21 +1,23 @@
+// Package config обращается к env, получает
+// данные и возвращает в виде структуры
 package config
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
 )
 
-// Config хранит глобальные настройки для панели
+// Config хранит глобальные настройки для панели.
 type Config struct {
 	// remnawave
-	RemnaPanelURL       string // Страница панели
-	RemnaSecretUrlToken string // Секретный токен для подключения
+	RemnaPanelURL       string // Страница панели.
+	RemnaSecretURLToken string // Секретный токен для подключения.
 	RemnaLogin          string // логин
 	RemnaPass           string // пароль
-	RemnaKey            string // Ключ для разработчика
-	RemnaSquadUUID      string // ID клана
+	RemnaKey            string // Ключ для разработчика.
+	RemnaSquadUUID      string // ID squad.
 
 	// telegram
 	TelegramToken   string
@@ -23,15 +25,19 @@ type Config struct {
 
 	//database
 	DatabaseURL string
+	TelegramSupport string // Поддержка телеграмм при ошибках сервиса.
 }
 
+// New создает новый экземпляр конфигурации env.
 func New() (*Config, error) {
+	// Загружаем переменные окружения из файла .env.
 	if err := godotenv.Load(); err != nil {
-		fmt.Println("не удалось загрузить .env")
+		log.Println("не удалось загрузить .env")
 	}
+
 	return &Config{
 		RemnaPanelURL:       os.Getenv("REMNA_BASE_PANEL"),
-		RemnaSecretUrlToken: os.Getenv("REMNA_SECRET_TOKEN"),
+		RemnaSecretURLToken: os.Getenv("REMNA_SECRET_TOKEN"),
 		RemnaLogin:          os.Getenv("REMNA_LOGIN"),
 		RemnaPass:           os.Getenv("REMNA_PASS"),
 		RemnaKey:            os.Getenv("REMNA_TOKEN"),
