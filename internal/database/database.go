@@ -11,12 +11,12 @@ func Connect(databaseURL string) (*sqlx.DB, error) {
 	db, err := sqlx.Connect("postgres", databaseURL)
 	if err != nil {
 		slog.Warn(
-			"Failed db connectio",
+			"Failed db connection",
 			"error_message", err,
 		)
 		return nil, err
 	}
-	db.SetMaxOpenConns(15)
+	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
 	return db, nil
 }
