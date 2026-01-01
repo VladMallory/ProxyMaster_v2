@@ -1,25 +1,31 @@
+// Package database for working with database
 package database
 
 import (
 	"ProxyMaster_v2/internal/models"
 	"database/sql"
+	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 )
 
+// UserStorage structure for working with users table
 type UserStorage struct {
 	db *sqlx.DB
 }
 
+// NewUserStorage is constructor for UserStorage struct
 func NewUserStorage(db *sqlx.DB) *UserStorage {
 	return &UserStorage{
 		db: db,
 	}
 }
 
-func (s *UserStorage) CreateUser(user_data models.CreateUserTGDTO) (*models.UserTG, error) {
+// CreateUser is method for creating user
+func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserTG, error) {
 	var user models.UserTG
 
 	query := `
@@ -31,9 +37,9 @@ func (s *UserStorage) CreateUser(user_data models.CreateUserTGDTO) (*models.User
 	now := time.Now()
 	err := s.db.QueryRowx(
 		query,
-		user_data.ID,
-		user_data.Balance,
-		user_data.Trial,
+		userData.ID,
+		userData.Balance,
+		userData.Trial,
 		now,
 	).StructScan(&user)
 	if err != nil {
@@ -41,11 +47,14 @@ func (s *UserStorage) CreateUser(user_data models.CreateUserTGDTO) (*models.User
 			"failed to create user",
 			"error_message", err,
 		)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to scan struct: %w", err)
 	}
+
 	return &user, nil
 }
 
+// GetAllUsers is method for getting all users
 func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 	var users []models.UserTG
 
@@ -60,11 +69,14 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 			"failed to get users",
 			"error_message", err,
 		)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to get all users: %w", err)
 	}
+
 	return users, nil
 }
 
+// GetUserByID is methos for getting user by id
 func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 	var user models.UserTG
 	query := `
@@ -74,13 +86,14 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 	`
 
 	if err := s.db.Get(&user, query, id); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			slog.Error(
 				"user not found",
 				"id", id,
 				"error_message", err,
 			)
-			return nil, err
+
+			return nil, fmt.Errorf("failed to get user by id: %w", err)
 		}
 		slog.Error(
 			"failed to get user",
@@ -88,12 +101,13 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 			"error_message", err,
 		)
 	}
+
 	return &user, nil
 }
 
-//обновляет юзера, можно че кайф обновить(пока только баланс или триал), логику того, что обновляем будет писать в хэндлере бота
-
-func (s *UserStorage) UpdateUser(id string, update_data models.UpdateUserTGDTO) (*models.UserTG, error) {
+// UpdateUser обновляет юзера, можно че кайф обновить(пока только баланс или триал), логику того,
+// что обновляем будет писать в хэндлере бота
+func (s *UserStorage) UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error) {
 	var updatedUser *models.UserTG
 
 	user, err := s.GetUserByID(id)
@@ -101,12 +115,12 @@ func (s *UserStorage) UpdateUser(id string, update_data models.UpdateUserTGDTO) 
 		return nil, err
 	}
 
-	if update_data.Balance != nil {
-		user.Balance = *update_data.Balance
+	if updateData.Balance != nil {
+		user.Balance = *updateData.Balance
 	}
 
-	if update_data.Trial != nil {
-		user.Trial = *update_data.Trial
+	if updateData.Trial != nil {
+		user.Trial = *updateData.Trial
 	}
 
 	query := `
@@ -124,11 +138,13 @@ func (s *UserStorage) UpdateUser(id string, update_data models.UpdateUserTGDTO) 
 	).StructScan(&updatedUser); err != nil {
 		slog.Error(
 			"failed to update user",
-			"update_data", update_data,
+			"updateData", updateData,
 			"updated_struct", updatedUser,
 			"error_message", err,
 		)
-		return nil, err
+
+		return nil, fmt.Errorf("failed to scan struct: %w", err)
 	}
+
 	return updatedUser, nil
 }
