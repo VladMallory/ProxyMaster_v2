@@ -1,4 +1,16 @@
 services:
+  app:
+    build: .
+    container_name: proxymaster_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgres://user:userspass@postgres:5432/usersdb?sslmode=disable
+    restart: always
+
   postgres:
     image: postgres:15-alpine
     
