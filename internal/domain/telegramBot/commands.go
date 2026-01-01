@@ -3,10 +3,11 @@
 package telegramBot
 
 import (
+	"strconv"
+
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/service"
-	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )

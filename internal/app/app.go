@@ -2,13 +2,14 @@
 package app
 
 import (
+	"fmt"
+
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/domain/telegramBot"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/service"
-	"fmt"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -56,8 +57,6 @@ func New() (Application, error) {
 	// Регистрируем обработчик кнопок
 	callbackHandler := telegramBot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
-
-	remnawaveClient.CreateUser("asdasdad", 30)
 
 	return &app{
 		remnawaveClient: remnawaveClient,

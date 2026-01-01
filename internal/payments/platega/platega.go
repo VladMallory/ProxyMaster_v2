@@ -81,7 +81,11 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 	if err != nil {
 		log.Fatal(fmt.Errorf("platega.CreateTransaction: GetResponseError: %v", err))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Println()
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

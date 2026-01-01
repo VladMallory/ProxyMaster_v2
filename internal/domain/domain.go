@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"ProxyMaster_v2/internal/models"
 	"context"
+
+	"ProxyMaster_v2/internal/models"
 )
 
 // RemnawaveClient - то как мы хотим получать информацию
