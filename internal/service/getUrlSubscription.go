@@ -1,3 +1,5 @@
+// Package service сервис по получению URL подписки,
+// взаимодействует с remnawave.
 package service
 
 import "ProxyMaster_v2/internal/domain"

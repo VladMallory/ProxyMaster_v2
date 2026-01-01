@@ -1,10 +1,11 @@
 package database
 
 import (
-	"ProxyMaster_v2/internal/models"
 	"database/sql"
 	"log/slog"
 	"time"
+
+	"ProxyMaster_v2/internal/models"
 
 	"github.com/jmoiron/sqlx"
 )

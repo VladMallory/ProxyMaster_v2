@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/models"
+
+	"github.com/google/uuid"
 )
 
 type RemnaClient struct {
@@ -65,6 +65,9 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("remnawave: не удалось получить ответ: %w", err)
 	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
