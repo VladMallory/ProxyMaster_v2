@@ -37,8 +37,10 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 			if err != nil {
 				return "", fmt.Errorf("ошибка создания пользователя: %w", err)
 			}
+
 			return fmt.Sprintf("пользователь %s создан на %d дней", username, totalDays), nil
 		}
+
 		return "", fmt.Errorf("ошибка поиска пользователя: %w", err)
 	}
 
@@ -46,7 +48,8 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 
 	err = s.remna.ExtendClientSubscription(userUUID, username, totalDays)
 	if err != nil {
-		return "", fmt.Errorf("ошибка продления подписки пользователю: %v %v", username, err)
+		return "", errors.New("ошибка продления подписки пользователю: " + username + " " + err.Error())
 	}
-	return fmt.Sprintf("подписка для пользователя %s продлена на %d дней", username, totalDays), nil
+
+	return "подписка для пользователя " + username + " продлена на " + strconv.Itoa(totalDays) + " дней", nil
 }
