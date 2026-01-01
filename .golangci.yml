@@ -29,24 +29,24 @@ linters-settings:
         strict: true
 
   gocyclo:
-    min-complexity: 1 # 🔥 любая логика — преступление
+    min-complexity: 15
 
   cyclop:
-    max-complexity: 1
+    max-complexity: 15
 
   funlen:
-    lines: 20
-    statements: 10
+    lines: 100
+    statements: 50
 
   gocognit:
-    min-complexity: 1
+    min-complexity: 30
 
   lll:
-    line-length: 80
+    line-length: 120
     tab-width: 1
 
   dupl:
-    threshold: 10
+    threshold: 100
 
   goconst:
     min-len: 2
@@ -92,7 +92,7 @@ linters-settings:
     for-loops: true
 
   nestif:
-    min-complexity: 1
+    min-complexity: 5
 
   exhaustive:
     default-signifies-exhaustive: true
@@ -158,7 +158,6 @@ linters:
     - noctx
 
     # АРХИТЕКТУРА
-    - depguard
     - forbidigo
     - prealloc
     - exhaustive

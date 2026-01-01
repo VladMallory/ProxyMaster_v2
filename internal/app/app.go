@@ -57,6 +57,7 @@ func New() (Application, error) {
 	// Регистрируем обработчик кнопок
 	callbackHandler := telegramBot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
+
 	return &app{
 		remnawaveClient: remnawaveClient,
 		telegramClient:  telegramClient,
