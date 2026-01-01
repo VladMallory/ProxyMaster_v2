@@ -1,12 +1,13 @@
 package service
 
 import (
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"errors"
 	"fmt"
 	"log"
 	"strconv"
+
+	"ProxyMaster_v2/internal/domain"
+	"ProxyMaster_v2/internal/infrastructure/remnawave"
 )
 
 // SubscriptionService представляет собой сервис для управления подписками клиентов с помощью remnawave.

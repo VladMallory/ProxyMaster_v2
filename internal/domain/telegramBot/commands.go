@@ -3,10 +3,12 @@
 package telegramBot
 
 import (
+	"log"
+	"strconv"
+
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/service"
-	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -37,12 +39,14 @@ func (s *StartCommand) Name() string {
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ShadowFade! Выберите раздел:")
 
-	urlSubscription := service.GetUrlSubscription(s.remnawaveClient, strconv.Itoa(update.Message.From.ID))
+	urlSubscription := service.GetURLSubscription(s.remnawaveClient, strconv.Itoa(update.Message.From.ID))
 
 	// Отправляем клавиатуру с поддержкой
 	msg.ReplyMarkup = telegram.NewMainMenuKeyboard(s.telegramSupport, urlSubscription)
 
 	_, err := bot.Send(msg)
-
-	return err
+	if err != nil {
+		log.Printf("ошибка отправки сообщения: %v", err)
+	}
+	return nil
 }
