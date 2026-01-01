@@ -15,5 +15,6 @@ func GetURLSubscription(remnawaveClient domain.RemnawaveClient, username string)
 	if err != nil {
 		return ""
 	}
-	return userInfo.Response.SubscriptionUrl
+
+	return userInfo.Response.SubscriptionURL
 }

@@ -99,6 +99,7 @@ type userTraffic struct {
 	LastConnectedNodeUUID    string    `json:"lastConnectedNodeUuid"`
 	FirstConnectedAt         time.Time `json:"firstConnectedAt"`
 }
+// GetUUIDByUsernameResponse описывает ответ сервера с информацией о пользователе по его UUID.
 type GetUUIDByUsernameResponse struct {
 	Response struct {
 		UUID                   string                `json:"uuid"`
@@ -134,22 +135,22 @@ type GetUUIDByUsernameResponse struct {
 // GetUserInfoResponse Ответ
 type GetUserInfoResponse struct {
 	Response struct {
-		Uuid                   string                `json:"uuid"`
-		Id                     int                   `json:"id"`
-		ShortUuid              string                `json:"shortUuid"`
+		UUID                   string                `json:"uuid"`
+		ID                     int                   `json:"id"`
+		ShortUUID              string                `json:"shortUuid"`
 		Username               string                `json:"username"`
 		Status                 string                `json:"status"`
 		TrafficLimitBytes      int                   `json:"trafficLimitBytes"`
 		TrafficLimitStrategy   string                `json:"trafficLimitStrategy"`
 		ExpireAt               time.Time             `json:"expireAt"`
-		TelegramId             *string               `json:"telegramId,omitempty"` // nullable field
+		TelegramID             *string               `json:"telegramId,omitempty"` // nullable field
 		Email                  *string               `json:"email,omitempty"`      // nullable field
 		Description            string                `json:"description"`
 		Tag                    *string               `json:"tag,omitempty"` // nullable field
-		HwidDeviceLimit        int                   `json:"hwidDeviceLimit"`
-		ExternalSquadUuid      *string               `json:"externalSquadUuid,omitempty"` // nullable field
+		HWIDDeviceLimit        int                   `json:"hwidDeviceLimit"`
+		ExternalSquadUUID      *string               `json:"externalSquadUuid,omitempty"` // nullable field
 		TrojanPassword         string                `json:"trojanPassword"`
-		VlessUuid              string                `json:"vlessUuid"`
+		VlessUUID              string                `json:"vlessUuid"`
 		SsPassword             string                `json:"ssPassword"`
 		LastTriggeredThreshold int                   `json:"lastTriggeredThreshold"`
 		SubRevokedAt           time.Time             `json:"subRevokedAt"`
@@ -158,7 +159,7 @@ type GetUserInfoResponse struct {
 		LastTrafficResetAt     *time.Time            `json:"lastTrafficResetAt,omitempty"` // nullable field
 		CreatedAt              time.Time             `json:"createdAt"`
 		UpdatedAt              time.Time             `json:"updatedAt"`
-		SubscriptionUrl        string                `json:"subscriptionUrl"`
+		SubscriptionURL        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
 		UserTraffic            userTraffic           `json:"userTraffic"`
 	} `json:"response"`
