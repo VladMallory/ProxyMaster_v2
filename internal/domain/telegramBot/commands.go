@@ -39,7 +39,7 @@ func (s *StartCommand) Name() string {
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ShadowFade! Выберите раздел:")
 
-	urlSubscription := service.GetUrlSubscription(s.remnawaveClient, strconv.Itoa(update.Message.From.ID))
+	urlSubscription := service.GetURLSubscription(s.remnawaveClient, strconv.Itoa(update.Message.From.ID))
 
 	// Отправляем клавиатуру с поддержкой
 	msg.ReplyMarkup = telegram.NewMainMenuKeyboard(s.telegramSupport, urlSubscription)

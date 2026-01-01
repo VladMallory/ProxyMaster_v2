@@ -52,7 +52,7 @@ func (h *CallbackHandler) Handle(update tgbotapi.Update, bot *tgbotapi.BotAPI) e
 		msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "Добро пожаловать в ProxyMaster! Выберите раздел:")
 		// Создаем клавиатуру с ссылкой на поддержку
 
-		urlSubscription := service.GetUrlSubscription(h.remnawaveClient, strconv.Itoa(userID))
+		urlSubscription := service.GetURLSubscription(h.remnawaveClient, strconv.Itoa(userID))
 		keyboard := telegram.NewMainMenuKeyboard(h.telegramSupport, urlSubscription)
 
 		msg.ReplyMarkup = &keyboard
