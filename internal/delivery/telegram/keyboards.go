@@ -5,9 +5,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+// KeyboardBuilder новый экземпляр.
 type KeyboardBuilder struct{}
 
-// KeyboardBuilder конструктор
+// NewKeyboardBuilder конструктор.
 func NewKeyboardBuilder() *KeyboardBuilder {
 	return &KeyboardBuilder{}
 }
@@ -23,9 +24,9 @@ func (k *KeyboardBuilder) BuildFromSlice(options []string) tgbotapi.InlineKeyboa
 }
 
 // NewMainMenuKeyboard создает главное меню
-func NewMainMenuKeyboard(telegramSupport string, subscriptionUrl string) tgbotapi.InlineKeyboardMarkup {
+func NewMainMenuKeyboard(telegramSupport, subscriptionURL string) tgbotapi.InlineKeyboardMarkup {
 	// Если подписки нет (URL пустой), показываем предложение купить
-	if subscriptionUrl == "" {
+	if subscriptionURL == "" {
 		return tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("📦 Оформить подписку", "tariffs"),
@@ -37,7 +38,7 @@ func NewMainMenuKeyboard(telegramSupport string, subscriptionUrl string) tgbotap
 	}
 
 	// Если есть подписка, показываем полное меню
-	connectBtn := tgbotapi.NewInlineKeyboardButtonURL("🔗 Подключить", subscriptionUrl)
+	connectBtn := tgbotapi.NewInlineKeyboardButtonURL("🔗 Подключить", subscriptionURL)
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
