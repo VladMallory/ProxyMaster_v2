@@ -21,6 +21,16 @@ docker-build:
 docker: docker-build
 	docker run --env-file .env proxymaster_v2
 
+dc:
+	docker compose up -d
+	docker compose logs -f
+
+dcl:
+	docker compose logs -f
+
+dcd:
+	docker compose down
+
 # эмуляция под linux
 docker-build-linux:
 	docker build --platform linux/amd64 -t proxymaster_v2 .
