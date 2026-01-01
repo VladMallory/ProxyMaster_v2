@@ -1,79 +1,126 @@
-run:
-  timeout: 5m
-  tests: true
+version: "2"
 
+run:
+  timeout: 10m
+  tests: true
+  go: "1.25"
+
+# =========================
+# ===== FORMATTERS =======
+# =========================
+# Production-safe, idempotent, no conflicts
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - gci
+
+# =========================
+# ===== LINTERS ==========
+# =========================
 linters:
   enable-all: true
   disable:
-    - mnd     # magic numbers — выключен
-    - nestif  # вложенные if — выключен
-    - tenv    # Устарел, заменяет usetesting
+    # --- noisy / subjective / low value ---
+    - wsl
+    - godot
+    - gomoddirectives
+    - mnd
+    - nestif
+    - nlreturn
+    - exhaustruct
+    - nonamedreturns
+    - paralleltest
+    - testpackage
 
+# =========================
+# ===== LINTER SETTINGS ==
+# =========================
 linters-settings:
-  # =========================
-  # ===== STYLE / DOCS =====
-  # =========================
+
+  # ---------- STYLE / DOCS ----------
   revive:
+    severity: error
     rules:
       - name: exported
-        severity: error
-        arguments:
-          - "checkPrivateReceivers"
+        arguments: ["checkPrivateReceivers"]
       - name: package-comments
-        severity: error
       - name: var-naming
       - name: line-length-limit
-        arguments: [120]
+        arguments: [100]
+      - name: unexported-return
+      - name: confusing-naming
+      - name: early-return
+      - name: defer
+      - name: modifies-parameter
 
   stylecheck:
     checks:
       - all
-      - -ST1000
-      - -ST1003
-
-  whitespace: {}
-  misspell: {}
 
   lll:
-    line-length: 120
+    line-length: 100
 
-  # =========================
-  # ===== ERRORS ===========
-  # =========================
+  whitespace:
+    multi-if: true
+    multi-func: true
+
+  misspell:
+    locale: US
+
+  # ---------- ERRORS ----------
   errcheck:
     check-type-assertions: true
     check-blank: true
+    disable-default-exclusions: true
 
   wrapcheck:
+    strict: true
     ignoreSigs:
-      - .Errorf(
+      - fmt.Errorf(
       - errors.New(
 
-  bodyclose: {}
-  nilnil: {}
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
 
-  # =========================
-  # ===== COMPLEXITY =======
-  # =========================
+  nilnil:
+    detect-nil-interface: true
+
+  bodyclose:
+    check-defer: true
+
+  # ---------- COMPLEXITY ----------
   gocyclo:
-    min-complexity: 5
+    min-complexity: 3
+
+  cyclop:
+    max-complexity: 5
 
   funlen:
-    lines: 40
-    statements: 20
+    lines: 30
+    statements: 15
 
-  dupl: {}
+  maintidx:
+    under: 20
 
-  # =========================
-  # ===== PERFORMANCE ======
-  # =========================
-  prealloc: {}
-  unparam: {}
-  unconvert: {}
+  dupl:
+    threshold: 70
 
-  # =========================
-  # ===== DEEP ANALYSIS ====
-  # =========================
+  # ---------- PERFORMANCE ----------
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: true
+
+  unparam:
+    check-exported: true
+
+  makezero:
+    always: true
+
+  # ---------- DEEP ANALYSIS ----------
   gocritic:
     enabled-tags:
       - diagnostic
@@ -81,24 +128,40 @@ linters-settings:
       - performance
       - opinionated
       - experimental
+      - security
     disabled-checks:
       - unnamedResult
 
-  govet: {}
-  staticcheck: {}
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  staticcheck:
+    checks:
+      - all
+
   gosimple: {}
   ineffassign: {}
   unused: {}
   typecheck: {}
 
-  # =========================
-  # ===== SECURITY =========
-  # =========================
-  gosec: {}
+  # ---------- SECURITY ----------
+  gosec:
+    severity: high
+    confidence: high
 
-  # =========================
-  # ===== POLICY ===========
-  # =========================
+  # ---------- IMPORTS ----------
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(ProxyMaster_v2)
+
+  goimports:
+    local-prefixes: ProxyMaster_v2
+
+  # ---------- POLICY ----------
   depguard:
     rules:
       Main:
@@ -109,16 +172,21 @@ linters-settings:
             desc: "main must not import external packages directly"
 
   varnamelen:
-    min-name-length: 3
+    min-name-length: 4
+    max-distance: 5
 
   exhaustive:
-    default-signifies-exhaustive: false
+    default-signifies-exhaustive: true
 
   tagliatelle:
     case:
       rules:
         json: snake
+        yaml: snake
 
+# =========================
+# ===== ISSUES ===========
+# =========================
 issues:
   exclude-use-default: false
   max-issues-per-linter: 0
