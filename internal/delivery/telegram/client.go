@@ -1,3 +1,4 @@
+// Package telegram реализация работы с telegram api
 package telegram
 
 import (
@@ -121,5 +122,9 @@ func (c *Client) initUpdatesChannel() (tgbotapi.UpdatesChannel, error) {
 	// сколько ждем
 	u.Timeout = 60
 
-	return c.bot.GetUpdatesChan(u)
+	updates, err := c.bot.GetUpdatesChan(u)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения канала обновлений: %w", err)
+	}
+	return updates, nil
 }
