@@ -3,6 +3,7 @@
 package telegramBot
 
 import (
+	"log"
 	"strconv"
 
 	"ProxyMaster_v2/internal/delivery/telegram"
@@ -44,6 +45,8 @@ func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) err
 	msg.ReplyMarkup = telegram.NewMainMenuKeyboard(s.telegramSupport, urlSubscription)
 
 	_, err := bot.Send(msg)
-
-	return err
+	if err != nil {
+		log.Printf("ошибка отправки сообщения: %v", err)
+	}
+	return nil
 }
