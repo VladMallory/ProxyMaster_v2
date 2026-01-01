@@ -28,6 +28,9 @@ type Config struct {
 
 	// platega
 	PlategaAPIKey string
+
+	// Logger
+	LoggerLevel string
 }
 
 // New создает новый экземпляр конфигурации env.
@@ -48,5 +51,6 @@ func New() (*Config, error) {
 		TelegramSupport:     os.Getenv("TELEGRAM_SUPPORT"),
 		DatabaseURL:         os.Getenv("DATABASE_URL"),
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),
+		LoggerLevel:         os.Getenv("LOGGER_LEVEL"),
 	}, nil
 }
