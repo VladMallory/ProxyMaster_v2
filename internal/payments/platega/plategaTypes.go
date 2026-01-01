@@ -1,7 +1,10 @@
 // Package platega описывает взаимодействие с платежной системой Platega.
 package platega
 
-import "net/http"
+import (
+	"ProxyMaster_v2/pkg/logger"
+	"net/http"
+)
 
 // PaymentMethod методы оплаты, которые принимает platega.
 type PaymentMethod int
@@ -36,7 +39,7 @@ type CreateTransactionRequest struct {
 
 // PaymentDetails детали оплаты
 type PaymentDetails struct {
-	Amount   int    `json:"amount,string"` // мб можно и флоат64?
+	Amount   int    `json:"amount,string"` // мб можно и флоат64? Илья: не можно
 	Currency string `json:"currency"`
 }
 
@@ -45,6 +48,7 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+	logger     logger.Logger
 }
 
 // CreateTransactionResponse то что возвращает platega при создании транзакции.

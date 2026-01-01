@@ -2,25 +2,37 @@
 package platega
 
 import (
+	"ProxyMaster_v2/pkg/logger"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
 )
 
 // NewClient создает новый экземпляр клиента Platega.
-func NewClient(apiKey string) *Client {
+func NewClient(apiKey string, l logger.Logger) *Client {
 	return &Client{
 		baseURL: "https://app.platega.io",
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		logger: l,
+	}
+}
+
+// logDuration логирует время выполнения метода.
+func (c *Client) logDuration(method string) func() {
+	start := time.Now()
+	return func() {
+		c.logger.Info("вызов метода завершен",
+			logger.Field{Key: "method", Value: method},
+			logger.Field{Key: "duration", Value: time.Since(start)},
+		)
 	}
 }
 
@@ -38,6 +50,7 @@ func (c *Client) CreateTransaction(
 	currency Currency,
 	description, payload string,
 ) (URL string, err error) {
+	defer c.logDuration("CreateTransaction")
 	merchantID := os.Getenv("PLATEGA_MERCHANT_ID")
 	if merchantID == "" {
 		return "", fmt.Errorf("platega.CreateTransaction: MERCHANT_ID не установлен в .env")
@@ -95,7 +108,12 @@ func (c *Client) CreateTransaction(
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("platega.CreateTransaction: ошибка при закрытии тела ответа: %v", closeErr)
+			c.logger.Error(
+				"ошибка про закрытии тела ответа",
+				logger.Field{Key: "method", Value: "CreateTransaction"},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+
 		}
 	}()
 
