@@ -57,6 +57,8 @@ func New() (Application, error) {
 	callbackHandler := telegramBot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
 
+	remnawaveClient.CreateUser("asdasdad", 30)
+
 	return &app{
 		remnawaveClient: remnawaveClient,
 		telegramClient:  telegramClient,

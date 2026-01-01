@@ -1,11 +1,13 @@
+// Package remnawave клиент для работы с RemnaWave API.
+//
+//nolint:gocyclo,funlen // Вынужденная мера, чтобы не усложнять код и он был более читаемым.
 package remnawave
 
 import (
-	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/internal/models"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +17,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"ProxyMaster_v2/internal/config"
+	"ProxyMaster_v2/internal/models"
 )
 
 type RemnaClient struct {
@@ -24,26 +29,33 @@ type RemnaClient struct {
 
 // NewRemnaClient конструктор для создания клиента.
 func NewRemnaClient(cfg *config.Config) *RemnaClient {
-	fmt.Println("Создан экземпляр RemnaClient")
+	log.Println("Создан экземпляр RemnaClient")
+
 	return &RemnaClient{
 		cfg: cfg,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Хорошая практика: всегда задавать тайм-аут
+			// Хорошая практика: всегда задавать тайм-аут.
+			Timeout: 10 * time.Second,
+			// Указываем все поля, так как ругаются линтер.
+			Transport:     nil,
+			CheckRedirect: nil,
+			Jar:           nil,
 		},
 	}
 }
 
-// GetUUIDByUsername - метод нахождения пользователя через username
+// GetUUIDByUsername - метод нахождения пользователя через username.
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	var userData models.GetUUIDByUsernameResponse
 	// /api/users/by-username/{username}
 	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnaSecretURLToken)
-	rt := time.Now()
+	timeStart := time.Now()
 
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		slog.Error(err.Error())
-		return "", err
+
+		return "", fmt.Errorf("remnawave: не удалось создать request: %w", err)
 	}
 
 	request.Header.Add("Content-Type", "application/json")
@@ -51,8 +63,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		slog.Error("не удалось получить ответ")
-		return "", err
+		return "", fmt.Errorf("remnawave: не удалось получить ответ: %w", err)
 	}
 
 	body, err := io.ReadAll(response.Body)
@@ -62,44 +73,46 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 
 	if err := json.Unmarshal(body, &userData); err != nil {
 		slog.Error("не удалось распарсить тело ответа")
-		return "", err
+
+		return "", fmt.Errorf("remnawave: не удалось распарсить тело ответа: %w", err)
 	}
 
 	switch response.StatusCode {
-
 	case http.StatusBadRequest:
 		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestUsername.Error(), string(body)))
+
 		return "", ErrBadRequestUsername
 
 	case http.StatusInternalServerError:
 		slog.Error(ErrInternalServerError.Error())
+
 		return "", ErrInternalServerError
 
 	case http.StatusNotFound:
 		slog.Error(ErrNotFound.Error())
+
 		return "", ErrNotFound
 	}
 
 	slog.Info(
 		"getting UUID succeeded",
-		"time taken", time.Since(rt),
+		"time taken", time.Since(timeStart),
 		"status code", response.StatusCode,
 		"username", userData.Response.Username,
 	)
 
 	// проверка что не nil ответ, дабы не повторять что было
 	if userData.Response.UUID == "" || userData.Response.Username == "" {
-		return "", fmt.Errorf("UUID or Username Is nil")
+		return "", errors.New("UUID or Username Is nil")
 	}
 
 	return userData.Response.UUID, nil
 }
 
-// CreateUser создает нового клиента в remnawave. Если уже
-// существует клиент, нечего не делает (дает ошибку о неверном запросе)
+// CreateUser создает пользователя в панели.
 func (c *RemnaClient) CreateUser(username string, days int) error {
 	if days <= 0 {
-		return fmt.Errorf("дней не может быть ноль при создании подписки")
+		return errors.New("дней не может быть ноль при создании подписки")
 	}
 
 	now := time.Now().UTC()
@@ -109,18 +122,20 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	// лимит 100 gb
 	trafficLimit := 100 * oneGb
 
-	// заполняем структуру для remnawave, чтобы она указала параметры в панели
+	// Заполняем структуру для remnawave, чтобы она указала параметры в панели.
 	userData := &models.CreateRequestUserDTO{
 		Username:             username,
 		Status:               "ACTIVE",
-		TrojanPassword:       newShortSecret(), // пароль для протокола Trojan
+		TrojanPassword:       newShortSecret(), // Пароль для протокола Trojan.
 		VLessUUID:            uuid.NewString(),
-		SsPassword:           newShortSecret(), // пароль для shadow socks
-		TrafficLimitBytes:    trafficLimit,     // устанавливаем лимит трафика
-		TrafficLimitStrategy: "MONTH",          // период сброса трафика
+		SsPassword:           newShortSecret(), // Пароль для shadow socks.
+		ShortUUID:            newShortSecret(), // Короткий uuid для идентификации.
+		TrafficLimitBytes:    trafficLimit,     // Устанавливаем лимит трафика.
+		TrafficLimitStrategy: "MONTH",          // Период сброса трафика.
 		ExpireAt:             now.AddDate(0, 0, days).Format(time.RFC3339),
 		CreatedAt:            now.Format(time.RFC3339),
 		LastTrafficResetAt:   now.Format(time.RFC3339),
+		Description:          "Created via ProxyMaster",
 		ActiveInternalSquads: []string{c.cfg.RemnaSquadUUID},
 	}
 
@@ -132,14 +147,12 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 
 	jsonData, err := json.Marshal(userData)
 	if err != nil {
-		slog.Error("ошибка создания json тела запроса")
-		return err
+		return fmt.Errorf("remnawave: не удалось создать тело запроса: %w", err)
 	}
 
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		slog.Error("не удалось создать запрос")
-		return err
+		return fmt.Errorf("remnawave: не удалось создать request: %w", err)
 	}
 
 	request.Header.Add("Content-Type", "application/json")
@@ -147,9 +160,9 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		slog.Error("не удалось получить ответ")
-		return err
+		return fmt.Errorf("remnawave: не удалось получить ответ: %w", err)
 	}
+
 	defer func() {
 		if err := response.Body.Close(); err != nil {
 			return
@@ -162,23 +175,28 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 		if err != nil {
 			slog.Warn("не удалось преобразовать тело ответа")
 		}
+
 		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestCreate.Error(), string(body)))
+
 		return ErrBadRequestCreate
 	case http.StatusInternalServerError:
 		slog.Error(ErrInternalServerError.Error())
+
 		return ErrInternalServerError
 	}
+
 	slog.Info(
 		"User created",
 		"time taken", time.Since(start),
 		"status code", http.StatusCreated,
 		"username", userData.Username,
 	)
+
 	return nil
 }
 
-// ExtendClientSubscription продлевает подписку в панели
-func (c *RemnaClient) ExtendClientSubscription(userUUID string, username string, days int) error {
+// ExtendClientSubscription продлевает подписку в панели.
+func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days int) error {
 	// формирует url для запроса в api с секретным token для прохода через Nginx
 	url := fmt.Sprintf("%s/api/users/bulk/extend-expiration-date?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
 
@@ -186,47 +204,55 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID string, username string,
 		UUIDs: []string{userUUID},
 		Days:  days,
 	}
+
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("ошибка маршалинга тела запроса: %w", err)
 	}
 
 	// создаем запрос
-	request, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return err
+		return fmt.Errorf("remnawave: не удалось создать request: %w", err)
 	}
+
 	request.Header.Add("Content-Type", "application/json")
+
 	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	// делаем запрос и получаем ответ
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return err
+		return fmt.Errorf("remnawave: не удалось получить ответ: %w", err)
 	}
+
 	defer func() {
 		if err := response.Body.Close(); err != nil {
 			return
 		}
 	}()
 
-	// если соединение прошло, то все отлично
+	// Если соединение прошло, то все отлично.
 	if response.StatusCode == http.StatusOK {
 		log.Printf("remnawave: период подписки клиента: %s. UUID: %s увеличен на %d дней.\n", username, userUUID, days)
 	} else {
-		// ну плохо все
+		// Если соединения нету.
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			log.Println("remnawave: не удалось преобразовать тело ответа")
-			return fmt.Errorf("remnawave: не удалось преобразовать тело ответа")
+
+			return errors.New("remnawave: не удалось преобразовать тело ответа")
 		}
+
 		log.Printf("remnawave: не удалось увеличить период подписки клиента: %s. UUID: %s. Тело ошибки: %s.\n", username, userUUID, string(body))
-		return fmt.Errorf("remnawave: не удалось увеличить период подписки")
+
+		return errors.New("remnawave: не удалось увеличить период подписки")
 	}
+
 	return nil
 }
 
-// actionUrl отдаем методам строку, чтобы избежать дублирование кода в методах
+// actionUrl отдаем методам строку, чтобы избежать дублирование кода в методах.
 func (c *RemnaClient) actionUrl(userUUID string, action string) string {
 	return fmt.Sprintf("%s/api/users/%s/actions/%s?%s",
 		c.cfg.RemnaPanelURL,
@@ -236,21 +262,22 @@ func (c *RemnaClient) actionUrl(userUUID string, action string) string {
 	)
 }
 
-// changeUserState изменяет состояние пользователя в панели Remnawave
-func (c *RemnaClient) changeUserState(userUUID string, action string) error {
+// changeUserState изменяет состояние пользователя в панели Remnawave.
+func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	url := c.actionUrl(userUUID, action)
 
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, url, http.NoBody)
 	if err != nil {
-		return err
+		return fmt.Errorf("remnawave: не удалось создать request: %w", err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("remnawave: не удалось получить ответ: %w", err)
 	}
+
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			return
@@ -269,53 +296,64 @@ func (c *RemnaClient) changeUserState(userUUID string, action string) error {
 	return nil
 }
 
-// EnableClient включает клиента в панели remnawave
+// EnableClient включает клиента в панели remnawave.
 func (c *RemnaClient) EnableClient(userUUID string) error {
 	if err := c.changeUserState(userUUID, "enable"); err != nil {
 		return err
 	}
 
 	slog.Info("Пользователь успешно включен")
+
 	return nil
 }
 
-// DisableClient выключает подписку в панели
+// DisableClient выключает подписку в панели.
 func (c *RemnaClient) DisableClient(userUUID string) error {
 	if err := c.changeUserState(userUUID, "disable"); err != nil {
 		return err
 	}
 
 	slog.Info("Пользователь успешно выключен")
+
 	return nil
 }
 
-// GetUserInfo - возвращает информацию
+// GetUserInfo - возвращает информацию.
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
 	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: NewRequestError: %v", err)
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: NewRequestError: %w", err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: GetResponseError: %v", err)
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: GetResponseError: %w", err)
 	}
 
-	switch resp.StatusCode {
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			return
+		}
+	}()
 
+	switch resp.StatusCode {
 	case http.StatusNotFound:
 		slog.Error(ErrNotFound.Error())
+
 		return models.GetUserInfoResponse{}, ErrNotFound
 
 	case http.StatusInternalServerError:
 		slog.Error(ErrInternalServerError.Error())
+
 		return models.GetUserInfoResponse{}, ErrInternalServerError
 
 	case http.StatusBadRequest:
 		slog.Error(ErrBadRequestUUID.Error())
+
 		return models.GetUserInfoResponse{}, ErrBadRequestUUID
 	}
 
@@ -324,12 +362,12 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 	// возвращение пустой структуры и ошибки
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: ReadBodyError")
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: %w", ErrReadBody)
 	}
 
 	// возвращение пустой структуры и ошибки
 	if err := json.Unmarshal(body, &userInfo); err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: UnmarshallingError")
+		return models.GetUserInfoResponse{}, fmt.Errorf("remnaClient.GetUserInfo: %w", ErrUnmarshal)
 	}
 
 	return userInfo, nil
@@ -349,23 +387,24 @@ func newShortSecret() string {
 	if len(raw) <= 31 {
 		return raw
 	}
+
 	return raw[:31]
 }
 
 // ====LEGACY====
 // НЕ ИСПОЛЬЗУЕТСЯ
 
-// Deprecated: Login является legacy-методом и сохранён на случай если понадобится снова
-// В текущей реализации клиент использует секретный URL,
-// поэтому аутентификация не требуется и метод можно не вызывать
+// поэтому аутентификация не требуется и метод можно не вызывать.
+//
+//nolint:funlen // Метод является устаревшим (legacy) и не подлежит рефакторингу.
 func (c *RemnaClient) Login(ctx context.Context, username, password string) error {
-	// подготавливаем данные для входа в панель
+	// Подготавливаем данные для входа в панель.
 	reqBody := models.LoginRequest{
 		Username: username,
 		Password: password,
 	}
 
-	// превращаем верхнюю структуру из go кода в json чтобы панель нас поняла
+	// Превращаем верхнюю структуру из go кода в json чтобы панель нас поняла.
 	// {"username":"admin","password":1234"}
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
@@ -397,6 +436,7 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 	if err != nil {
 		return fmt.Errorf("ошибка отправки запроса: %w", err)
 	}
+
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
 			slog.Error(
@@ -422,7 +462,8 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 			"status_code", resp.StatusCode,
 			"response_body", string(bodyBytes),
 		)
-		return fmt.Errorf("ошибка входа: %d, ответ: %s", resp.StatusCode, string(bodyBytes))
+
+		return fmt.Errorf("ошибка входа: %d, тело: %s: %w", resp.StatusCode, string(bodyBytes), ErrLoginFailed)
 	}
 
 	var loginResp models.LoginResponse
@@ -441,5 +482,6 @@ func (c *RemnaClient) Login(ctx context.Context, username, password string) erro
 		"status", resp.Status,
 		"response_body", string(bodyBytes),
 	)
+
 	return nil
 }

@@ -21,11 +21,10 @@ type Config struct {
 
 	// telegram
 	TelegramToken   string
-	TelegramSupport string // Поддержка телеграмм при ошибках сервиса
-
-	//database
-	DatabaseURL string
 	TelegramSupport string // Поддержка телеграмм при ошибках сервиса.
+
+	// database
+	DatabaseURL string
 }
 
 // New создает новый экземпляр конфигурации env.
@@ -44,5 +43,6 @@ func New() (*Config, error) {
 		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
 		TelegramSupport:     os.Getenv("TELEGRAM_SUPPORT"),
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
 	}, nil
 }
