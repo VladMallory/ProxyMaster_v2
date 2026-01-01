@@ -124,7 +124,11 @@ func (h *CallbackHandler) Handle(update tgbotapi.Update, bot *tgbotapi.BotAPI) e
 		// Отправляем успешный ответ пользователю
 		msg := tgbotapi.NewMessage(int64(userID), resultMsg)
 		_, err = bot.Send(msg)
-		return err
+		if err != nil {
+			log.Println("ошибка отправки сообщения:", err)
+		}
+
+		return nil
 	}
 
 	return nil

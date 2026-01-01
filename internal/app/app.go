@@ -30,7 +30,7 @@ func New() (Application, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ошибка загрузки конфигурации: %w", err)
 	}
 
 	// ===remnawave===
@@ -57,7 +57,6 @@ func New() (Application, error) {
 	// Регистрируем обработчик кнопок
 	callbackHandler := telegramBot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
-
 	return &app{
 		remnawaveClient: remnawaveClient,
 		telegramClient:  telegramClient,
