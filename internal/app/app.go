@@ -10,6 +10,7 @@ import (
 	"ProxyMaster_v2/internal/domain/telegramBot"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/service"
+	"ProxyMaster_v2/pkg/logger"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -33,8 +34,18 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка загрузки конфигурации: %w", err)
 	}
 
+	// ===logger===
+	// Инициализируем главный логгер.
+	logger, err := logger.New(cfg.LoggerLevel)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
+	}
+
+	// Создаем logger для remnawave.
+	remnawaveLogger := logger.Named("remnawave")
+
 	// ===remnawave===
-	remnawaveClient := remnawave.NewRemnaClient(cfg)
+	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
 	// ===services===
 	subService := service.NewSubscriptionService(remnawaveClient)

@@ -50,6 +50,8 @@ func New(level string) (Logger, error) {
 
 	// Настройка формата времени
 	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	// Настройка формата длительности (например, "1.5s" вместо числа наносекунд)
+	cfg.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
 
 	// AddCallerSkil(1) нужен, чтобы в логах указывалось место вызова методов
 	// интерфейса, а не методов обертки zapLogger.

@@ -18,18 +18,33 @@ import (
 
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/models"
+	"ProxyMaster_v2/pkg/logger"
 
 	"github.com/google/uuid"
 )
 
+// RemnaClient описывает то что нужно для работы remnawave.
 type RemnaClient struct {
 	cfg        *config.Config
 	httpClient *http.Client
+	// Храним логгер здесь для обращения к нему
+	logger logger.Logger
+}
+
+// logDuration логирует время выполнения метода.
+func (c *RemnaClient) logDuration(method string) func() {
+	start := time.Now()
+	return func() {
+		c.logger.Info("вызов метода завершен",
+			logger.Field{Key: "method", Value: method},
+			logger.Field{Key: "duration", Value: time.Since(start)},
+		)
+	}
 }
 
 // NewRemnaClient конструктор для создания клиента.
-func NewRemnaClient(cfg *config.Config) *RemnaClient {
-	log.Println("Создан экземпляр RemnaClient")
+func NewRemnaClient(cfg *config.Config, l logger.Logger) *RemnaClient {
+	l.Info("Создан экземпляр remnawave")
 
 	return &RemnaClient{
 		cfg: cfg,
@@ -41,15 +56,17 @@ func NewRemnaClient(cfg *config.Config) *RemnaClient {
 			CheckRedirect: nil,
 			Jar:           nil,
 		},
+		logger: l,
 	}
 }
 
 // GetUUIDByUsername - метод нахождения пользователя через username.
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
+	defer c.logDuration("GetUUIDByUsername")()
+
 	var userData models.GetUUIDByUsernameResponse
 	// /api/users/by-username/{username}
 	url := fmt.Sprintf("%s/api/users/by-username/%s?%s", c.cfg.RemnaPanelURL, username, c.cfg.RemnaSecretURLToken)
-	timeStart := time.Now()
 
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
@@ -97,11 +114,10 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		return "", ErrNotFound
 	}
 
-	slog.Info(
-		"getting UUID succeeded",
-		"time taken", time.Since(timeStart),
-		"status code", response.StatusCode,
-		"username", userData.Response.Username,
+	c.logger.Info(
+		"получен UUID пользователя",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "uuid", Value: userData.Response.UUID},
 	)
 
 	// проверка что не nil ответ, дабы не повторять что было

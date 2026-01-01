@@ -21,13 +21,15 @@ docker-build:
 docker: docker-build
 	docker run --env-file .env proxymaster_v2
 
-dc:
-	docker compose up -d
+# Запустить докер без отображения логов
+dc: dcd
+	docker compose up -d --build
+
+# Запустить с показом логгов
+dcl: dc
 	docker compose logs -f
 
-dcl:
-	docker compose logs -f
-
+# Остановить докер
 dcd:
 	docker compose down
 
