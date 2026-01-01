@@ -1,125 +1,184 @@
-run:
-  timeout: 5m
-  tests: true
+version: "2"
 
-linters:
-  enable-all: true
-  disable:
-    - mnd     # magic numbers — выключен
-    - nestif  # вложенные if — выключен
-    - tenv    # Устарел, заменяет usetesting
+run:
+  timeout: 10m
+  tests: true
+  issues-exit-code: 1
+  skip-dirs-use-default: false
+  allow-parallel-runners: true
+
+output:
+  format: colored-line-number
+  sort-results: true
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: false
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
+  fix: false
 
 linters-settings:
-  # =========================
-  # ===== STYLE / DOCS =====
-  # =========================
-  revive:
-    rules:
-      - name: exported
-        severity: error
-        arguments:
-          - "checkPrivateReceivers"
-      - name: package-comments
-        severity: error
-      - name: var-naming
-      - name: line-length-limit
-        arguments: [120]
 
-  stylecheck:
-    checks:
-      - all
-      - -ST1000
-      - -ST1003
+  govet:
+    enable-all: true
+    settings:
+      shadow:
+        strict: true
 
-  whitespace: {}
-  misspell: {}
+  gocyclo:
+    min-complexity: 15
+
+  cyclop:
+    max-complexity: 15
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  gocognit:
+    min-complexity: 30
 
   lll:
     line-length: 120
+    tab-width: 1
 
-  # =========================
-  # ===== ERRORS ===========
-  # =========================
+  dupl:
+    threshold: 100
+
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+
+  misspell:
+    locale: US
+
+  whitespace:
+    multi-if: true
+    multi-func: true
+
   errcheck:
     check-type-assertions: true
     check-blank: true
 
-  wrapcheck:
-    ignoreSigs:
-      - .Errorf(
-      - errors.New(
+  revive:
+    confidence: 0.0
+    rules:
+      - name: var-naming
+      - name: line-length-limit
+      - name: function-length
+      - name: cognitive-complexity
+      - name: deep-exit
+      - name: argument-limit
+        arguments: [3]
+      - name: file-header
+      - name: unhandled-error
+      - name: bare-return
+      - name: early-return
+      - name: confusing-results
+      - name: superfluous-else
+      - name: useless-break
+      - name: struct-tag
+      - name: unnecessary-stmt
 
-  bodyclose: {}
-  nilnil: {}
+  staticcheck:
+    checks: ["all"]
 
-  # =========================
-  # ===== COMPLEXITY =======
-  # =========================
-  gocyclo:
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: true
+
+  nestif:
     min-complexity: 5
 
-  funlen:
-    lines: 40
-    statements: 20
+  exhaustive:
+    default-signifies-exhaustive: true
 
-  dupl: {}
+  wrapcheck:
+    ignoreSigs: []
+    ignorePackageGlobs: []
 
-  # =========================
-  # ===== PERFORMANCE ======
-  # =========================
-  prealloc: {}
-  unparam: {}
-  unconvert: {}
+  forbidigo:
+    forbid:
+      - p: ^fmt\.Print.*$
+        msg: "Запрещён прямой вывод в stdout"
+      - p: ^log\.Print.*$
+        msg: "Используй структурированный логгер"
 
-  # =========================
-  # ===== DEEP ANALYSIS ====
-  # =========================
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-      - opinionated
-      - experimental
-    disabled-checks:
-      - unnamedResult
-
-  govet: {}
-  staticcheck: {}
-  gosimple: {}
-  ineffassign: {}
-  unused: {}
-  typecheck: {}
-
-  # =========================
-  # ===== SECURITY =========
-  # =========================
-  gosec: {}
-
-  # =========================
-  # ===== POLICY ===========
-  # =========================
   depguard:
     rules:
-      Main:
-        files:
-          - "main.go"
+      main:
         deny:
-          - pkg: "*"
-            desc: "main must not import external packages directly"
-
-  varnamelen:
-    min-name-length: 3
-
-  exhaustive:
-    default-signifies-exhaustive: false
+          - pkg: "github.com/pkg/errors"
+            desc: "errors.Wrap запрещён"
 
   tagliatelle:
     case:
       rules:
         json: snake
+        yaml: snake
+        xml: snake
+        bson: snake
 
-issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  nolintlint:
+    allow-unused: false
+    require-explanation: true
+    require-specific: true
+
+linters:
+  disable-all: true
+  enable:
+    # БАЗА
+    - govet
+    - errcheck
+    - staticcheck
+    - revive
+    - ineffassign
+    - unused
+
+    # СТИЛЬ И ЧИТАЕМОСТЬ
+    - nlreturn
+    - whitespace
+    - lll
+    - misspell
+    - goconst
+    - funlen
+    - gocyclo
+    - cyclop
+    - gocognit
+    - nestif
+    - dupl
+
+    # БЕЗОПАСНОСТЬ
+    - gosec
+    - bodyclose
+    - noctx
+
+    # АРХИТЕКТУРА
+    - forbidigo
+    - prealloc
+    - exhaustive
+    - wrapcheck
+    - tagliatelle
+
+    # ПАРАНОЙЯ
+    - asciicheck
+    - bidichk
+    - contextcheck
+    - durationcheck
+    - errname
+    - errorlint
+    - makezero
+    - nilerr
+    - nilnil
+    - predeclared
+    - reassign
+    - rowserrcheck
+    - sqlclosecheck
+    - tparallel
+    - unconvert
+    - wastedassign
+    - nolintlint
