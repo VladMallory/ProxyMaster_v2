@@ -20,24 +20,24 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    
+
     container_name: users_postgres
-    
+
     environment:
       POSTGRES_DB: usersdb
       POSTGRES_USER: user
       POSTGRES_PASSWORD: userspass
       TZ: Asia/Vladivostok
-    
+
     ports:
       - "5432:5432"
-    
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
-    
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d usersdb"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d usersdb" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -49,7 +49,7 @@ services:
       - TZ=Asia/Vladivostok
     ports:
       - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml -log.level=error
     volumes:
       - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
       - loki_data:/loki
@@ -64,7 +64,7 @@ services:
       - ./monitoring/promtail-config.yaml:/etc/promtail/config.yaml
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml -log.level=error
     depends_on:
       - loki
     restart: unless-stopped
@@ -78,6 +78,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - TZ=Asia/Vladivostok
+      - GF_LOG_LEVEL=error
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:

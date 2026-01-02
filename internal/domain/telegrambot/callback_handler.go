@@ -3,6 +3,7 @@
 package telegrambot
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -180,20 +181,40 @@ func (h *CallbackHandler) createUser(bot *tgbotapi.BotAPI, userID int, data stri
 	// Вызываем сервис подписки
 	resultMsg, err := h.subService.ActivateSubscription(int64(userID), months)
 	if err != nil {
+		if errors.Is(err, domain.ErrInsufficientFunds) {
+			// Если недостаточно средстав, предлагаем пополнить
+			msg := tgbotapi.NewMessage(
+				int64(userID),
+				fmt.Sprintf("❌Пожалуйста, пополните баланс в личном кабинете."),
+			)
+
+			// Добавляем кнопку пополнения
+			keyboard := telegram.NewProfileKeyboard()
+			msg.ReplyMarkup = keyboard
+
+			_, err := bot.Send(msg)
+			if err != nil {
+				return fmt.Errorf("ошибка отправки сообщения о пополнении: %w", err)
+			}
+			return nil
+		}
+
 		slog.Error(
 			"ошибка активации подписки",
 			"err_msg", err,
 		)
 		msg := tgbotapi.NewMessage(
 			int64(userID),
-			fmt.Sprintf("Произошла ошибка при обработке заказа, обратитесь в поддержку: %s .Ошибка: %s\n",
-				h.telegramSupport, err),
+			fmt.Sprintf("Произошла ошибка при обработке заказа, обратитесь в поддержку: %s\n",
+				h.telegramSupport),
 		)
 		_, err = bot.Send(msg)
 
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
+		// Возвращаем nil, так как мы уже обработали ошибку отправкой сообщения пользователю
+		return nil
 	}
 
 	// Отправляем успешный ответ пользователю
