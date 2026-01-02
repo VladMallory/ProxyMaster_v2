@@ -37,3 +37,8 @@ type SubscriptionService interface {
 	// принимает телеграм id и на сколько месяцев нужно
 	ActivateSubscription(telegramID int64, months int) (string, error)
 }
+
+// TrialService - бизнес логика пробного периода
+type TrialService interface {
+	ActivateTrial(telegramID int64) (string, error)
+}

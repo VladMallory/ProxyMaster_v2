@@ -83,23 +83,27 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		return "", fmt.Errorf("remnawave: не удалось получить ответ: %w", err)
 	}
 	defer func() {
-		_ = response.Body.Close()
+		if err = response.Body.Close(); err != nil {
+			c.logger.Error("не удалось закрыть тело ответа", logger.Field{Key: "error", Value: err.Error()})
+		}
 	}()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		slog.Warn("не удалось преобразовать тело ответа")
+		c.logger.Error("не удалось преобразовать тело ответа", logger.Field{Key: "error", Value: err.Error()})
+
+		return "", fmt.Errorf("remnawave: не удалось преобразовать тело ответа: %w", err)
 	}
 
 	if err := json.Unmarshal(body, &userData); err != nil {
-		slog.Error("не удалось распарсить тело ответа")
+		c.logger.Error("не удалось распарсить тело ответа", logger.Field{Key: "error", Value: err.Error()})
 
 		return "", fmt.Errorf("remnawave: не удалось распарсить тело ответа: %w", err)
 	}
 
 	switch response.StatusCode {
 	case http.StatusBadRequest:
-		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestUsername.Error(), string(body)))
+		c.logger.Error(fmt.Sprintf("%s\n%s", ErrBadRequestUsername.Error(), string(body)))
 
 		return "", ErrBadRequestUsername
 
@@ -109,9 +113,16 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		return "", ErrInternalServerError
 
 	case http.StatusNotFound:
-		slog.Error(ErrNotFound.Error())
+		c.logger.Error(ErrNotFound.Error())
 
 		return "", ErrNotFound
+	}
+
+	// AI: Защита от некорректных данных : Даже если сервер ответил 200 OK,
+	// внутри JSON могут прийти пустые поля (например, если на сервере
+	// RemnaWave произошел сбой логики, но не HTTP-ошибка).
+	if userData.Response.UUID == "" || userData.Response.Username == "" {
+		return "", errors.New("UUID or Username Is nil")
 	}
 
 	c.logger.Info(
@@ -120,11 +131,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		logger.Field{Key: "uuid", Value: userData.Response.UUID},
 	)
 
-	// проверка что не nil ответ, дабы не повторять что было
-	if userData.Response.UUID == "" || userData.Response.Username == "" {
-		return "", errors.New("UUID or Username Is nil")
-	}
-
+	// Возвращаем UUID из структуры
 	return userData.Response.UUID, nil
 }
 
