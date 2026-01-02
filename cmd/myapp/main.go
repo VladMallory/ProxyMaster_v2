@@ -1,8 +1,10 @@
+// package main
 package main
 
 import (
-	"ProxyMaster_v2/internal/app"
 	"log"
+
+	"ProxyMaster_v2/internal/app"
 )
 
 func main() {

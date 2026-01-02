@@ -8,6 +8,36 @@ type BulkExtendRequest struct {
 	Days  int      `json:"extendDays"`
 }
 
+type UpdateUserRequest struct {
+	// Указываем везде omitempty, чтобы игнорировать дефолнтые значения (int=0, string="", bool=false)
+	// Так же указываем указатели(для надежности), чтобы был передан nil,
+	// в случае если в структуре при обращении поле не было указано
+	// Например, хотим изменить только Status или TrafficLimitBytes,
+	// передаем их и больше нечего не меняется
+	Username             *string    `json:"username,omitempty"`
+	Uuid                 *string    `json:"uuid,omitempty"`
+	Status               *string    `json:"status,omitempty"`               // ACTIVE, INACTIVE и т.д.
+	TrafficLimitBytes    *uint64    `json:"trafficLimitBytes,omitempty"`    // Лимит трафика в байтах
+	TrafficLimitStrategy *string    `json:"trafficLimitStrategy,omitempty"` // NO_RESET, MONTHLY_RESET и т.д.
+	ExpireAt             *time.Time `json:"expireAt,omitempty"`             // Дата истечения срока действия
+	Description          *string    `json:"description,omitempty"`          // Описание пользователя
+	Tag                  *string    `json:"tag,omitempty"`                  // Метка или категория пользователя
+	TelegramId           *string    `json:"telegramId,omitempty"`           // ID Телеграм-аккаунта
+	Email                *string    `json:"email,omitempty"`                // Email пользователя
+	HwidDeviceLimit      *uint8     `json:"hwidDeviceLimit,omitempty"`      // Ограничение устройств по HWID
+	// В случае с slice нас перестраховывает omitempty но если бы
+	// его не было, запрос бы содержал пустой slice []string{} и стер бы Squads
+	//
+	// Если отправим nil slice, тоже проблема:
+	// [] это стереть все, а null это 50/50, иногда стереть, иногда оставить
+	// В то время как omitempty игнорирует пустые значения,
+	// а nil означает, что значение не было указано и должно оставаться как есть
+	//
+	// Если отправим null в ActiveInternalSquads, (без omitempty), могут быть проблемы
+	ActiveInternalSquads []string `json:"activeInternalSquads,omitempty"` // Активные внутренние группы/секции
+	ExternalSquadUuid    *string  `json:"externalSquadUuid,omitempty"`    // Внешняя группа пользователей
+}
+
 // LoginRequest описывает тело запроса для авторизации.
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -99,6 +129,8 @@ type userTraffic struct {
 	LastConnectedNodeUUID    string    `json:"lastConnectedNodeUuid"`
 	FirstConnectedAt         time.Time `json:"firstConnectedAt"`
 }
+
+// GetUUIDByUsernameResponse описывает ответ сервера с информацией о пользователе по его UUID.
 type GetUUIDByUsernameResponse struct {
 	Response struct {
 		UUID                   string                `json:"uuid"`
@@ -134,22 +166,22 @@ type GetUUIDByUsernameResponse struct {
 // GetUserInfoResponse Ответ
 type GetUserInfoResponse struct {
 	Response struct {
-		Uuid                   string                `json:"uuid"`
-		Id                     int                   `json:"id"`
-		ShortUuid              string                `json:"shortUuid"`
+		UUID                   string                `json:"uuid"`
+		ID                     int                   `json:"id"`
+		ShortUUID              string                `json:"shortUuid"`
 		Username               string                `json:"username"`
 		Status                 string                `json:"status"`
 		TrafficLimitBytes      int                   `json:"trafficLimitBytes"`
 		TrafficLimitStrategy   string                `json:"trafficLimitStrategy"`
 		ExpireAt               time.Time             `json:"expireAt"`
-		TelegramId             *string               `json:"telegramId,omitempty"` // nullable field
+		TelegramID             *string               `json:"telegramId,omitempty"` // nullable field
 		Email                  *string               `json:"email,omitempty"`      // nullable field
 		Description            string                `json:"description"`
 		Tag                    *string               `json:"tag,omitempty"` // nullable field
-		HwidDeviceLimit        int                   `json:"hwidDeviceLimit"`
-		ExternalSquadUuid      *string               `json:"externalSquadUuid,omitempty"` // nullable field
+		HWIDDeviceLimit        int                   `json:"hwidDeviceLimit"`
+		ExternalSquadUUID      *string               `json:"externalSquadUuid,omitempty"` // nullable field
 		TrojanPassword         string                `json:"trojanPassword"`
-		VlessUuid              string                `json:"vlessUuid"`
+		VlessUUID              string                `json:"vlessUuid"`
 		SsPassword             string                `json:"ssPassword"`
 		LastTriggeredThreshold int                   `json:"lastTriggeredThreshold"`
 		SubRevokedAt           time.Time             `json:"subRevokedAt"`
@@ -158,7 +190,7 @@ type GetUserInfoResponse struct {
 		LastTrafficResetAt     *time.Time            `json:"lastTrafficResetAt,omitempty"` // nullable field
 		CreatedAt              time.Time             `json:"createdAt"`
 		UpdatedAt              time.Time             `json:"updatedAt"`
-		SubscriptionUrl        string                `json:"subscriptionUrl"`
+		SubscriptionURL        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
 		UserTraffic            userTraffic           `json:"userTraffic"`
 	} `json:"response"`

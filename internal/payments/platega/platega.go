@@ -1,55 +1,80 @@
-// Package platega
+// Package platega реализация клиента с платежной системной platega.
 package platega
 
 import (
+	"ProxyMaster_v2/pkg/logger"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
 )
 
-func NewClient(apiKey string) *Client {
+// NewClient создает новый экземпляр клиента Platega.
+func NewClient(apiKey string, l logger.Logger) *Client {
 	return &Client{
 		baseURL: "https://app.platega.io",
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		logger: l,
+	}
+}
+
+// logDuration логирует время выполнения метода.
+func (c *Client) logDuration(method string) func() {
+	start := time.Now()
+	return func() {
+		c.logger.Info("вызов метода завершен",
+			logger.Field{Key: "method", Value: method},
+			logger.Field{Key: "duration", Value: time.Since(start)},
+		)
 	}
 }
 
 // CreateTransaction - создает новую транзакцию в Platega
 //
-//			paymentMethod - метод оплаты, типа PaymentMethod(RUB, USDT, etc...)
-//			amount        - цена услуги int
-//			currency      - валюта, типа  Currency
-//		 description      - "Оплата мешков картошки клиенту №293" string
-//
-//	   payload - инфа которую можно дополнительно оставить (как я понял) ни на что не влияет,   можно "" string
-func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMethod, amount int, currency Currency, description string, payload string) (URL string, err error) {
+//	paymentMethod - метод оплаты, типа PaymentMethod(RUB, USDT, etc...)
+//	amount        - цена услуги int
+//	currency      - валюта, типа  Currency
+//	description   - "Оплата мешков картошки клиенту №293" string
+//	payload       - инфа которую можно дополнительно оставить (как я понял) ни на что не влияет,   можно "" string
+func (c *Client) CreateTransaction(
+	ctx context.Context,
+	paymentMethod PaymentMethod,
+	amount int,
+	currency Currency,
+	description, payload string,
+) (URL string, err error) {
+	defer c.logDuration("CreateTransaction")
 	merchantID := os.Getenv("PLATEGA_MERCHANT_ID")
 	if merchantID == "" {
-		log.Fatal("Не установленно MERCHANT_ID в .env")
+		return "", fmt.Errorf("platega.CreateTransaction: MERCHANT_ID не установлен в .env")
 	}
 
-	plategaAPIKey := os.Getenv("PLATEGA_API_KEY")
+	plategaAPIKey := c.apiKey
 	if plategaAPIKey == "" {
-		log.Fatal("Не установленно PLATEGA_API_KEY в .env")
+		plategaAPIKey = os.Getenv("PLATEGA_API_KEY")
+	}
+	if plategaAPIKey == "" {
+		return "", fmt.Errorf("platega.CreateTransaction: PLATEGA_API_KEY не установлен (ни в клиенте, ни в .env)")
 	}
 
-	//сборка. URL
-	plategaBaseURL := os.Getenv("PLATEGA_BASE_URL")
+	// сборка. URL
+	plategaBaseURL := c.baseURL
 	if plategaBaseURL == "" {
-		log.Fatal("Не установленно PLATEGA_BASE_URL в .env")
+		plategaBaseURL = os.Getenv("PLATEGA_BASE_URL")
+	}
+	if plategaBaseURL == "" {
+		return "", fmt.Errorf("platega.CreateTransaction: PLATEGA_BASE_URL не установлен (ни в клиенте, ни в .env)")
 	}
 	plategaTotalURL := plategaBaseURL + "/transaction/process"
 
-	//сборка реквеста
+	// сборка реквеста
 	reqBody := CreateTransactionRequest{
 		PaymentMethod: int(paymentMethod),
 		PaymentDetails: PaymentDetails{
@@ -57,21 +82,21 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 			Currency: string(currency),
 		},
 		Description: description,
-		ReturnURL:   "https://google.com/success", // todo хз че тут
-		FailedURL:   "https://google.com/fail",    // todo тут вроде пойдет, но тоже хз
+		ReturnURL:   "https://google.com/success", // TODO: уточнить значение URL успеха
+		FailedURL:   "https://google.com/fail",    // TODO: уточнить значение URL ошибки
 		Payload:     payload,
 	}
 
 	// маршалинг реквеста
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: MarshalingError: %v", err))
+		return "", fmt.Errorf("platega.CreateTransaction: ошибка маршалинга: %w", err)
 	}
 
-	//запрос к апи platega
-	req, err := http.NewRequest("POST", plategaTotalURL, bytes.NewBuffer(jsonData))
+	// запрос к апи platega
+	req, err := http.NewRequestWithContext(ctx, "POST", plategaTotalURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: NewRequestError: %v", err))
+		return "", fmt.Errorf("platega.CreateTransaction: ошибка создания запроса: %w", err)
 	}
 	req.Header.Set("X-MerchantId", merchantID)
 	req.Header.Set("X-Secret", plategaAPIKey)
@@ -79,32 +104,36 @@ func (c *Client) CreateTransaction(ctx context.Context, paymentMethod PaymentMet
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: GetResponseError: %v", err))
+		return "", fmt.Errorf("platega.CreateTransaction: ошибка получения ответа: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error(
+				"ошибка про закрытии тела ответа",
+				logger.Field{Key: "method", Value: "CreateTransaction"},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+
+		}
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: ReadingResponseBodyError: %v", err))
+		return "", fmt.Errorf("platega.CreateTransaction: ошибка чтения тела ответа: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("platega.CreateTransaction: StatusCode: %v\nError: %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("platega.CreateTransaction: код статуса: %v\nОшибка: %s", resp.StatusCode, string(respBody))
 	}
 
 	var CreateTransactionResponse CreateTransactionResponse
 	err = json.Unmarshal(respBody, &CreateTransactionResponse)
 	if err != nil {
-		log.Fatal(fmt.Errorf("platega.CreateTransaction: UnmarshalingResponseError: %v", err))
+		return "", fmt.Errorf("platega.CreateTransaction: ошибка анмаршалинга ответа: %w", err)
 	}
 
 	URL = CreateTransactionResponse.Redirect
-	ID := CreateTransactionResponse.TransactionID
-
-	fmt.Println()
-	fmt.Printf("URL для оплаты: %v\n", URL)
-	fmt.Printf("ID оплаты: %v", ID)
-	fmt.Println()
+	// ID := CreateTransactionResponse.TransactionID
 
 	return URL, nil
 }

@@ -25,6 +25,4 @@ RUN apk add --no-cache ca-certificates
 # копируем бинарник из builder 
 COPY --from=builder /app/app .
 
-COPY .env .
-
 CMD ["./app"]

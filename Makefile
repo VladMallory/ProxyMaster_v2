@@ -7,7 +7,7 @@ run:
 	@clear
 	@go run $(cmdMacosAndLinux)
 
-run-windows:
+windows:
 	go run $(cmdWindows)
 
  run2:
@@ -20,6 +20,18 @@ docker-build:
 
 docker: docker-build
 	docker run --env-file .env proxymaster_v2
+
+# Запустить докер без отображения логов
+dc: dcd
+	docker compose up -d --build
+
+# Запустить с показом логгов
+dcl: dc
+	docker compose logs -f
+
+# Остановить докер
+dcd:
+	docker compose down
 
 # эмуляция под linux
 docker-build-linux:

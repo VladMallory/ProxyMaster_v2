@@ -1,11 +1,15 @@
-// platega/types.go
+// Package platega описывает взаимодействие с платежной системой Platega.
 package platega
 
-import "net/http"
+import (
+	"ProxyMaster_v2/pkg/logger"
+	"net/http"
+)
 
-// Методы оплаты которые принимает platega
+// PaymentMethod методы оплаты, которые принимает platega.
 type PaymentMethod int
 
+// Список методов оплаты.
 const (
 	SBPQR                 PaymentMethod = 2
 	RussianCards          PaymentMethod = 10
@@ -14,15 +18,16 @@ const (
 	Crypto                PaymentMethod = 13
 )
 
-// currency валюты которые принимает platega
+// Currency валюты которые принимает platega.
 type Currency string
 
+// Тип валюты который принимает platega.
 const (
 	RUB  Currency = "RUB"
 	USDT Currency = "USDT"
 )
 
-// Запрос
+// CreateTransactionRequest запрос на создание транзакции.
 type CreateTransactionRequest struct {
 	PaymentMethod  int            `json:"paymentMethod"`
 	PaymentDetails PaymentDetails `json:"paymentDetails"`
@@ -32,18 +37,21 @@ type CreateTransactionRequest struct {
 	Payload        string         `json:"payload"`
 }
 
+// PaymentDetails детали оплаты
 type PaymentDetails struct {
-	Amount   int    `json:"amount,string"` //мб можно и флоат64?
+	Amount   int    `json:"amount,string"` // мб можно и флоат64? Илья: не можно
 	Currency string `json:"currency"`
 }
 
+// Client что нужно для работы с platega
 type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+	logger     logger.Logger
 }
 
-// Response
+// CreateTransactionResponse то что возвращает platega при создании транзакции.
 type CreateTransactionResponse struct {
 	PaymentMethod  string  `json:"paymentMethod"`
 	TransactionID  string  `json:"transactionId"`
