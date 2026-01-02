@@ -25,7 +25,7 @@ func NewUserStorage(db *sqlx.DB) *UserStorage {
 	}
 }
 
-// CreateUser is method for creating user
+// CreateUser создает пользователя в DB
 func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserTG, error) {
 	var user models.UserTG
 
@@ -106,11 +106,8 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 	return &user, nil
 }
 
-// UpdateUser обновляет юзера, можно че кайф обновить(пока только баланс или триал), логику того,
-// что обновляем будет писать в хэндлере бота
+// UpdateUser обновляет юзера.
 func (s *UserStorage) UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error) {
-	var updatedUser *models.UserTG
-
 	user, err := s.GetUserByID(id)
 	if err != nil {
 		return nil, err
@@ -126,11 +123,12 @@ func (s *UserStorage) UpdateUser(id string, updateData models.UpdateUserTGDTO) (
 
 	query := `
 	UPDATE users
-	SET balance = $1, trial = $2, created_at = $3
-	WHERE id = &4
+	SET balance = $1, trial = $2
+	WHERE id = $3
 	RETURNING id, balance, trial, created_at
 	`
 
+	var updatedUser models.UserTG
 	if err := s.db.QueryRowx(
 		query,
 		user.Balance,
@@ -140,12 +138,11 @@ func (s *UserStorage) UpdateUser(id string, updateData models.UpdateUserTGDTO) (
 		slog.Error(
 			"failed to update user",
 			"updateData", updateData,
-			"updated_struct", updatedUser,
 			"error_message", err,
 		)
 
 		return nil, fmt.Errorf("failed to scan struct: %w", err)
 	}
 
-	return updatedUser, nil
+	return &updatedUser, nil
 }

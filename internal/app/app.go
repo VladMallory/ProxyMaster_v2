@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"ProxyMaster_v2/internal/config"
+	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/domain/telegrambot"
@@ -48,8 +49,17 @@ func New() (Application, error) {
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
+	// ===DB===
+	db, err := database.Connect(cfg.DatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
+	}
+
+	// repository
+	userRepo := database.NewUserStorage(db)
+
 	// ===services===
-	subService := service.NewSubscriptionService(remnawaveClient, subscriptionLogger)
+	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
 
 	// ===telegram bot===
 	// инициализация

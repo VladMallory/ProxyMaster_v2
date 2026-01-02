@@ -8,20 +8,23 @@ import (
 
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
+	"ProxyMaster_v2/internal/models"
 	"ProxyMaster_v2/pkg/logger"
 )
 
 // SubscriptionService представляет собой сервис для управления подписками клиентов с помощью remnawave.
 type SubscriptionService struct {
 	remna  domain.RemnawaveClient
+	dbRepo domain.UserRepository
 	logger logger.Logger
 }
 
 // NewSubscriptionService конструктор сервиса.
-func NewSubscriptionService(remna domain.RemnawaveClient, l logger.Logger) *SubscriptionService {
+func NewSubscriptionService(remna domain.RemnawaveClient, dbRepo domain.UserRepository, l logger.Logger) *SubscriptionService {
 	l.Info("Создан экземпляр подписочного сервиса")
 	return &SubscriptionService{
 		remna:  remna,
+		dbRepo: dbRepo,
 		logger: l,
 	}
 }
@@ -50,8 +53,49 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int) (string, error) {
 	defer s.logDuration("ActivateSubscription")()
 
-	totalDays := months * 30
+	// User id telegram клиента
 	username := strconv.FormatInt(telegramID, 10)
+
+	// Проверяем наличия пользователя в базе данных и создаем если его нету
+	user, err := s.dbRepo.GetUserByID(username)
+
+	// TODO: В идеале нужно различать ошибку "не найдено" и "ошибка БД"
+	if err != nil {
+		s.logger.Info("пользователь не найден в DB, создаем нового", logger.Field{Key: "user_id", Value: username})
+
+		// Делаем запрос DB на создание пользователя
+		// Записываем в newUser данные которые получили от DB
+		newUser, createDBErr := s.dbRepo.CreateUser(models.CreateUserTGDTO{
+			ID:      username,
+			Balance: 0,
+			Trial:   false,
+		})
+		if createDBErr != nil {
+			return "", s.logError("ошибка создания пользователя в DB", createDBErr, logger.Field{Key: "user_id", Value: username})
+		}
+
+		user = newUser
+	}
+
+	totalDays := months * 30
+	const pricePerMonth = 100
+	// Расчитываем итоговую стоимость подписки
+	totalCost := months * pricePerMonth
+
+	// Проверяем баланс.
+	if user.Balance < totalCost {
+		s.logger.Info("у пользователя не достаточно средств для подписки", logger.Field{Key: "user_id", Value: username})
+		return "", fmt.Errorf("%w. Баланс: %d ₽, Требуется: %d ₽", domain.ErrInsufficientFunds, user.Balance, totalCost)
+	}
+
+	// Списываем средства
+	newBalance := user.Balance - totalCost
+	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
+		Balance: &newBalance,
+	})
+	if err != nil {
+		return "", s.logError("ошибка обновления баланса пользователя в DB", err, logger.Field{Key: "user_id", Value: username})
+	}
 
 	// Проверяем есть ли пользователь в панели
 	userUUID, err := s.remna.GetUUIDByUsername(username)

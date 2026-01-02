@@ -2,8 +2,14 @@ package domain
 
 import (
 	"context"
+	"errors"
 
 	"ProxyMaster_v2/internal/models"
+)
+
+var (
+	// ErrInsufficientFunds ошибка недостаточного баланса
+	ErrInsufficientFunds = errors.New("insufficient funds")
 )
 
 // RemnawaveClient - то как мы хотим получать информацию
@@ -18,10 +24,9 @@ type RemnawaveClient interface {
 }
 
 type UserRepository interface {
-	CreateUser(models.CreateUserTGDTO) (models.UserTG, error)
-	GetAllUsers() []models.UserTG
+	CreateUser(models.CreateUserTGDTO) (*models.UserTG, error)
+	GetAllUsers() ([]models.UserTG, error)
 	GetUserByID(string) (*models.UserTG, error)
-	// UpdateUser
 	UpdateUser(string, models.UpdateUserTGDTO) (*models.UserTG, error)
 }
 
