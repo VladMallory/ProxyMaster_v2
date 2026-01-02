@@ -1,9 +1,10 @@
-// package telegramBot обрабатывает команды от пользователя.
+// Package telegrambot обрабатывает команды от пользователя.
 // В данном случае /start
-package telegramBot
+package telegrambot
 
 import (
 	"log"
+	"log/slog"
 	"strconv"
 
 	"ProxyMaster_v2/internal/delivery/telegram"
@@ -22,7 +23,12 @@ type StartCommand struct {
 	remnawaveClient domain.RemnawaveClient
 }
 
-func NewStartCommand(kb *telegram.KeyboardBuilder, telegramSupport string, remnawaveClient domain.RemnawaveClient) *StartCommand {
+// NewStartCommand is constructor for start struct
+func NewStartCommand(
+	kb *telegram.KeyboardBuilder,
+	telegramSupport string,
+	remnawaveClient domain.RemnawaveClient,
+) *StartCommand {
 	return &StartCommand{
 		kbBuilder:       kb,
 		telegramSupport: telegramSupport,
@@ -37,7 +43,7 @@ func (s *StartCommand) Name() string {
 
 // Execute то как идет обработка команд
 func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ShadowFade! Выберите раздел:")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ProxyMaster! Выберите раздел:")
 
 	urlSubscription := service.GetURLSubscription(s.remnawaveClient, strconv.Itoa(update.Message.From.ID))
 
@@ -47,6 +53,11 @@ func (s *StartCommand) Execute(update tgbotapi.Update, bot *tgbotapi.BotAPI) err
 	_, err := bot.Send(msg)
 	if err != nil {
 		log.Printf("ошибка отправки сообщения: %v", err)
+		slog.Error(
+			"ошибка отправки сообщения",
+			"err_msg", err,
+		)
 	}
+
 	return nil
 }
