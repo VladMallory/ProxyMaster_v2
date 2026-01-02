@@ -128,6 +128,73 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.Response.UUID, nil
 }
 
+// SetDevices метод который устанавилвает кол-во устройств пользователя
+func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
+	defer c.logDuration("SetDevices")
+
+	userData := &models.UpdateUserRequest{
+		Username:        username,
+		Uuid:            "",
+		Status:          "ACTIVE",
+		HwidDeviceLimit: devices,
+	}
+
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+	jsonData, err := json.Marshal(userData)
+	if err != nil {
+		c.logger.Error(
+			"failed to marshal request",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return err
+	}
+	request, err := http.NewRequestWithContext(context.Background(), "PATCH", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		c.logger.Error(
+			"failed to make request",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		c.logger.Error(
+			"failed to get response",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+	}
+
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			return
+		}
+	}()
+
+	switch response.StatusCode {
+	case http.StatusBadRequest:
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			return fmt.Errorf("failed to make repsonse body")
+		}
+		c.logger.Error(
+			"failed to set devices",
+			logger.Field{Key: "status code", Value: response.StatusCode},
+			logger.Field{Key: "response body", Value: body},
+		)
+		return err
+	case http.StatusInternalServerError:
+		c.logger.Error(
+			"failed to set devices",
+			logger.Field{Key: "status code", Value: response.StatusCode},
+		)
+	}
+	return nil
+}
+
 // CreateUser создает пользователя в панели.
 func (c *RemnaClient) CreateUser(username string, days int) error {
 	if days <= 0 {
