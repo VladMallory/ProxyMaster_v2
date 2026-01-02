@@ -185,14 +185,14 @@ func (h *CallbackHandler) createUser(bot *tgbotapi.BotAPI, userID int, data stri
 			// Если недостаточно средстав, предлагаем пополнить
 			msg := tgbotapi.NewMessage(
 				int64(userID),
-				fmt.Sprintf("❌Пожалуйста, пополните баланс в личном кабинете."),
+				"❌Пожалуйста, пополните баланс в личном кабинете.",
 			)
 
 			// Добавляем кнопку пополнения
 			keyboard := telegram.NewProfileKeyboard()
 			msg.ReplyMarkup = keyboard
 
-			_, err := bot.Send(msg)
+			_, err = bot.Send(msg)
 			if err != nil {
 				return fmt.Errorf("ошибка отправки сообщения о пополнении: %w", err)
 			}
@@ -213,6 +213,7 @@ func (h *CallbackHandler) createUser(bot *tgbotapi.BotAPI, userID int, data stri
 		if err != nil {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
+
 		// Возвращаем nil, так как мы уже обработали ошибку отправкой сообщения пользователю
 		return nil
 	}
