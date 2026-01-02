@@ -10,6 +10,7 @@ import (
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/service"
+	"ProxyMaster_v2/pkg/logger"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -21,14 +22,17 @@ type StartCommand struct {
 	telegramSupport string
 
 	remnawaveClient domain.RemnawaveClient
+
+	logger logger.Logger
 }
 
-// NewStartCommand is constructor for start struct
+// NewStartCommand конструктор.
 func NewStartCommand(
 	kb *telegram.KeyboardBuilder,
 	telegramSupport string,
 	remnawaveClient domain.RemnawaveClient,
 ) *StartCommand {
+
 	return &StartCommand{
 		kbBuilder:       kb,
 		telegramSupport: telegramSupport,

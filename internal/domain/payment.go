@@ -24,5 +24,5 @@ type TransactionInfo interface {
 	GetID() string
 	GetAmount() float64
 	GetStatus() string
-	GetRawResponse() interface{}
+	GetRawResponse() any
 }

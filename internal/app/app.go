@@ -43,12 +43,13 @@ func New() (Application, error) {
 
 	// Создаем logger для remnawave.
 	remnawaveLogger := logger.Named("remnawave")
+	subscriptionLogger := logger.Named("subscription")
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
 	// ===services===
-	subService := service.NewSubscriptionService(remnawaveClient)
+	subService := service.NewSubscriptionService(remnawaveClient, subscriptionLogger)
 
 	// ===telegram bot===
 	// инициализация
