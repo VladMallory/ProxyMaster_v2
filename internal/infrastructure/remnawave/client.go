@@ -135,17 +135,17 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.Response.UUID, nil
 }
 
-// SetDevices метод который устанавилвает кол-во устройств пользователя
+// SetDevices устанавилвает кол-во устройств пользователя
 func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	if devices == nil {
 		return fmt.Errorf("devices field cannot be nil")
 	}
 	defer c.logDuration("SetDevices")
 
+	status := "ACTIVE"
 	userData := &models.UpdateUserRequest{
-		Username:        username,
-		Uuid:            "",
-		Status:          "ACTIVE",
+		Username:        &username,
+		Status:          &status,
 		HwidDeviceLimit: devices,
 	}
 
@@ -158,6 +158,7 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 		)
 		return err
 	}
+
 	request, err := http.NewRequestWithContext(context.Background(), "PATCH", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		c.logger.Error(
@@ -167,6 +168,7 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 
 		return err
 	}
+
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
