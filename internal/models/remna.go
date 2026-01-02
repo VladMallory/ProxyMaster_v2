@@ -9,19 +9,19 @@ type BulkExtendRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Username             string    `json:"username"`
-	Uuid                 string    `json:"uuid"`
-	Status               string    `json:"status"`                      // ACTIVE, INACTIVE и т.д.
-	TrafficLimitBytes    uint64    `json:"trafficLimitBytes"`           // Лимит трафика в байтах
-	TrafficLimitStrategy string    `json:"trafficLimitStrategy"`        // NO_RESET, MONTHLY_RESET и т.д.
-	ExpireAt             time.Time `json:"expireAt"`                    // Дата истечения срока действия
-	Description          *string   `json:"description,omitempty"`       // Описание пользователя
-	Tag                  *string   `json:"tag,omitempty"`               // Метка или категория пользователя
-	TelegramId           *string   `json:"telegramId,omitempty"`        // ID Телеграм-аккаунта
-	Email                *string   `json:"email,omitempty"`             // Email пользователя
-	HwidDeviceLimit      *uint8    `json:"hwidDeviceLimit,omitempty"`   // Ограничение устройств по HWID
-	ActiveInternalSquads []string  `json:"activeInternalSquads"`        // Активные внутренние группы/секции
-	ExternalSquadUuid    *string   `json:"externalSquadUuid,omitempty"` // Внешняя группа пользователей
+	Username             *string    `json:"username,omitempty"`
+	Uuid                 *string    `json:"uuid,omitempty"`
+	Status               *string    `json:"status,omitempty"`                     // ACTIVE, INACTIVE и т.д.
+	TrafficLimitBytes    *uint64    `json:"trafficLimitBytes,omitempty"`          // Лимит трафика в байтах
+	TrafficLimitStrategy *string    `json:"trafficLimitStrategy,omitempty"`       // NO_RESET, MONTHLY_RESET и т.д.
+	ExpireAt             *time.Time `json:"expireAt,omitempty"`                   // Дата истечения срока действия
+	Description          *string    `json:"description,omitempty"`                // Описание пользователя
+	Tag                  *string    `json:"tag,omitempty"`                        // Метка или категория пользователя
+	TelegramId           *string    `json:"telegramId,omitempty"`                 // ID Телеграм-аккаунта
+	Email                *string    `json:"email,omitempty"`                      // Email пользователя
+	HwidDeviceLimit      *uint8     `json:"hwidDeviceLimit,omitempty"`            // Ограничение устройств по HWID
+	ActiveInternalSquads []string   `json:"activeInternalSquads,omitempty"`       // Активные внутренние группы/секции
+	ExternalSquadUuid    *string    `json:"externalSquadUuid,omitempty"`          // Внешняя группа пользователей
 }
 
 // LoginRequest описывает тело запроса для авторизации.
