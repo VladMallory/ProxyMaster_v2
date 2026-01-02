@@ -130,6 +130,9 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 
 // SetDevices метод который устанавилвает кол-во устройств пользователя
 func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
+	if devices == nil {
+		return fmt.Errorf("devices field cannot be nil")
+	}
 	defer c.logDuration("SetDevices")
 
 	userData := &models.UpdateUserRequest{
@@ -169,12 +172,24 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	}
 
 	defer func() {
-		if err := response.Body.Close(); err != nil {
-			return
+		if response != nil {
+			if err := response.Body.Close(); err != nil {
+				c.logger.Error(
+					"failed to close response body",
+					logger.Field{Key: "err_msg", Value: err},
+				)
+			}
 		}
 	}()
 
 	switch response.StatusCode {
+	case http.StatusOK:
+		c.logger.Info(
+			fmt.Sprintf("devices for user: %s set succesfully", username),
+			logger.Field{Key: "status code", Value: response.StatusCode},
+		)
+
+		return nil
 	case http.StatusBadRequest:
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
@@ -185,14 +200,18 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 			logger.Field{Key: "status code", Value: response.StatusCode},
 			logger.Field{Key: "response body", Value: body},
 		)
+
 		return err
 	case http.StatusInternalServerError:
 		c.logger.Error(
 			"failed to set devices",
 			logger.Field{Key: "status code", Value: response.StatusCode},
 		)
+
+		return fmt.Errorf("server returned internal error: %v", response.StatusCode)
 	}
-	return nil
+
+	return fmt.Errorf("undefined error")
 }
 
 // CreateUser создает пользователя в панели.
