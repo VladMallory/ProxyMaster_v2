@@ -34,8 +34,8 @@ dcd:
 	docker compose down
 
 # Запуск dev окружения (без Go приложения)
-dev:
-	docker compose -f docker-compose.dev.yml up -d
+dev: dev-stop
+	docker compose -f docker-compose.dev.yml up -d --build
 
 # Остановить dev окружение
 dev-stop:
