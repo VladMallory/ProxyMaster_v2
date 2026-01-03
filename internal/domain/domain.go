@@ -10,6 +10,7 @@ import (
 var (
 	// ErrInsufficientFunds ошибка недостаточного баланса
 	ErrInsufficientFunds = errors.New("insufficient funds")
+	ErrUserNotFound      = errors.New("user not found")
 )
 
 // RemnawaveClient - то как мы хотим получать информацию

@@ -33,6 +33,14 @@ dcl: dc
 dcd:
 	docker compose down
 
+# Запуск dev окружения (без Go приложения)
+dev: dev-stop
+	docker compose -f docker-compose.dev.yml up -d --build
+
+# Остановить dev окружение
+dev-stop:
+	docker compose -f docker-compose.dev.yml down
+
 # эмуляция под linux
 docker-build-linux:
 	docker build --platform linux/amd64 -t proxymaster_v2 .

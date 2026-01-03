@@ -25,6 +25,7 @@ type Application interface {
 type app struct {
 	remnawaveClient domain.RemnawaveClient
 	telegramClient  *telegram.Client
+	// plategaClient   *platega.Client
 }
 
 // New собирает приложение
@@ -37,14 +38,17 @@ func New() (Application, error) {
 
 	// ===logger===
 	// Инициализируем главный логгер.
-	logger, err := logger.New(cfg.LoggerLevel)
+	loggerClient, err := logger.New(cfg.LoggerLevel)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
 
-	// Создаем logger для remnawave.
-	remnawaveLogger := logger.Named("remnawave")
-	subscriptionLogger := logger.Named("subscription")
+	// Создаем logger для remnawave
+	remnawaveLogger := loggerClient.Named("remnawave")
+	// Для сервиса с подписками
+	subscriptionLogger := loggerClient.Named("subscription")
+	// Для платежной системы
+	// plategaLogger := loggerClient.Named("platega")
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
@@ -80,9 +84,14 @@ func New() (Application, error) {
 	callbackHandler := telegrambot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
 
+	// plategaClient := platega.NewClient(cfg.PlategaAPIKey, plategaLogger)
+	// data, _ := plategaClient.CreateTransaction(context.Background(), platega.SBPQR, 100, platega.RUB, "test", "test")
+	// fmt.Println(data)
+
 	return &app{
 		remnawaveClient: remnawaveClient,
 		telegramClient:  telegramClient,
+		// plategaClient:   plategaClient,
 	}, nil
 }
 
