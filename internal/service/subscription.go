@@ -56,35 +56,51 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 	// User id telegram клиента
 	username := strconv.FormatInt(telegramID, 10)
 
-	// Проверяем наличия пользователя в базе данных и создаем если его нету
+	// Проверяем наличия пользователя в базе данных и создаем если его нет
 	user, err := s.dbRepo.GetUserByID(username)
 
-	// TODO: В идеале нужно различать ошибку "не найдено" и "ошибка БД"
 	if err != nil {
-		s.logger.Info("пользователь не найден в DB, создаем нового", logger.Field{Key: "user_id", Value: username})
+		// Проверяем, является ли ошибка "пользователь не найден"
+		if errors.Is(err, domain.ErrUserNotFound) {
+			s.logger.Info("пользователь не найден в DB, создаем нового", logger.Field{Key: "user_id", Value: username})
 
-		// Делаем запрос DB на создание пользователя
-		// Записываем в newUser данные которые получили от DB
-		newUser, createDBErr := s.dbRepo.CreateUser(models.CreateUserTGDTO{
-			ID:      username,
-			Balance: 0,
-			Trial:   false,
-		})
-		if createDBErr != nil {
-			return "", s.logError("ошибка создания пользователя в DB", createDBErr, logger.Field{Key: "user_id", Value: username})
+			// Делаем запрос DB на создание пользователя
+			// Записываем в newUser данные которые получили от DB
+			newUser, createDBErr := s.dbRepo.CreateUser(models.CreateUserTGDTO{
+				ID:      username,
+				Balance: 0,
+				Trial:   false,
+			})
+			if createDBErr != nil {
+				return "", s.logError("ошибка создания пользователя в DB", createDBErr, logger.Field{Key: "user_id", Value: username})
+			}
+
+			user = newUser
+		} else {
+
+			// Если пользователь не найден, скорее всего это ошибка DB
+			return "", s.logError("ошибка поиска пользователя в DB", err, logger.Field{Key: "user_id", Value: username})
 		}
 
-		user = newUser
 	}
 
+	s.logger.Info("пользователь найден", logger.Field{Key: "user_id", Value: username})
+
+	// Вычисляем на сколько дней клиенту нужна подписка
 	totalDays := months * 30
 	const pricePerMonth = 100
-	// Расчитываем итоговую стоимость подписки
+
+	// Вычисляем стоимость подписки за указанное количество месяцев
+	// Если пришла 2 месяца, 100 * на 2 = 200 итоговая цена
 	totalCost := months * pricePerMonth
 
-	// Проверяем баланс.
+	// Проверяем достаточно ли на балансе средств на подписку
 	if user.Balance < totalCost {
-		s.logger.Info("у пользователя не достаточно средств для подписки", logger.Field{Key: "user_id", Value: username})
+		s.logger.Info("у пользователя не достаточно средств для подписки",
+			logger.Field{Key: "user_id", Value: username},
+			logger.Field{Key: "balance", Value: user.Balance},
+			logger.Field{Key: "required", Value: totalCost},
+		)
 		return "", fmt.Errorf("%w. Баланс: %d ₽, Требуется: %d ₽", domain.ErrInsufficientFunds, user.Balance, totalCost)
 	}
 
@@ -100,6 +116,7 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 	// Проверяем есть ли пользователь в панели
 	userUUID, err := s.remna.GetUUIDByUsername(username)
 	if err != nil {
+		// Если пользователя нет, создаем его в панели
 		if errors.Is(err, remnawave.ErrNotFound) {
 			s.logger.Info("пользователь не найден, создаем нового", logger.Field{Key: "username", Value: username})
 			err = s.remna.CreateUser(username, totalDays)

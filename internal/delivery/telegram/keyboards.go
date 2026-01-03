@@ -13,8 +13,8 @@ func NewKeyboardBuilder() *KeyboardBuilder {
 	return &KeyboardBuilder{}
 }
 
-// BuildFromSlice создает клавиатуру из слайса строк
-func (k *KeyboardBuilder) BuildFromSlice(options []string) tgbotapi.InlineKeyboardMarkup {
+// buildFromSlice создает клавиатуру из слайса строк
+func (k *KeyboardBuilder) buildFromSlice(options []string) tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	for _, text := range options {
 		btn := tgbotapi.NewInlineKeyboardButtonData(text, text)
