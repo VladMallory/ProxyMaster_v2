@@ -30,8 +30,7 @@ type StartCommand struct {
 func NewStartCommand(
 	kb *telegram.KeyboardBuilder,
 	telegramSupport string,
-	remnawaveClient domain.RemnawaveClient,
-) *StartCommand {
+	remnawaveClient domain.RemnawaveClient) *StartCommand {
 
 	return &StartCommand{
 		kbBuilder:       kb,

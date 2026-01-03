@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/models"
 
 	"github.com/jmoiron/sqlx"
@@ -94,7 +95,8 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 				"error_message", err,
 			)
 
-			return nil, fmt.Errorf("failed to get user by id: %w", err)
+			// Возвращем ошибку о том что пользователя нет в DB
+			return nil, domain.ErrUserNotFound
 		}
 		slog.Error(
 			"failed to get user",
