@@ -25,6 +25,7 @@ type Application interface {
 type app struct {
 	remnawaveClient domain.RemnawaveClient
 	telegramClient  *telegram.Client
+	// plategaClient   *platega.Client
 }
 
 // New собирает приложение
@@ -42,9 +43,12 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
 
-	// Создаем logger для remnawave.
+	// Создаем logger для remnawave
 	remnawaveLogger := logger.Named("remnawave")
+	// Для сервиса с подписками
 	subscriptionLogger := logger.Named("subscription")
+	// Для платежной системы
+	// plategaLogger := logger.Named("platega")
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
@@ -80,9 +84,19 @@ func New() (Application, error) {
 	callbackHandler := telegrambot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
 	telegramClient.SetCallbackHandler(callbackHandler.Handle)
 
+	// plategaClient := platega.NewClient(cfg.PlategaAPIKey, plategaLogger)
+	// data, _ := plategaClient.CreateTransaction(context.Background(), platega.SBPQR, 100, platega.RUB, "test", "test")
+	// fmt.Println(data)
+
+	// SetDeviceID - устанавливает DeviceID для пользователя
+	deviceType := uint8(5)
+	err = remnawaveClient.SetDevices("asdasdad", &deviceType)
+	fmt.Println(err)
+
 	return &app{
 		remnawaveClient: remnawaveClient,
 		telegramClient:  telegramClient,
+		// plategaClient:   plategaClient,
 	}, nil
 }
 

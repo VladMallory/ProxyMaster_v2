@@ -138,14 +138,12 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 // SetDevices устанавилвает кол-во устройств пользователя
 func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	if devices == nil {
-		return fmt.Errorf("devices field cannot be nil")
+		return fmt.Errorf("не указано кол-во устройств в методе SetDevices")
 	}
-	defer c.logDuration("SetDevices")
+	defer c.logDuration("SetDevices")()
 
-	status := "ACTIVE"
+	// Отправляем только то что нужно изменить, без идентификаторов в теле
 	userData := &models.UpdateUserRequest{
-		Username:        &username,
-		Status:          &status,
 		HwidDeviceLimit: devices,
 	}
 
