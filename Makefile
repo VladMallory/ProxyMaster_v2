@@ -38,7 +38,7 @@ dev:
 	docker compose -f docker-compose.dev.yml up -d
 
 # Остановить dev окружение
-dev-down:
+dev-stop:
 	docker compose -f docker-compose.dev.yml down
 
 # эмуляция под linux
