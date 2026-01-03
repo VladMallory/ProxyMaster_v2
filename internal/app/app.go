@@ -89,7 +89,7 @@ func New() (Application, error) {
 	// fmt.Println(data)
 
 	// SetDeviceID - устанавливает DeviceID для пользователя
-	deviceType := uint8(5)
+	deviceType := uint8(8)
 	err = remnawaveClient.SetDevices("asdasdad", &deviceType)
 	fmt.Println(err)
 

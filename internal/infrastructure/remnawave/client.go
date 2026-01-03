@@ -144,6 +144,7 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 
 	// Отправляем только то что нужно изменить, без идентификаторов в теле
 	userData := &models.UpdateUserRequest{
+		Username:        &username,
 		HwidDeviceLimit: devices,
 	}
 
