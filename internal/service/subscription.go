@@ -143,3 +143,56 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 	)
 	return "подписка для пользователя " + username + " продлена на " + strconv.Itoa(totalDays) + " дней", nil
 }
+
+// AddDevice добавляет 1 устройство пользователю
+func (s *SubscriptionService) AddDevice(username string) error {
+	defer s.logDuration("AddDevice")()
+
+	uuid, err := s.remna.GetUUIDByUsername(username)
+	if err != nil {
+		s.logger.Error(
+			"failed to get user UUID",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	user, err := s.remna.GetUserInfo(uuid)
+	if err != nil {
+		s.logger.Error(
+			"failed to user by UUID",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	// Проверяем сколько уже устройств
+	if user.Response.HWIDDeviceLimit >= 5 {
+		s.logger.Info(
+			"у клиента уже максимальное количество устройств",
+			logger.Field{Key: "user", Value: username},
+		)
+
+		return fmt.Errorf("%w. У пользователя уже %d устройств", domain.ErrMaxDevices, user.Response.HWIDDeviceLimit)
+	}
+
+	devices := uint8(user.Response.HWIDDeviceLimit) + 1
+	if err := s.remna.SetDevices(username, &devices); err != nil {
+		s.logger.Error(
+			"failed to set device limit",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	s.logger.Info(
+		"успешное добавление устройства в подписку клиента",
+		logger.Field{Key: "user", Value: username},
+		logger.Field{Key: "devices", Value: devices},
+	)
+
+	return nil
+}

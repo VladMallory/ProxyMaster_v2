@@ -11,6 +11,7 @@ var (
 	// ErrInsufficientFunds ошибка недостаточного баланса
 	ErrInsufficientFunds = errors.New("insufficient funds")
 	ErrUserNotFound      = errors.New("user not found")
+	ErrMaxDevices        = errors.New("max devices")
 )
 
 // RemnawaveClient - то как мы хотим получать информацию
@@ -22,6 +23,7 @@ type RemnawaveClient interface {
 	EnableClient(userUUID string) error
 	DisableClient(userUUID string) error
 	GetUserInfo(uuid string) (models.GetUserInfoResponse, error)
+	SetDevices(username string, devices *uint8) error
 }
 
 type UserRepository interface {
@@ -37,6 +39,9 @@ type SubscriptionService interface {
 	// продления подписки
 	// принимает телеграм id и на сколько месяцев нужно
 	ActivateSubscription(telegramID int64, months int) (string, error)
+
+	// AddDevice добавляет 1 устройство пользователю
+	AddDevice(username string) error
 }
 
 // TrialService - бизнес логика пробного периода
