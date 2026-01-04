@@ -2,6 +2,7 @@
 package telegram
 
 import (
+	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"log/slog"
 
@@ -19,15 +20,19 @@ type Client struct {
 	bot *tgbotapi.BotAPI
 	// Единый обработчик логики
 	handler Handler
+
+	// Чтобы логировать все действия
+	logger logger.Logger
 }
 
 // NewClient - конструктор
-func NewClient(bot *tgbotapi.BotAPI, handler Handler) *Client {
-	slog.Info("Создан экземпляр TelegramClient")
+func NewClient(bot *tgbotapi.BotAPI, handler Handler, logger logger.Logger) *Client {
+	logger.Info("Создан экземпляр TelegramClient")
 
 	return &Client{
 		bot:     bot,
 		handler: handler,
+		logger:  logger,
 	}
 }
 
@@ -36,7 +41,10 @@ func (c *Client) Run() {
 	// получаем канал обновлений
 	updates, err := c.initUpdatesChannel()
 	if err != nil {
-		slog.Error("ошибка при запуске прослушивания", "error", err)
+		c.logger.Error("ошибка получения канала обновлений",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "method", Value: "initUpdatesChannel"},
+		)
 		return
 	}
 

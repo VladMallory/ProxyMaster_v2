@@ -10,8 +10,8 @@ run:
 windows:
 	go run $(cmdWindows)
 
- run2:
-	go run ./cmd/testGetUserInfo/testMain.go
+run2:
+	go run .\cmd\botTest\main.go
 
 # docker
 # натив
