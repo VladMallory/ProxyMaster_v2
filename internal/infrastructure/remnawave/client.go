@@ -135,6 +135,48 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.Response.UUID, nil
 }
 
+// AddDevice добавляет 1 устройство пользователю
+func (c *RemnaClient) AddDevice(username string) error {
+	defer c.logDuration("AddDevice")
+	uuid, err := c.GetUUIDByUsername(username)
+	if err != nil {
+		c.logger.Error(
+			"failed to get user UUID",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	user, err := c.GetUserInfo(uuid)
+	if err != nil {
+		c.logger.Error(
+			"failed to user by UUID",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	devices := uint8(user.Response.HWIDDeviceLimit) + 1
+	if err := c.SetDevices(username, &devices); err != nil {
+		c.logger.Error(
+			"failed to set device limit",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	c.logger.Info(
+		"devices updated succesfully",
+		logger.Field{Key: "user", Value: username},
+		logger.Field{Key: "devices", Value: devices},
+	)
+
+	return nil
+}
+
 // SetDevices устанавилвает кол-во устройств пользователя
 func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	if devices == nil {
