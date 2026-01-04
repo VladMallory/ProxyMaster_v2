@@ -48,6 +48,7 @@ func New() (Application, error) {
 	// Для сервиса с подписками
 	subscriptionLogger := loggerClient.Named("subscription")
 	// Для платежной системы
+	telegramLogger := loggerClient.Named("telegram")
 	// plategaLogger := loggerClient.Named("platega")
 
 	// ===remnawave===
@@ -76,7 +77,7 @@ func New() (Application, error) {
 	botHandler := telegrambot.NewHandler(subService, cfg.TelegramSupport, remnawaveClient)
 
 	// запускаем клиент телеграм
-	telegramClient := telegram.NewClient(botAPI, botHandler)
+	telegramClient := telegram.NewClient(botAPI, botHandler, telegramLogger)
 
 	return &app{
 		remnawaveClient: remnawaveClient,
