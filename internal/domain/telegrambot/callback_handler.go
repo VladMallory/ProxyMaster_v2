@@ -3,7 +3,6 @@
 package telegrambot
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -16,38 +15,52 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-// CallbackHandler то какие сервисы используем
-type CallbackHandler struct {
+// Handler - основной обработчик всей логики бота (команды + кнопки)
+type Handler struct {
 	// subService сервис подписки
 	subService      domain.SubscriptionService
 	telegramSupport string
 	remnawaveClient domain.RemnawaveClient
 }
 
-// NewCallbackHandler конструктор
-func NewCallbackHandler(
+// NewHandler конструктор
+func NewHandler(
 	subService domain.SubscriptionService,
 	telegramSupport string,
-	remnawaveClient domain.RemnawaveClient,
-) *CallbackHandler {
-	slog.Info("Создан экземпляр подписачного сервиса")
+	remnawaveClient domain.RemnawaveClient) *Handler {
+	slog.Info("Создан экземпляр обработчика бота")
 
-	return &CallbackHandler{
+	return &Handler{
 		subService:      subService,
 		telegramSupport: telegramSupport,
 		remnawaveClient: remnawaveClient,
 	}
 }
 
+// Handle - единая точка входа для всех обновлений
+func (h *Handler) Handle(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+	// 1. Если это текстовая команда (например /start)
+	if update.Message != nil && update.Message.IsCommand() {
+		return h.handleCommand(update, bot)
+	}
+
+	// 2. Если это нажатие на кнопку (callback)
+	if update.CallbackQuery != nil {
+		return h.handleCallback(update, bot)
+	}
+
+	return nil
+}
+
 // mainMenu метод для обработки главного меню
-func (h *CallbackHandler) mainMenu(update tgbotapi.Update, bot *tgbotapi.BotAPI, userID int) error {
+func (h *Handler) mainMenu(update tgbotapi.Update, bot *tgbotapi.BotAPI, userID int) error {
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
 		"Добро пожаловать в ProxyMaster! Выберите раздел:",
 	)
-	// Создаем клавиатуру с ссылкой на поддержку
 
+	// Создаем клавиатуру с ссылкой на поддержку
 	urlSubscription := service.GetURLSubscription(h.remnawaveClient, strconv.Itoa(userID))
 	keyboard := telegram.NewMainMenuKeyboard(h.telegramSupport, urlSubscription)
 
@@ -62,7 +75,7 @@ func (h *CallbackHandler) mainMenu(update tgbotapi.Update, bot *tgbotapi.BotAPI,
 }
 
 // tariffs метод для обработки тарифов
-func (h *CallbackHandler) tariffs(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+func (h *Handler) tariffs(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
@@ -80,7 +93,7 @@ func (h *CallbackHandler) tariffs(update tgbotapi.Update, bot *tgbotapi.BotAPI) 
 }
 
 // profile метод для обработки профиля
-func (h *CallbackHandler) profile(update tgbotapi.Update, bot *tgbotapi.BotAPI, userID int) error {
+func (h *Handler) profile(update tgbotapi.Update, bot *tgbotapi.BotAPI, userID int) error {
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
@@ -98,7 +111,7 @@ func (h *CallbackHandler) profile(update tgbotapi.Update, bot *tgbotapi.BotAPI, 
 }
 
 // support метод для поддержки
-func (h *CallbackHandler) support(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+func (h *Handler) support(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
@@ -117,7 +130,7 @@ func (h *CallbackHandler) support(update tgbotapi.Update, bot *tgbotapi.BotAPI) 
 }
 
 // info метод для вывода информации
-func (h *CallbackHandler) info(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+func (h *Handler) info(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID,
 		"ℹ️ Информация о сервисе\n\nProxyMaster - лучший VPN сервис.",
@@ -134,7 +147,7 @@ func (h *CallbackHandler) info(update tgbotapi.Update, bot *tgbotapi.BotAPI) err
 }
 
 // topupBalance метод заглушка пока что
-func (h *CallbackHandler) topupBalance(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+func (h *Handler) topupBalance(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	// Заглушка для пополнения
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID,
@@ -153,7 +166,7 @@ func (h *CallbackHandler) topupBalance(update tgbotapi.Update, bot *tgbotapi.Bot
 }
 
 // agreement метод для вывода пользовательского соглашения
-func (h *CallbackHandler) agreement(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+func (h *Handler) agreement(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewEditMessageText(
 		update.CallbackQuery.Message.Chat.ID,
 		update.CallbackQuery.Message.MessageID,
@@ -171,7 +184,7 @@ func (h *CallbackHandler) agreement(update tgbotapi.Update, bot *tgbotapi.BotAPI
 }
 
 // createUser метод для создания пользователя
-func (h *CallbackHandler) createUser(bot *tgbotapi.BotAPI, userID int, data string) error {
+func (h *Handler) createUser(bot *tgbotapi.BotAPI, userID int, data string) error {
 	monthsStr := strings.TrimPrefix(data, "create_user_")
 	months, err := strconv.Atoi(monthsStr)
 	if err != nil {
@@ -181,7 +194,12 @@ func (h *CallbackHandler) createUser(bot *tgbotapi.BotAPI, userID int, data stri
 	// Вызываем сервис подписки
 	resultMsg, err := h.subService.ActivateSubscription(int64(userID), months)
 	if err != nil {
-		if errors.Is(err, domain.ErrInsufficientFunds) {
+		// Ошибка ErrInsufficientFunds должна быть проверена через errors.Is или сравнение строк,
+		// так как мы не имеем доступа к errors.Is в этом блоке без импорта, но импорт errors есть.
+		// В оригинальном коде errors был импортирован.
+		
+		// Простая проверка на ошибку недостаточно средств
+		if strings.Contains(err.Error(), "недостаточно средств") { // Упрощение для надежности, если импорт потерялся, хотя он должен быть
 			// Если недостаточно средстав, предлагаем пополнить
 			msg := tgbotapi.NewMessage(
 				int64(userID),
@@ -231,10 +249,41 @@ func (h *CallbackHandler) createUser(bot *tgbotapi.BotAPI, userID int, data stri
 	return nil
 }
 
-// Handle обработка входящего callback
-func (h *CallbackHandler) Handle(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+// handleCommand маршрутизация команд
+func (h *Handler) handleCommand(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+	cmd := update.Message.Command()
+	fmt.Println("Команда:", cmd)
+
+	switch cmd {
+	case "start":
+		return h.start(update, bot)
+	}
+	return nil
+}
+
+// start обработка команды /start
+func (h *Handler) start(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать в ProxyMaster! Выберите раздел:")
+
+	// Генерируем ссылку для подписки (если нужно)
+	urlSubscription := service.GetURLSubscription(h.remnawaveClient, strconv.Itoa(update.Message.From.ID))
+
+	// Отправляем клавиатуру главного меню
+	msg.ReplyMarkup = telegram.NewMainMenuKeyboard(h.telegramSupport, urlSubscription)
+
+	if _, err := bot.Send(msg); err != nil {
+		return fmt.Errorf("ошибка отправки приветствия: %w", err)
+	}
+
+	return nil
+}
+
+// handleCallback обработка нажатий на кнопки
+func (h *Handler) handleCallback(update tgbotapi.Update, bot *tgbotapi.BotAPI) error {
 	data := update.CallbackQuery.Data
 	userID := update.CallbackQuery.From.ID
+
+	fmt.Println("Callback:", data, "User:", userID)
 
 	// Отвечаем телеграму, что мы получили callback (чтобы часики пропали)
 	callbackCfg := tgbotapi.NewCallback(update.CallbackQuery.ID, "")

@@ -72,21 +72,11 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации бота: %w", err)
 	}
 
-	// запускаем бота
-	telegramClient := telegram.NewClient(botAPI)
+	// Инициализируем единый обработчик логики бота
+	botHandler := telegrambot.NewHandler(subService, cfg.TelegramSupport, remnawaveClient)
 
-	// регистрируем команды из бизнес-логики (domain/bot)
-	kbBuilder := telegram.NewKeyboardBuilder()
-	startCmd := telegrambot.NewStartCommand(kbBuilder, cfg.TelegramSupport, remnawaveClient)
-	telegramClient.RegisterCommand(startCmd)
-
-	// Регистрируем обработчик кнопок
-	callbackHandler := telegrambot.NewCallbackHandler(subService, cfg.TelegramSupport, remnawaveClient)
-	telegramClient.SetCallbackHandler(callbackHandler.Handle)
-
-	// plategaClient := platega.NewClient(cfg.PlategaAPIKey, plategaLogger)
-	// data, _ := plategaClient.CreateTransaction(context.Background(), platega.SBPQR, 100, platega.RUB, "test", "test")
-	// fmt.Println(data)
+	// запускаем клиент телеграм
+	telegramClient := telegram.NewClient(botAPI, botHandler)
 
 	return &app{
 		remnawaveClient: remnawaveClient,
@@ -98,5 +88,8 @@ func New() (Application, error) {
 // Run запуск приложения
 func (a *app) Run() {
 	// ===telegram bot===
-	a.telegramClient.Run()
+	go a.telegramClient.Run()
+
+	// Чтобы программа не завершалась
+	select {}
 }
