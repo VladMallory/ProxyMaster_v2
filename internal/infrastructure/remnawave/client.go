@@ -60,6 +60,82 @@ func NewRemnaClient(cfg *config.Config, l logger.Logger) *RemnaClient {
 	}
 }
 
+// EncryptURL метод, который шифрует URL
+func (c *RemnaClient) EncryptURL(url string) (string, error) {
+	defer c.logDuration("EncryptURL")
+
+	data := &models.EncryptURLRequest{URL: url}
+	jsonData, err := json.Marshal(data)
+
+	if err != nil {
+		c.logger.Error(
+			"failed to marshal json",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return "", err
+	}
+
+	apiURL := "https://crypto.happ.su/api.php"
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, apiURL, bytes.NewBuffer(jsonData))
+
+	if err != nil {
+		c.logger.Error(
+			"failed to make request",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return "", err
+	}
+
+	response, err := c.httpClient.Do(req)
+
+	if err != nil {
+		c.logger.Error(
+			"failed to get response",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return "", err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		c.logger.Error(
+			"bad status code",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: response.Body},
+		)
+
+		return "", fmt.Errorf("bad status code")
+	}
+
+	defer func() {
+		if err = response.Body.Close(); err != nil {
+			c.logger.Error("не удалось закрыть тело ответа", logger.Field{Key: "error", Value: err.Error()})
+		}
+	}()
+
+	var encReponse models.EncryptURLResponse
+
+	body, err := io.ReadAll(response.Body)
+
+	if err := json.Unmarshal(body, &encReponse); err != nil {
+		c.logger.Error(
+			"failed to unmarshal json",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return "", err
+	}
+
+	if encReponse.EncryptedLink == "" {
+		return "", fmt.Errorf("получен пустой URL")
+	}
+
+	return encReponse.EncryptedLink, nil
+}
+
 // GetUUIDByUsername - метод нахождения пользователя через username.
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	defer c.logDuration("GetUUIDByUsername")()

@@ -196,6 +196,14 @@ type GetUserInfoResponse struct {
 	} `json:"response"`
 }
 
+type EncryptURLRequest struct {
+	URL string `json:"url"`
+}
+
+type EncryptURLResponse struct {
+	EncryptedLink string `json:"encrypted_link"`
+}
+
 //
 //
 //
