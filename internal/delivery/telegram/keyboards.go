@@ -1,104 +1,36 @@
-// Package telegram отвечает за создание клавиатур для телеграм бота
 package telegram
 
-import (
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-)
+import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 
-// KeyboardBuilder новый экземпляр.
-type KeyboardBuilder struct{}
-
-// NewKeyboardBuilder конструктор.
-func NewKeyboardBuilder() *KeyboardBuilder {
-	return &KeyboardBuilder{}
-}
-
-// buildFromSlice создает клавиатуру из слайса строк
-func (k *KeyboardBuilder) buildFromSlice(options []string) tgbotapi.InlineKeyboardMarkup {
-	var rows [][]tgbotapi.InlineKeyboardButton
-	for _, text := range options {
-		btn := tgbotapi.NewInlineKeyboardButtonData(text, text)
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
-	}
-	return tgbotapi.NewInlineKeyboardMarkup(rows...)
-}
-
-// NewMainMenuKeyboard создает главное меню
-func NewMainMenuKeyboard(telegramSupport, subscriptionURL string) tgbotapi.InlineKeyboardMarkup {
-	// Если подписки нет (URL пустой), показываем предложение купить
-	if subscriptionURL == "" {
-		return tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("📦 Оформить подписку", "tariffs"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL("🆘 Поддержка", telegramSupport),
-			),
-		)
-	}
-
-	// Если есть подписка, показываем полное меню
-	connectBtn := tgbotapi.NewInlineKeyboardButtonURL("🔗 Подключить", subscriptionURL)
-
+// tariffsKeyboard генерирует Inline-клавиатуру с вариантами подписки.
+// Кнопки содержат:
+// 1. Текст, который видит пользователь (например, "📅 1 Месяц - 100₽")
+// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1")
+func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			connectBtn,
+			tgbotapi.NewInlineKeyboardButtonData("📅 1 Месяц - 100₽", "btn_tariff_1"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Продлить подписку", "tariffs"),
-			tgbotapi.NewInlineKeyboardButtonData("👤 Личный кабинет", "profile"),
+			tgbotapi.NewInlineKeyboardButtonData("📅 3 Месяца - 270₽", "btn_tariff_3"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("🆘 Поддержка", telegramSupport),
-			tgbotapi.NewInlineKeyboardButtonData("ℹ️ Инфо", "info"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
 		),
 	)
 }
 
-// NewTariffsKeyboard создает клавиатуру с выбором тарифов
-func NewTariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
+// paymentKeyboard генерирует Inline-клавиатуру с методами оплаты.
+func (c *Client) paymentKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("1 месяц", "create_user_1"),
-			tgbotapi.NewInlineKeyboardButtonData("2 месяца", "create_user_2"),
-			tgbotapi.NewInlineKeyboardButtonData("3 месяца", "create_user_3"),
+			tgbotapi.NewInlineKeyboardButtonData("💳 Банковская карта (RF)", "btn_pay_card"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Главное меню", "main_menu"),
+			tgbotapi.NewInlineKeyboardButtonData("🪙 Криптовалюта", "btn_pay_crypto"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад к тарифам", "btn_balance"), // Возвращаем к выбору тарифов
 		),
 	)
-}
-
-// NewProfileKeyboard создает клавиатуру личного кабинета
-func NewProfileKeyboard() tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 Пополнить баланс", "topup_balance"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Главное меню", "main_menu"),
-		),
-	)
-}
-
-// NewInfoKeyboard создает клавиатуру раздела информации
-func NewInfoKeyboard() tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📜 Пользовательское соглашение", "agreement"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Главное меню", "main_menu"),
-		),
-	)
-}
-
-// NewBackToMenuKeyboard создает клавиатуру с кнопкой возврата в меню
-func NewBackToMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
-	keyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Главное меню", "main_menu"),
-		),
-	)
-	return keyboard
 }

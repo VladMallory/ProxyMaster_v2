@@ -5,15 +5,10 @@ import (
 	"fmt"
 
 	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/domain/telegrambot"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
-
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // Application главный интерфейс приложения
@@ -24,8 +19,8 @@ type Application interface {
 // App зависимости приложения
 type app struct {
 	remnawaveClient domain.RemnawaveClient
-	telegramClient  *telegram.Client
 	// plategaClient   *platega.Client
+	telegramClient *telegram.Client
 }
 
 // New собирает приложение
@@ -46,50 +41,44 @@ func New() (Application, error) {
 	// Создаем logger для remnawave
 	remnawaveLogger := loggerClient.Named("remnawave")
 	// Для сервиса с подписками
-	subscriptionLogger := loggerClient.Named("subscription")
+	// subscriptionLogger := loggerClient.Named("subscription")
 	// Для платежной системы
-	telegramLogger := loggerClient.Named("telegram")
+	// telegramLogger := loggerClient.Named("telegram")
 	// plategaLogger := loggerClient.Named("platega")
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
 	// ===DB===
-	db, err := database.Connect(cfg.DatabaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
-	}
+	// db, err := database.Connect(cfg.DatabaseURL)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
+	// }
 
 	// repository
-	userRepo := database.NewUserStorage(db)
+	// userRepo := database.NewUserStorage(db)
 
 	// ===services===
-	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
+	// subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
 
 	// ===telegram bot===
-	// инициализация
-	botAPI, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
+	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка инициализации бота: %w", err)
+		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
-
 	// Инициализируем единый обработчик логики бота
-	botHandler := telegrambot.NewHandler(subService, cfg.TelegramSupport, remnawaveClient)
-
-	// запускаем клиент телеграм
-	telegramClient := telegram.NewClient(botAPI, botHandler, telegramLogger)
 
 	return &app{
 		remnawaveClient: remnawaveClient,
-		telegramClient:  telegramClient,
 		// plategaClient:   plategaClient,
+		telegramClient: telegramClient,
 	}, nil
 }
 
 // Run запуск приложения
 func (a *app) Run() {
-	// ===telegram bot===
-	go a.telegramClient.Run()
+	// Запускаем Telegram бота в горутине
+	go a.telegramClient.Start()
 
 	// Чтобы программа не завершалась
 	select {}
