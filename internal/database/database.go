@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq" //драйвер постгреса
+	_ "github.com/lib/pq"
 )
 
 // Connect is function for database connection

@@ -64,3 +64,15 @@ type CreateTransactionResponse struct {
 	USDTPrice      float64 `json:"usdtRate"`
 	CryptoAmount   float64 `json:"cryptoAmount"`
 }
+
+// TransactionInfoResponse ответ с информацией о транзакции
+type TransactionInfoResponse struct {
+	ID             string  `json:"id"`
+	Status         string  `json:"status"`
+	PaymentMethod  string  `json:"paymentMethod"`
+	PaymentDetails struct {
+		Amount   float64 `json:"amount"`
+		Currency string  `json:"currency"`
+	} `json:"paymentDetails"`
+	Description string `json:"description"`
+}

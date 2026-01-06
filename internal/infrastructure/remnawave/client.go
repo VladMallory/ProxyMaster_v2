@@ -367,6 +367,12 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 			slog.Warn("не удалось преобразовать тело ответа")
 		}
 
+		// Проверяем, является ли ошибка "User username already exists"
+		if strings.Contains(string(body), "User username already exists") {
+			slog.Info("Пользователь уже существует, пропускаем создание", "username", username)
+			return nil
+		}
+
 		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestCreate.Error(), string(body)))
 
 		return ErrBadRequestCreate
