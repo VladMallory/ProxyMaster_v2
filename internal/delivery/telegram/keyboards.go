@@ -20,14 +20,27 @@ func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-// paymentKeyboard генерирует Inline-клавиатуру с методами оплаты.
-func (c *Client) paymentKeyboard() tgbotapi.InlineKeyboardMarkup {
+// checkPaymentKeyboard генерирует клавиатуру для проверки платежа.
+func (c *Client) checkPaymentKeyboard(url, transactionID string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💳 Банковская карта (RF)", "btn_pay_card"),
+			tgbotapi.NewInlineKeyboardButtonURL("🔗 Оплатить", url),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🪙 Криптовалюта", "btn_pay_crypto"),
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Проверить платеж", "btn_check_payment_"+transactionID),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 В главное меню", "btn_back"),
+		),
+	)
+}
+func (c *Client) paymentKeyboard(amount string) tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 СБП", "btn_pay_sbp_"+amount),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🪙 Криптовалюта", "btn_pay_crypto_"+amount),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад к тарифам", "btn_balance"), // Возвращаем к выбору тарифов

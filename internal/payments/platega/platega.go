@@ -2,6 +2,7 @@
 package platega
 
 import (
+	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/pkg/logger"
 	"bytes"
 	"context"
@@ -49,11 +50,11 @@ func (c *Client) CreateTransaction(
 	amount int,
 	currency Currency,
 	description, payload string,
-) (URL string, err error) {
+) (URL, ID string, err error) {
 	defer c.logDuration("CreateTransaction")
 	merchantID := os.Getenv("PLATEGA_MERCHANT_ID")
 	if merchantID == "" {
-		return "", fmt.Errorf("platega.CreateTransaction: MERCHANT_ID не установлен в .env")
+		return "", "", fmt.Errorf("platega.CreateTransaction: MERCHANT_ID не установлен в .env")
 	}
 
 	plategaAPIKey := c.apiKey
@@ -61,7 +62,7 @@ func (c *Client) CreateTransaction(
 		plategaAPIKey = os.Getenv("PLATEGA_API_KEY")
 	}
 	if plategaAPIKey == "" {
-		return "", fmt.Errorf("platega.CreateTransaction: PLATEGA_API_KEY не установлен (ни в клиенте, ни в .env)")
+		return "", "", fmt.Errorf("platega.CreateTransaction: PLATEGA_API_KEY не установлен (ни в клиенте, ни в .env)")
 	}
 
 	// сборка. URL
@@ -70,7 +71,7 @@ func (c *Client) CreateTransaction(
 		plategaBaseURL = os.Getenv("PLATEGA_BASE_URL")
 	}
 	if plategaBaseURL == "" {
-		return "", fmt.Errorf("platega.CreateTransaction: PLATEGA_BASE_URL не установлен (ни в клиенте, ни в .env)")
+		return "", "", fmt.Errorf("platega.CreateTransaction: PLATEGA_BASE_URL не установлен (ни в клиенте, ни в .env)")
 	}
 	plategaTotalURL := plategaBaseURL + "/transaction/process"
 
@@ -90,13 +91,13 @@ func (c *Client) CreateTransaction(
 	// маршалинг реквеста
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("platega.CreateTransaction: ошибка маршалинга: %w", err)
+		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка маршалинга: %w", err)
 	}
 
 	// запрос к апи platega
 	req, err := http.NewRequestWithContext(ctx, "POST", plategaTotalURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("platega.CreateTransaction: ошибка создания запроса: %w", err)
+		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка создания запроса: %w", err)
 	}
 	req.Header.Set("X-MerchantId", merchantID)
 	req.Header.Set("X-Secret", plategaAPIKey)
@@ -104,7 +105,7 @@ func (c *Client) CreateTransaction(
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("platega.CreateTransaction: ошибка получения ответа: %w", err)
+		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка получения ответа: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -119,21 +120,108 @@ func (c *Client) CreateTransaction(
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("platega.CreateTransaction: ошибка чтения тела ответа: %w", err)
+		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка чтения тела ответа: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("platega.CreateTransaction: код статуса: %v\nОшибка: %s", resp.StatusCode, string(respBody))
+		return "", "", fmt.Errorf("platega.CreateTransaction: код статуса: %v\nОшибка: %s", resp.StatusCode, string(respBody))
 	}
 
 	var CreateTransactionResponse CreateTransactionResponse
 	err = json.Unmarshal(respBody, &CreateTransactionResponse)
 	if err != nil {
-		return "", fmt.Errorf("platega.CreateTransaction: ошибка анмаршалинга ответа: %w", err)
+		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка анмаршалинга ответа: %w", err)
 	}
 
 	URL = CreateTransactionResponse.Redirect
-	// ID := CreateTransactionResponse.TransactionID
+	ID = CreateTransactionResponse.TransactionID
 
-	return URL, nil
+	return URL, ID, nil
+}
+
+// CheckStatus проверяет статус транзакции
+func (c *Client) CheckStatus(ctx context.Context, transactionID string) (domain.PaymentStatus, error) {
+	defer c.logDuration("CheckStatus")
+
+	// Получаем инфу о транзакции, чтобы узнать статус
+	info, err := c.GetTransactionInfo(ctx, transactionID)
+	if err != nil {
+		return "", err
+	}
+
+	status := info.GetStatus()
+
+	switch status {
+	case "success", "paid":
+		return domain.PaymentStatusSuccess, nil
+	case "pending", "process":
+		return domain.PaymentStatusPending, nil
+	case "failed", "error":
+		return domain.PaymentStatusFailed, nil
+	default:
+		return domain.PaymentStatusPending, nil
+	}
+}
+
+// GetTransactionInfo получает информацию о транзакции
+func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (domain.TransactionInfo, error) {
+	defer c.logDuration("GetTransactionInfo")
+
+	plategaBaseURL := c.baseURL
+	if plategaBaseURL == "" {
+		plategaBaseURL = os.Getenv("PLATEGA_BASE_URL")
+	}
+
+	// Предполагаемый эндпоинт для проверки статуса (нужно уточнить в документации Platega)
+	// Обычно это GET /transaction/{id} или POST /transaction/status
+	// Используем GET для примера, если документации нет под рукой
+	url := fmt.Sprintf("%s/transaction/%s", plategaBaseURL, transactionID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка создания запроса: %w", err)
+	}
+
+	req.Header.Set("X-MerchantId", os.Getenv("PLATEGA_MERCHANT_ID"))
+	req.Header.Set("X-Secret", c.apiKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка выполнения запроса: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка чтения ответа: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("platega.GetTransactionInfo: статус %d, ответ: %s", resp.StatusCode, string(body))
+	}
+
+	var txInfo TransactionInfoResponse
+	if err := json.Unmarshal(body, &txInfo); err != nil {
+		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка парсинга JSON: %w", err)
+	}
+
+	return &txInfo, nil
+}
+
+// === Методы для реализации интерфейса domain.TransactionInfo ===
+
+func (t *TransactionInfoResponse) GetID() string {
+	return t.ID
+}
+
+func (t *TransactionInfoResponse) GetAmount() float64 {
+	return t.PaymentDetails.Amount
+}
+
+func (t *TransactionInfoResponse) GetStatus() string {
+	return t.Status
+}
+
+func (t *TransactionInfoResponse) GetRawResponse() any {
+	return t
 }
