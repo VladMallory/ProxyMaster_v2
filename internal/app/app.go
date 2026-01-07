@@ -95,6 +95,8 @@ func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
 	go a.telegramClient.Start(a.remnawaveClient, a.subscriptionService, a.paymentGateway, a.userRepo)
 
+	//запускаем restAPI
+	go a.restAPI.Serve(":8080") //временно на локал хосте
 	// Чтобы программа не завершалась
 	select {}
 }
