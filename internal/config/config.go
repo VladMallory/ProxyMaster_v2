@@ -29,6 +29,11 @@ type Config struct {
 	// platega
 	PlategaAPIKey string
 
+	// youkassa
+	YouKassaShopID    string
+	YouKassaSecretKey string
+	YouKassaReturnURL string
+
 	// Logger
 	LoggerLevel string
 }
@@ -51,5 +56,8 @@ func New() (*Config, error) {
 		DatabaseURL:         os.Getenv("DATABASE_URL"),
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),
 		LoggerLevel:         os.Getenv("LOGGER_LEVEL"),
+		YouKassaShopID:      os.Getenv("YOUKASSA_SHOP_ID"),
+		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),
+		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
 	}, nil
 }

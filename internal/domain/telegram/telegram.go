@@ -6,8 +6,9 @@ import (
 	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/internal/payments/platega"
+	"ProxyMaster_v2/internal/service"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -32,18 +33,16 @@ type MessageSender interface {
 // chatID: ID чата, куда отправлять ответ
 // messageID: ID сообщения, которое нужно отредактировать
 // data: скрытые данные, зашитые в кнопку (например, "btn_balance")
-func ProcessCallback(sender MessageSender, chatID int64, messageID int, data string, remnawaveClient domain.RemnawaveClient, plategaClient *platega.Client, userRepo *database.UserStorage) error {
+func ProcessCallback(sender MessageSender, chatID int64, messageID int, data string, remnawaveClient domain.RemnawaveClient, subscriptionService domain.SubscriptionService, paymentGateway domain.PaymentGateway, userRepo *database.UserStorage) error {
 	if amountStr, ok := strings.CutPrefix(data, "btn_pay_sbp_"); ok {
 		amount, err := strconv.Atoi(amountStr)
-		fmt.Println(amount)
 		if err != nil {
 			return sender.SendMessage(chatID, "Ошибка обработки суммы")
 		}
 
-		// Создание транзакции
-		description := fmt.Sprintf("Оплата RUB для пользователя %d", chatID)
-		// url, id, err := plategaClient.CreateTransaction(context.Background(), platega.SBPQR, amount, platega.RUB, description, strconv.FormatInt(chatID, 10))
-		url, id, err := plategaClient.CreateTransaction(context.Background(), platega.SBPQR, 10, platega.RUB, description, strconv.FormatInt(chatID, 10))
+		orderID := fmt.Sprintf("tg_%d_%d_%d", chatID, amount, time.Now().UnixNano())
+
+		url, id, err := paymentGateway.CreateTransaction(context.Background(), float64(amount), orderID)
 		if err != nil {
 			log.Printf("Ошибка создания транзакции: %v", err)
 			return sender.SendMessage(chatID, "Ошибка создания транзакции")
@@ -53,7 +52,7 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 	}
 
 	if transactionID, ok := strings.CutPrefix(data, "btn_check_payment_"); ok {
-		status, err := plategaClient.CheckStatus(context.Background(), transactionID)
+		status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
 		if err != nil {
 			log.Printf("Ошибка проверки статуса транзакции: %v", err)
 			return sender.SendMessage(chatID, "Ошибка проверки статуса платежа")
@@ -61,9 +60,9 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 
 		switch status {
 		case domain.PaymentStatusSuccess:
-			return handleSuccessfulPayment(sender, chatID, transactionID, plategaClient, userRepo)
+			return handleSuccessfulPayment(sender, chatID, messageID, transactionID, paymentGateway, userRepo)
 		case domain.PaymentStatusPending:
-			started := tryStartPaymentStatusWatcher(sender, chatID, transactionID, plategaClient, userRepo)
+			started := tryStartPaymentStatusWatcher(sender, chatID, messageID, transactionID, paymentGateway, userRepo)
 			if started {
 				return sender.SendMessage(chatID, "⏳ Оплата еще не поступила. Я буду автоматически проверять статус каждые 2 секунды и сообщу, когда платеж подтвердится.")
 			}
@@ -78,18 +77,51 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 	}
 
 	switch data {
-	case "btn_balance":
-		// Показываем тарифы
+	case "btn_tariffs":
 		return sender.ShowView(chatID, messageID, "tariffs", "")
-	case "btn_tariff_1":
-		// Тариф 1 месяц - 100р
+	case "btn_sub_tariff_1":
+		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 1)
+	case "btn_sub_tariff_2":
+		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 2)
+	case "btn_sub_tariff_3":
+		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 3)
+	case "btn_balance":
+		return sender.ShowView(chatID, messageID, "topup", "")
+	case "btn_topup_100":
 		return sender.ShowView(chatID, messageID, "payment", "100")
-	case "btn_tariff_3":
-		// Тариф 3 месяца - 270р
-		return sender.ShowView(chatID, messageID, "payment", "270")
+	case "btn_topup_200":
+		return sender.ShowView(chatID, messageID, "payment", "200")
+	case "btn_topup_300":
+		return sender.ShowView(chatID, messageID, "payment", "300")
+	case "btn_profile":
+		userID := strconv.FormatInt(chatID, 10)
+
+		user, err := userRepo.GetUserByID(userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				user, err = userRepo.CreateUser(models.CreateUserTGDTO{
+					ID:      userID,
+					Balance: 0,
+					Trial:   false,
+				})
+				if err != nil {
+					log.Printf("Ошибка создания пользователя в DB: %v", err)
+					return sender.SendMessage(chatID, "Ошибка создания пользователя")
+				}
+			} else {
+				log.Printf("Ошибка получения пользователя: %v", err)
+				return sender.SendMessage(chatID, "Ошибка получения данных пользователя")
+			}
+		}
+
+		return sender.ShowView(chatID, messageID, "profile", user.ID+"|"+strconv.Itoa(user.Balance))
 	case "btn_connect":
-		// Заглушка для кнопки подключения
-		return sender.SendMessage(chatID, "Функция подключения пока в разработке")
+		username := strconv.FormatInt(chatID, 10)
+		url := service.GetURLSubscription(remnawaveClient, username)
+		if url == "" {
+			return sender.ShowView(chatID, messageID, "connect", "Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.")
+		}
+		return sender.ShowView(chatID, messageID, "connect", url)
 	case "btn_info":
 		// Информация о боте
 		return sender.SendMessage(chatID, "В разработке")
@@ -103,7 +135,7 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 
 var activePaymentStatusWatchers sync.Map
 
-func tryStartPaymentStatusWatcher(sender MessageSender, chatID int64, transactionID string, plategaClient *platega.Client, userRepo *database.UserStorage) bool {
+func tryStartPaymentStatusWatcher(sender MessageSender, chatID int64, messageID int, transactionID string, paymentGateway domain.PaymentGateway, userRepo *database.UserStorage) bool {
 	_, loaded := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
 	if loaded {
 		return false
@@ -114,7 +146,7 @@ func tryStartPaymentStatusWatcher(sender MessageSender, chatID int64, transactio
 
 		deadline := time.Now().Add(2 * time.Minute)
 		for time.Now().Before(deadline) {
-			status, err := plategaClient.CheckStatus(context.Background(), transactionID)
+			status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
 			if err != nil {
 				log.Printf("Ошибка проверки статуса транзакции: %v", err)
 				time.Sleep(2 * time.Second)
@@ -123,7 +155,7 @@ func tryStartPaymentStatusWatcher(sender MessageSender, chatID int64, transactio
 
 			switch status {
 			case domain.PaymentStatusSuccess:
-				if err := handleSuccessfulPayment(sender, chatID, transactionID, plategaClient, userRepo); err != nil {
+				if err := handleSuccessfulPayment(sender, chatID, messageID, transactionID, paymentGateway, userRepo); err != nil {
 					log.Printf("Ошибка обработки успешного платежа: %v", err)
 				}
 				return
@@ -142,8 +174,8 @@ func tryStartPaymentStatusWatcher(sender MessageSender, chatID int64, transactio
 	return true
 }
 
-func handleSuccessfulPayment(sender MessageSender, chatID int64, transactionID string, plategaClient *platega.Client, userRepo *database.UserStorage) error {
-	info, err := plategaClient.GetTransactionInfo(context.Background(), transactionID)
+func handleSuccessfulPayment(sender MessageSender, chatID int64, messageID int, transactionID string, paymentGateway domain.PaymentGateway, userRepo *database.UserStorage) error {
+	info, err := paymentGateway.GetTransactionInfo(context.Background(), transactionID)
 	if err != nil {
 		log.Printf("Ошибка получения информации о транзакции: %v", err)
 		return sender.SendMessage(chatID, "Платеж прошел, но возникла ошибка при получении данных. Обратитесь в поддержку.")
@@ -166,18 +198,49 @@ func handleSuccessfulPayment(sender MessageSender, chatID int64, transactionID s
 		return sender.SendMessage(chatID, "Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.")
 	}
 
-	return sender.SendMessage(chatID, fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount))
+	return sender.ShowView(chatID, messageID, "subscription_result", fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount))
+}
+
+func handleSubscriptionFromBalance(sender MessageSender, subscriptionService domain.SubscriptionService, chatID int64, messageID int, months int) error {
+	result, err := subscriptionService.ActivateSubscription(chatID, months)
+	if err != nil {
+		if errors.Is(err, domain.ErrInsufficientFunds) {
+			return sender.ShowView(chatID, messageID, "subscription_result", "❌ Недостаточно средств на балансе")
+		}
+		return sender.ShowView(chatID, messageID, "subscription_result", "Произошла ошибка при оформлении подписки")
+	}
+
+	return sender.ShowView(chatID, messageID, "subscription_result", "✅ "+result)
 }
 
 // ProcessCommand обрабатывает текстовые команды (например, /start).
 // Эта функция — "мозг" обработки текста.
-func ProcessCommand(sender MessageSender, chatID int64, command string, remnawaveClient domain.RemnawaveClient) error {
+func ProcessCommand(sender MessageSender, chatID int64, command string, remnawaveClient domain.RemnawaveClient, userRepo *database.UserStorage) error {
 	var replyText string
 	switch command {
 	case "/start":
-		// ---Создаем подписку---
+		userID := strconv.FormatInt(chatID, 10)
+
+		_, err := userRepo.GetUserByID(userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				_, err = userRepo.CreateUser(models.CreateUserTGDTO{
+					ID:      userID,
+					Balance: 0,
+					Trial:   false,
+				})
+				if err != nil {
+					log.Printf("Ошибка создания пользователя в DB: %v", err)
+					return sender.SendMessage(chatID, "Ошибка создания пользователя")
+				}
+			} else {
+				log.Printf("Ошибка получения пользователя: %v", err)
+				return sender.SendMessage(chatID, "Ошибка получения данных пользователя")
+			}
+		}
+
 		username := strconv.Itoa(int(chatID))
-		err := remnawaveClient.CreateUser(username, 5)
+		err = remnawaveClient.CreateUser(username, 5)
 		if err != nil {
 			log.Println("Ошибка создания пользователя")
 		}

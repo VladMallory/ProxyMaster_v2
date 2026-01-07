@@ -2,10 +2,9 @@
 package telegram
 
 import (
-	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/database"
+	"ProxyMaster_v2/internal/domain"
 	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
-	"ProxyMaster_v2/internal/payments/platega"
 	"fmt"
 	"strings"
 
@@ -35,7 +34,7 @@ func NewTelegramClient(token string) (*Client, error) {
 // Start — это "сердце" бота. Метод запускает бесконечный цикл,
 // который слушает обновления от Telegram (сообщения, нажатия кнопок)
 // и передает их в бизнес-логику (domain).
-func (c *Client) Start(remnawaveClient domain.RemnawaveClient, plategaClient *platega.Client, userRepo *database.UserStorage) {
+func (c *Client) Start(remnawaveClient domain.RemnawaveClient, subscriptionService domain.SubscriptionService, paymentGateway domain.PaymentGateway, userRepo *database.UserStorage) {
 	// Настраиваем конфигурацию получения обновлений
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60 // Ждем 60 секунд новых сообщений (long polling)
@@ -52,7 +51,7 @@ func (c *Client) Start(remnawaveClient domain.RemnawaveClient, plategaClient *pl
 		// 1. Обработка нажатий на инлайн-кнопки (CallbackQuery)
 		if update.CallbackQuery != nil {
 			// Передаем нажатие в слой бизнес-логики, включая ID сообщения для редактирования
-			domainTelegram.ProcessCallback(c, update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, update.CallbackQuery.Data, remnawaveClient, plategaClient, userRepo)
+			domainTelegram.ProcessCallback(c, update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, update.CallbackQuery.Data, remnawaveClient, subscriptionService, paymentGateway, userRepo)
 
 			// Обязательно отвечаем Telegram, что мы приняли нажатие (иначе у юзера будет крутиться "часики")
 			c.api.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
@@ -62,7 +61,7 @@ func (c *Client) Start(remnawaveClient domain.RemnawaveClient, plategaClient *pl
 		// 2. Обработка обычных текстовых сообщений
 		if update.Message != nil {
 			// Передаем текст сообщения в слой бизнес-логики
-			domainTelegram.ProcessCommand(c, update.Message.Chat.ID, update.Message.Text, remnawaveClient)
+			domainTelegram.ProcessCommand(c, update.Message.Chat.ID, update.Message.Text, remnawaveClient, userRepo)
 		}
 	}
 }
@@ -75,8 +74,11 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 
 	switch viewType {
 	case "tariffs":
-		text = "Выберите тариф:"
+		text = "Выберите тариф подписки:"
 		keyboard = c.tariffsKeyboard()
+	case "topup":
+		text = "Выберите сумму для пополнения баланса:"
+		keyboard = c.topupKeyboard()
 	case "payment":
 		text = "Выберите способ оплаты:"
 		keyboard = c.paymentKeyboard(data)
@@ -90,6 +92,28 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 		}
 		text = "Ссылка на оплату сформирована. После оплаты нажмите 'Проверить платеж'."
 		keyboard = c.checkPaymentKeyboard(url, transactionID)
+	case "profile":
+		parts := strings.SplitN(data, "|", 2)
+		userID := ""
+		balance := "0"
+		if len(parts) > 0 {
+			userID = parts[0]
+		}
+		if len(parts) > 1 {
+			balance = parts[1]
+		}
+		text = fmt.Sprintf("ID пользователя: %s\nБаланс: %s ₽", userID, balance)
+		keyboard = c.profileKeyboard()
+	case "connect":
+		if data == "" {
+			text = "Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку."
+		} else {
+			text = "Ваша ссылка для подключения:\n" + data
+		}
+		keyboard = c.connectKeyboard()
+	case "subscription_result":
+		text = data
+		keyboard = c.profileKeyboard()
 	case "main":
 		text = "Добро пожаловать! Я помогу вам управлять подписками."
 		keyboard = c.mainKeyboard()
@@ -134,6 +158,12 @@ func (c *Client) mainKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🚀 Подключиться", "btn_connect"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("👤 Личный кабинет", "btn_profile"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Тарифы", "btn_tariffs"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💰 Пополнить баланс", "btn_balance"),
