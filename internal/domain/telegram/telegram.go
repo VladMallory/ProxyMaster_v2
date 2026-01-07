@@ -121,6 +121,7 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 		if err != nil {
 			//qury53: добавь пж обработку ошибки здесь
 			//qury53: я просто хз нужно что-то пользователю отправлять
+
 		}
 
 		if url == "" {
