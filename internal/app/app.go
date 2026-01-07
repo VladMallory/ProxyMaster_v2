@@ -9,7 +9,8 @@ import (
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/payments/platega"
+	"ProxyMaster_v2/internal/payments/youkassa"
+	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
 )
 
@@ -20,10 +21,11 @@ type Application interface {
 
 // App зависимости приложения
 type app struct {
-	remnawaveClient domain.RemnawaveClient
-	plategaClient   *platega.Client
-	telegramClient  *telegram.Client
-	userRepo        *database.UserStorage
+	remnawaveClient     domain.RemnawaveClient
+	paymentGateway      domain.PaymentGateway
+	subscriptionService domain.SubscriptionService
+	telegramClient      *telegram.Client
+	userRepo            *database.UserStorage
 }
 
 // New собирает приложение
@@ -43,11 +45,8 @@ func New() (Application, error) {
 
 	// Создаем logger для remnawave
 	remnawaveLogger := loggerClient.Named("remnawave")
-	// Для сервиса с подписками
-	// subscriptionLogger := loggerClient.Named("subscription")
-	// Для платежной системы
-	// telegramLogger := loggerClient.Named("telegram")
-	plategaLogger := loggerClient.Named("platega")
+	subscriptionLogger := loggerClient.Named("subscription")
+	youkassaLogger := loggerClient.Named("youkassa")
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
@@ -62,10 +61,10 @@ func New() (Application, error) {
 	userRepo := database.NewUserStorage(db)
 
 	// ===services===
-	// subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
+	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
 
-	// ===platega===
-	plategaClient := platega.NewClient(cfg.PlategaAPIKey, plategaLogger)
+	// ===youkassa===
+	youkassaClient := youkassa.NewClient(cfg.YouKassaShopID, cfg.YouKassaSecretKey, cfg.YouKassaReturnURL, youkassaLogger)
 
 	// ===telegram bot===
 	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken)
@@ -74,17 +73,18 @@ func New() (Application, error) {
 	}
 
 	return &app{
-		remnawaveClient: remnawaveClient,
-		plategaClient:   plategaClient,
-		telegramClient:  telegramClient,
-		userRepo:        userRepo,
+		remnawaveClient:     remnawaveClient,
+		paymentGateway:      youkassaClient,
+		subscriptionService: subService,
+		telegramClient:      telegramClient,
+		userRepo:            userRepo,
 	}, nil
 }
 
 // Run запуск приложения
 func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
-	go a.telegramClient.Start(a.remnawaveClient, a.plategaClient, a.userRepo)
+	go a.telegramClient.Start(a.remnawaveClient, a.subscriptionService, a.paymentGateway, a.userRepo)
 
 	// Чтобы программа не завершалась
 	select {}
