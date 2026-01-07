@@ -6,6 +6,7 @@ import (
 
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
+	restapi "ProxyMaster_v2/internal/delivery/restAPI"
 	"ProxyMaster_v2/internal/delivery/telegram"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
@@ -26,6 +27,7 @@ type app struct {
 	subscriptionService domain.SubscriptionService
 	telegramClient      *telegram.Client
 	userRepo            *database.UserStorage
+	restAPI             domain.ServerAPI
 }
 
 // New собирает приложение
@@ -47,6 +49,7 @@ func New() (Application, error) {
 	remnawaveLogger := loggerClient.Named("remnawave")
 	subscriptionLogger := loggerClient.Named("subscription")
 	youkassaLogger := loggerClient.Named("youkassa")
+	restAPILogger := loggerClient.Named("restAPI")
 
 	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
@@ -72,12 +75,18 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
 
+	// ===restAPI===
+
+	handler := restapi.NewHandler(remnawaveClient)
+	restAPI := restapi.New(handler, restAPILogger)
+
 	return &app{
 		remnawaveClient:     remnawaveClient,
 		paymentGateway:      youkassaClient,
 		subscriptionService: subService,
 		telegramClient:      telegramClient,
 		userRepo:            userRepo,
+		restAPI:             restAPI,
 	}, nil
 }
 

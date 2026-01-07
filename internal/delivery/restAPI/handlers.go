@@ -12,11 +12,11 @@ import (
 
 // Hadnler структура отвечает за хэндлеры
 type Handler struct {
-	remnawaveClient remnawave.RemnaClient
+	remnawaveClient *remnawave.RemnaClient
 }
 
 // NewHandler конструктор Handler
-func NewHandler(remnawaveClient remnawave.RemnaClient) *Handler {
+func NewHandler(remnawaveClient *remnawave.RemnaClient) *Handler {
 	return &Handler{
 		remnawaveClient: remnawaveClient,
 	}
@@ -59,7 +59,7 @@ func (h *Handler) GetSubscriptionURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := service.GetURLSubscription(&h.remnawaveClient, username)
+	url, err := service.GetURLSubscription(h.remnawaveClient, username)
 
 	switch err {
 	case remnawave.ErrBadRequestUsername:

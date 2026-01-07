@@ -48,3 +48,7 @@ type SubscriptionService interface {
 type TrialService interface {
 	ActivateTrial(telegramID int64) (string, error)
 }
+
+type ServerAPI interface {
+	Serve(string) error
+}
