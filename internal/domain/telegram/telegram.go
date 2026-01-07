@@ -117,7 +117,12 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 		return sender.ShowView(chatID, messageID, "profile", user.ID+"|"+strconv.Itoa(user.Balance))
 	case "btn_connect":
 		username := strconv.FormatInt(chatID, 10)
-		url := service.GetURLSubscription(remnawaveClient, username)
+		url, err := service.GetURLSubscription(remnawaveClient, username)
+		if err != nil {
+			//qury53: добавь пж обработку ошибки здесь
+			//qury53: я просто хз нужно что-то пользователю отправлять
+		}
+
 		if url == "" {
 			return sender.ShowView(chatID, messageID, "connect", "Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.")
 		}
