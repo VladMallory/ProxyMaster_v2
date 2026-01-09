@@ -300,6 +300,89 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	return fmt.Errorf("undefined error")
 }
 
+// SetTraffic устанавливает новое значение трафика
+func (c *RemnaClient) SetTraffic(username string, gb uint64) error {
+	defer c.logDuration("SetTraffic")()
+
+	// Преобразуем в гиги за шаги
+	const bytesInGB uint64 = 1024 * 1024 * 1024
+	trafficLimitBytes := gb * bytesInGB
+
+	// Формируем запрос на изменение лимита трафика
+	userData := &models.UpdateUserRequest{
+		Username:          &username,
+		TrafficLimitBytes: &trafficLimitBytes,
+	}
+
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+
+	// Делаем json запись
+	jsonData, err := json.Marshal(userData)
+	if err != nil {
+		c.logger.Error(
+			"ошибка marshal json",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return err
+	}
+	request, err := http.NewRequestWithContext(context.Background(), "PATCH", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		c.logger.Error(
+			"failed to make request",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		c.logger.Error(
+			"failed to get response",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	defer func() {
+		if response != nil {
+			if err := response.Body.Close(); err != nil {
+				c.logger.Error(
+					"failed to close response body",
+					logger.Field{Key: "err_msg", Value: err},
+				)
+			}
+		}
+	}()
+
+	switch response.StatusCode {
+	case http.StatusOK, http.StatusNoContent:
+		return nil
+	case http.StatusNotFound:
+		return ErrNotFound
+	case http.StatusInternalServerError:
+		return ErrInternalServerError
+	case http.StatusBadRequest:
+		body, readErr := io.ReadAll(response.Body)
+		if readErr != nil {
+			return ErrReadBody
+		}
+		c.logger.Error(
+			"bad request while setting traffic",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: string(body)},
+		)
+		return fmt.Errorf("%w: %s", ErrBadRequestCreate, string(body))
+	default:
+		body, _ := io.ReadAll(response.Body)
+		return fmt.Errorf("remnawave: unexpected status code %d: %s", response.StatusCode, string(body))
+	}
+}
+
 // CreateUser создает пользователя в панели.
 func (c *RemnaClient) CreateUser(username string, days int) error {
 	if days <= 0 {
