@@ -94,7 +94,7 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 		text = "Выберите тариф подписки:"
 		keyboard = c.tariffsKeyboard()
 	case "topup":
-		text = "Выберите сумму для пополнения баланса:"
+		text = "💰 Выберите сумму для пополнения баланса:"
 		keyboard = c.topupKeyboard()
 	case "payment":
 		text = "Выберите способ оплаты:"
