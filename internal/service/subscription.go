@@ -1,3 +1,4 @@
+// Package service содержит бизнес-логику проекта (подписки, услуги, списания).
 package service
 
 import (
@@ -6,27 +7,39 @@ import (
 	"strconv"
 	"time"
 
+	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/models"
 	"ProxyMaster_v2/pkg/logger"
 )
 
+const (
+	baseDevicesLimit    = 1
+	maxDevicesLimit     = 5
+	extraDevicePriceRUB = 50
+)
+
 // SubscriptionService представляет собой сервис для управления подписками клиентов с помощью remnawave.
 type SubscriptionService struct {
 	remna  domain.RemnawaveClient
-	dbRepo domain.UserRepository
+	dbRepo *database.UserStorage
 	logger logger.Logger
 }
 
 // NewSubscriptionService конструктор сервиса.
-func NewSubscriptionService(remna domain.RemnawaveClient, dbRepo domain.UserRepository, l logger.Logger) *SubscriptionService {
+func NewSubscriptionService(remna domain.RemnawaveClient, dbRepo *database.UserStorage, l logger.Logger) *SubscriptionService {
 	l.Info("Создан экземпляр подписочного сервиса")
-	return &SubscriptionService{
+
+	svc := &SubscriptionService{
 		remna:  remna,
 		dbRepo: dbRepo,
 		logger: l,
 	}
+
+	go svc.runExtraDevicesBillingLoop()
+
+	return svc
 }
 
 func (s *SubscriptionService) logDuration(method string) func() {
@@ -46,6 +59,120 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 	allFields := append([]logger.Field{{Key: "error", Value: err}}, fields...)
 	s.logger.Error(msg, allFields...)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+// AddPaidDevice покупает пользователю 1 доп. устройство за 50₽/мес.
+func (s *SubscriptionService) AddPaidDevice(username string) error {
+	defer s.logDuration("AddPaidDevice")()
+
+	// Считаем активные доп. устройства, чтобы не выйти за общий лимит.
+	activeAddons, err := s.dbRepo.CountActiveDeviceAddons(username)
+	if err != nil {
+		return s.logError("ошибка подсчета доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	// Проверяем лимит: базовое 1 + купленные.
+	if baseDevicesLimit+activeAddons >= maxDevicesLimit {
+		return fmt.Errorf("%w. У пользователя уже %d устройств", domain.ErrMaxDevices, baseDevicesLimit+activeAddons)
+	}
+
+	// Пытаемся списать деньги атомарно (если не хватает — просто возвращаем ошибку).
+	_, ok, err := s.dbRepo.TryDebitBalance(username, extraDevicePriceRUB)
+	if err != nil {
+		return s.logError("ошибка списания средств", err, logger.Field{Key: "user_id", Value: username})
+	}
+	if !ok {
+		return domain.ErrInsufficientFunds
+	}
+
+	// Создаем отдельную запись услуги с собственным расписанием.
+	_, err = s.dbRepo.CreateDeviceAddon(username, time.Now().Add(30*24*time.Hour))
+	if err != nil {
+		return s.logError("ошибка создания услуги доп. устройства", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	// Обновляем счетчик в users для отображения.
+	newCount := activeAddons + 1
+	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
+		ExtraDevicesCount: &newCount,
+	})
+	if err != nil {
+		return s.logError("ошибка обновления счетчика доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	// Проставляем лимит устройств в RemnaWave: 1 + купленные.
+	devices := uint8(baseDevicesLimit + newCount)
+	if err := s.remna.SetDevices(username, &devices); err != nil {
+		return s.logError("ошибка установки устройств в remnawave", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	return nil
+}
+
+// ResetPaidDevices сбрасывает услугу доп. устройств в 0 и ставит 1 устройство в RemnaWave.
+func (s *SubscriptionService) ResetPaidDevices(username string) error {
+	defer s.logDuration("ResetPaidDevices")()
+
+	// Отключаем все купленные услуги.
+	if err := s.dbRepo.DeactivateAllDeviceAddons(username); err != nil {
+		return s.logError("ошибка сброса услуг доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	// Обнуляем счетчик для отображения.
+	zero := 0
+	_, err := s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
+		ExtraDevicesCount: &zero,
+	})
+	if err != nil {
+		return s.logError("ошибка обновления счетчика доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	// Ставим всегда 1 устройство, как ты просил.
+	devices := uint8(1)
+	if err := s.remna.SetDevices(username, &devices); err != nil {
+		return s.logError("ошибка установки устройств в remnawave", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	return nil
+}
+
+// runExtraDevicesBillingLoop раз в час проверяет и списывает доп. устройства.
+func (s *SubscriptionService) runExtraDevicesBillingLoop() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := time.Now()
+
+		// Берем пачку услуг, у которых наступило время списания.
+		addons, err := s.dbRepo.ListDueActiveDeviceAddons(now, 200)
+		if err != nil {
+			s.logger.Error("ошибка получения услуг для биллинга", logger.Field{Key: "err_msg", Value: err})
+			continue
+		}
+
+		for _, addon := range addons {
+			// Пытаемся списать 50₽ за конкретную услугу.
+			_, ok, err := s.dbRepo.TryDebitBalance(addon.UserID, extraDevicePriceRUB)
+			if err != nil {
+				s.logger.Error("ошибка списания за доп. устройство", logger.Field{Key: "user_id", Value: addon.UserID}, logger.Field{Key: "err_msg", Value: err})
+				continue
+			}
+
+			// Если денег не хватило — сбрасываем услугу в 0.
+			if !ok {
+				_ = s.ResetPaidDevices(addon.UserID)
+				continue
+			}
+
+			// Переносим дату следующего списания на месяц вперед.
+			next := now.Add(30 * 24 * time.Hour)
+			if err := s.dbRepo.UpdateDeviceAddonNextChargeAt(addon.ID, next); err != nil {
+				s.logger.Error("ошибка переноса next_charge_at", logger.Field{Key: "user_id", Value: addon.UserID}, logger.Field{Key: "err_msg", Value: err})
+				continue
+			}
+		}
+	}
 }
 
 // ActivateSubscription активирует подписку клиенту telegram на указанное количество месяцев.
