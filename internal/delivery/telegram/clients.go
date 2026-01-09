@@ -6,6 +6,7 @@ import (
 	"ProxyMaster_v2/internal/domain"
 	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
 	"fmt"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -51,7 +52,17 @@ func (c *Client) Start(remnawaveClient domain.RemnawaveClient, subscriptionServi
 		// 1. Обработка нажатий на инлайн-кнопки (CallbackQuery)
 		if update.CallbackQuery != nil {
 			// Передаем нажатие в слой бизнес-логики, включая ID сообщения для редактирования
-			domainTelegram.ProcessCallback(c, update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, update.CallbackQuery.Data, remnawaveClient, subscriptionService, paymentGateway, userRepo)
+			domainTelegram.ProcessCallback(
+				c,
+				update.CallbackQuery.Message.Chat.ID,
+				update.CallbackQuery.Message.MessageID,
+				update.CallbackQuery.Data,
+				update.CallbackQuery.From.FirstName,
+				remnawaveClient,
+				subscriptionService,
+				paymentGateway,
+				userRepo,
+			)
 
 			// Обязательно отвечаем Telegram, что мы приняли нажатие (иначе у юзера будет крутиться "часики")
 			c.api.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
@@ -73,6 +84,12 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 	var keyboard tgbotapi.InlineKeyboardMarkup
 
 	switch viewType {
+	case "download_app":
+		text = "Какое у вас устройство?"
+		keyboard = c.downloadAppKeyboard()
+	case "ios_region":
+		text = "Выберите какой у вас регион App Store.\n\nЕсли не знаете, попробуйте сначала RU, если выдаст ошибку, то 'другие регионы'"
+		keyboard = c.iosRegionKeyboard()
 	case "tariffs":
 		text = "Выберите тариф подписки:"
 		keyboard = c.tariffsKeyboard()
@@ -93,16 +110,32 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 		text = "Ссылка на оплату сформирована. После оплаты нажмите 'Проверить платеж'."
 		keyboard = c.checkPaymentKeyboard(url, transactionID)
 	case "profile":
-		parts := strings.SplitN(data, "|", 2)
+		parts := strings.SplitN(data, "|", 3)
 		userID := ""
 		balance := "0"
+		extraDevices := "0"
 		if len(parts) > 0 {
 			userID = parts[0]
 		}
 		if len(parts) > 1 {
 			balance = parts[1]
 		}
-		text = fmt.Sprintf("ID пользователя: %s\nБаланс: %s ₽", userID, balance)
+		if len(parts) > 2 {
+			extraDevices = parts[2]
+		}
+
+		extraDevicesInt, err := strconv.Atoi(extraDevices)
+		if err != nil {
+			extraDevicesInt = 0
+		}
+
+		text = fmt.Sprintf(
+			"ID пользователя: %s\nБаланс: %s ₽\nДоп. устройств: %d\nДоп. списание: %d ₽/мес",
+			userID,
+			balance,
+			extraDevicesInt,
+			extraDevicesInt*50,
+		)
 		keyboard = c.profileKeyboard()
 	case "connect":
 		if data == "" {
@@ -115,7 +148,7 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 		text = data
 		keyboard = c.profileKeyboard()
 	case "main":
-		text = "Добро пожаловать! Я помогу вам управлять подписками."
+		text = "🌟 Добро пожаловать."
 		keyboard = c.mainKeyboard()
 	default:
 		return fmt.Errorf("неизвестный тип view: %s", viewType)
@@ -157,19 +190,21 @@ func (c *Client) SendMessage(chatID int64, text string) error {
 func (c *Client) mainKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🚀 Подключиться", "btn_connect"),
+			tgbotapi.NewInlineKeyboardButtonData("📱 Скачать приложение", "download_app"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("👤 Личный кабинет", "btn_profile"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Тарифы", "btn_tariffs"),
+			tgbotapi.NewInlineKeyboardButtonData("📱 Подключиться", "btn_connect"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💰 Пополнить баланс", "btn_balance"),
+			tgbotapi.NewInlineKeyboardButtonData("📦 Тарифы", "btn_tariffs"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("ℹ️ Дополнительная информация", "btn_info"),
+			tgbotapi.NewInlineKeyboardButtonData("👤 Личный кабинет", "btn_profile"),
+			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", "https://t.me/bloknotanet"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🧾 Информация о сервисе", "btn_info"),
 		),
 	)
 }

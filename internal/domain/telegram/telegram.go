@@ -33,7 +33,35 @@ type MessageSender interface {
 // chatID: ID чата, куда отправлять ответ
 // messageID: ID сообщения, которое нужно отредактировать
 // data: скрытые данные, зашитые в кнопку (например, "btn_balance")
-func ProcessCallback(sender MessageSender, chatID int64, messageID int, data string, remnawaveClient domain.RemnawaveClient, subscriptionService domain.SubscriptionService, paymentGateway domain.PaymentGateway, userRepo *database.UserStorage) error {
+func ProcessCallback(sender MessageSender,
+	chatID int64,
+	messageID int,
+	data, firstName string,
+	remnawaveClient domain.RemnawaveClient,
+	subscriptionService domain.SubscriptionService,
+	paymentGateway domain.PaymentGateway,
+	userRepo *database.UserStorage) error {
+
+	buildProfileData := func(userID string) (string, error) {
+		user, err := userRepo.GetUserByID(userID)
+		if err != nil {
+			return "", err
+		}
+
+		extraCount, err := userRepo.CountActiveDeviceAddons(userID)
+		if err != nil {
+			return "", err
+		}
+
+		if user.ExtraDevicesCount != extraCount {
+			_, _ = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
+				ExtraDevicesCount: &extraCount,
+			})
+		}
+
+		return user.ID + "|" + strconv.Itoa(user.Balance) + "|" + strconv.Itoa(extraCount), nil
+	}
+
 	if amountStr, ok := strings.CutPrefix(data, "btn_pay_sbp_"); ok {
 		amount, err := strconv.Atoi(amountStr)
 		if err != nil {
@@ -93,6 +121,12 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 		return sender.ShowView(chatID, messageID, "payment", "200")
 	case "btn_topup_300":
 		return sender.ShowView(chatID, messageID, "payment", "300")
+	case "download_app":
+		return sender.ShowView(chatID, messageID, "download_app", "")
+	case "btn_ios_menu":
+		return sender.ShowView(chatID, messageID, "ios_region", "")
+	case "btn_back_download_app":
+		return sender.ShowView(chatID, messageID, "download_app", "")
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -114,7 +148,46 @@ func ProcessCallback(sender MessageSender, chatID int64, messageID int, data str
 			}
 		}
 
-		return sender.ShowView(chatID, messageID, "profile", user.ID+"|"+strconv.Itoa(user.Balance))
+		_ = user
+
+		profileData, err := buildProfileData(userID)
+		if err != nil {
+			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+		}
+
+		return sender.ShowView(chatID, messageID, "profile", profileData)
+	case "btn_add_device":
+		userID := strconv.FormatInt(chatID, 10)
+
+		if err := subscriptionService.AddPaidDevice(userID); err != nil {
+			if errors.Is(err, domain.ErrInsufficientFunds) {
+				return sender.SendMessage(chatID, "❌ Недостаточно средств. Нужно 50₽.")
+			}
+			if errors.Is(err, domain.ErrMaxDevices) {
+				return sender.SendMessage(chatID, "❌ Достигнут лимит устройств.")
+			}
+			return sender.SendMessage(chatID, "❌ Ошибка добавления устройства.")
+		}
+
+		profileData, err := buildProfileData(userID)
+		if err != nil {
+			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+		}
+
+		return sender.ShowView(chatID, messageID, "profile", profileData)
+	case "btn_reset_devices":
+		userID := strconv.FormatInt(chatID, 10)
+
+		if err := subscriptionService.ResetPaidDevices(userID); err != nil {
+			return sender.SendMessage(chatID, "❌ Ошибка сброса услуги.")
+		}
+
+		profileData, err := buildProfileData(userID)
+		if err != nil {
+			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+		}
+
+		return sender.ShowView(chatID, messageID, "profile", profileData)
 	case "btn_connect":
 		username := strconv.FormatInt(chatID, 10)
 		url := service.GetURLSubscription(remnawaveClient, username)

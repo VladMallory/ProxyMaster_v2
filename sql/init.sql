@@ -1,12 +1,30 @@
---удаляем таблицы, если они существуют
+-- init.sql поднимает базовую схему Postgres для ProxyMaster_v2
+-- удаляем таблицы, если они существуют
 DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS device_addons;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
-    user_id VARCHAR(20) NOT NULL UNIQUE, -- ID телеграмма 8-10 символов, но берем про запас
-    balance INTEGER,
+    id VARCHAR(20) PRIMARY KEY, -- ID телеграмма 8-10 символов, но берем про запас
+    balance INTEGER NOT NULL DEFAULT 0,
     trial BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Кол-во купленных "доп. устройств" (для отображения, быстрой аналитики)
+    -- Фактическое списание и расписание хранится в таблице device_addons
+    extra_devices_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE device_addons (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(20) NOT NULL,
+    next_charge_at TIMESTAMP NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_device_addons_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
 );
 
 CREATE TABLE transactions (
@@ -25,8 +43,8 @@ CREATE TABLE transactions (
         --ключ user_id в таблице transactions
         FOREIGN KEY (user_id) 
 
-        --ссылается на user_id в таблице users
-        REFERENCES users(user_id)
+        --ссылается на id в таблице users
+        REFERENCES users(id)
 
         --при удалении пользователя удалить все его транзакции
         ON DELETE CASCADE

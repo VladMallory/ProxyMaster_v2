@@ -42,6 +42,12 @@ type SubscriptionService interface {
 
 	// AddDevice добавляет 1 устройство пользователю
 	AddDevice(username string) error
+
+	// AddPaidDevice покупает 1 доп. устройство за 50₽/мес
+	AddPaidDevice(username string) error
+
+	// ResetPaidDevices сбрасывает доп. устройства до 0
+	ResetPaidDevices(username string) error
 }
 
 // TrialService - бизнес логика пробного периода
