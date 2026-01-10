@@ -131,3 +131,29 @@ func (c *Client) paymentKeyboard(amount string) tgbotapi.InlineKeyboardMarkup {
 		),
 	)
 }
+
+// deviceLimitsKeyboard генерирует Inline-клавиатуру для меню лимитов устройств.
+// Позволяет пользователю выбрать между просмотром профиля или управлением лимитами.
+func (c *Client) deviceLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📱 Лимиты устройств", "btn_profile"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📊 Лимиты трафика", "btn_traffic_limits"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 В главное меню", "btn_back"),
+		),
+	)
+}
+
+// trafficLimitsKeyboard генерирует Inline-клавиатуру для меню лимитов трафика.
+// Позволяет пользователю выбрать между просмотром профиля или управлением лимитами.
+func (c *Client) trafficLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_unlimits"),
+		),
+	)
+}

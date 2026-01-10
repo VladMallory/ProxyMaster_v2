@@ -128,6 +128,10 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 		text, keyboard = c.handleCheckPaymentView(data)
 	case "profile":
 		text, keyboard = c.handleProfileView(data)
+	case "device_limits":
+		text, keyboard = c.handleDeviceLimitsView()
+	case "traffic_limits":
+		text, keyboard = c.handleTrafficLimitsView()
 	case "connect":
 		text, keyboard = c.handleConnectView(data)
 	case "subscription_result":
@@ -212,6 +216,14 @@ func (c *Client) handleConnectView(data string) (string, tgbotapi.InlineKeyboard
 	return text, c.connectKeyboard()
 }
 
+// handleDeviceLimitsView отображает меню для управления лимитами устройств.
+// Позволяет пользователю выбрать между просмотром профиля или возвратом в главное меню.
+func (c *Client) handleDeviceLimitsView() (string, tgbotapi.InlineKeyboardMarkup) {
+	text := "В этом меню вы можете увеличить количество дополнительных устройств и увеличить лимиты трафика."
+
+	return text, c.deviceLimitsKeyboard()
+}
+
 func (c *Client) handleMainView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
 	var text string
 	if data != "" {
@@ -270,6 +282,12 @@ func (c *Client) SendMessage(chatID int64, text string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) handleTrafficLimitsView() (string, tgbotapi.InlineKeyboardMarkup) {
+	text := "На сколько GB нужно увеличить лимит трафика?"
+
+	return text, c.trafficLimitsKeyboard()
 }
 
 // mainKeyboard создает структуру кнопок для главного меню.
