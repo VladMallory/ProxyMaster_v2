@@ -401,3 +401,70 @@ func updateDeviceAddonsNextChargeAtTx(tx *sqlx.Tx, addonIDs []string, nextCharge
 	}
 	return nil
 }
+
+// AddDeviceAddonAtomic атомарно добавляет доп. устройство пользователю.
+// Выполняет в одной транзакции: проверку лимита, списание денег, создание addon, обновление счётчика.
+// Возвращает новое количество активных устройств (без базового).
+func (s *UserStorage) AddDeviceAddonAtomic(userID string, baseLimit, maxLimit, priceRUB int, chargePeriod time.Duration) (newCount int, err error) {
+	// Начинаем транзакцию с блокировкой.
+	tx, err := s.db.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Блокируем запись пользователя, чтобы параллельные запросы ждали.
+	lockQuery := `SELECT id FROM users WHERE id = $1 FOR UPDATE`
+	var lockedID string
+	if err := tx.QueryRowx(lockQuery, userID).Scan(&lockedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, domain.ErrUserNotFound
+		}
+		return 0, fmt.Errorf("failed to lock user: %w", err)
+	}
+
+	// Считаем текущее количество активных доп. устройств.
+	countQuery := `SELECT COUNT(*) FROM device_addons WHERE user_id = $1 AND active = TRUE`
+	var activeAddons int
+	if err := tx.QueryRowx(countQuery, userID).Scan(&activeAddons); err != nil {
+		return 0, fmt.Errorf("failed to count active addons: %w", err)
+	}
+
+	// Проверяем лимит: базовое + купленные >= максимум.
+	if baseLimit+activeAddons >= maxLimit {
+		return 0, fmt.Errorf("%w: у пользователя уже %d устройств", domain.ErrMaxDevices, baseLimit+activeAddons)
+	}
+
+	// Пытаемся списать деньги.
+	_, ok, err := tryDebitBalanceTx(tx, userID, priceRUB)
+	if err != nil {
+		return 0, fmt.Errorf("failed to debit balance: %w", err)
+	}
+	if !ok {
+		return 0, domain.ErrInsufficientFunds
+	}
+
+	// Создаём запись device_addon.
+	addonID := uuid.NewString()
+	nextChargeAt := time.Now().Add(chargePeriod)
+	insertQuery := `
+	INSERT INTO device_addons (id, user_id, next_charge_at, active, created_at)
+	VALUES ($1, $2, $3, TRUE, $4)
+	`
+	if _, err := tx.Exec(insertQuery, addonID, userID, nextChargeAt, time.Now()); err != nil {
+		return 0, fmt.Errorf("failed to create device addon: %w", err)
+	}
+
+	// Обновляем счётчик в users для отображения.
+	newCount = activeAddons + 1
+	if err := setExtraDevicesCountTx(tx, userID, newCount); err != nil {
+		return 0, err
+	}
+
+	// Коммитим транзакцию.
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return newCount, nil
+}

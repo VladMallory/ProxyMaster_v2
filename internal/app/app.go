@@ -70,7 +70,7 @@ func New() (Application, error) {
 	youkassaClient := youkassa.NewClient(cfg.YouKassaShopID, cfg.YouKassaSecretKey, cfg.YouKassaReturnURL, youkassaLogger)
 
 	// ===telegram bot===
-	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken)
+	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, loggerClient)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
