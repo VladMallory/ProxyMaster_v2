@@ -59,7 +59,7 @@ func main() {
 
 			// Проверяем data
 			switch update.CallbackQuery.Data {
-			case "btn_profile":
+			case "btn_unlimits":
 				msg.Text = "Ваш профиль"
 			case "btn_goods":
 				msg.Text = "Ваши товары"
@@ -107,8 +107,8 @@ func getMainMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			// Data - это скрытый код кнопки. Пользователь видит "👤 Профиль",
-			// а бот получает строку "btn_profile".
-			tgbotapi.NewInlineKeyboardButtonData("👤 Профиль", "btn_profile"),
+			// а бот получает строку "btn_unlimits".
+			tgbotapi.NewInlineKeyboardButtonData("👤 Профиль", "btn_unlimits"),
 			tgbotapi.NewInlineKeyboardButtonData("📦 Товары", "btn_goods"),
 		),
 		tgbotapi.NewInlineKeyboardRow(

@@ -62,45 +62,30 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 }
 
 // AddPaidDevice покупает пользователю 1 доп. устройство за 50₽/мес.
+// Использует атомарную операцию для защиты от race condition при параллельных запросах.
 func (s *SubscriptionService) AddPaidDevice(username string) error {
 	defer s.logDuration("AddPaidDevice")()
 
-	// Считаем активные доп. устройства, чтобы не выйти за общий лимит.
-	activeAddons, err := s.dbRepo.CountActiveDeviceAddons(username)
+	// Атомарно: проверяем лимит, списываем деньги, создаём addon, обновляем счётчик.
+	newCount, err := s.dbRepo.AddDeviceAddonAtomic(
+		username,
+		baseDevicesLimit,
+		maxDevicesLimit,
+		extraDevicePriceRUB,
+		30*24*time.Hour,
+	)
 	if err != nil {
-		return s.logError("ошибка подсчета доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+		if errors.Is(err, domain.ErrMaxDevices) || errors.Is(err, domain.ErrInsufficientFunds) {
+			s.logger.Error("ошибка добавления доп. устройства",
+				logger.Field{Key: "user_id", Value: username},
+				logger.Field{Key: "error", Value: err},
+			)
+			return err
+		}
+		return s.logError("ошибка добавления доп. устройства", err, logger.Field{Key: "user_id", Value: username})
 	}
 
-	// Проверяем лимит: базовое 1 + купленные.
-	if baseDevicesLimit+activeAddons >= maxDevicesLimit {
-		return fmt.Errorf("%w. У пользователя уже %d устройств", domain.ErrMaxDevices, baseDevicesLimit+activeAddons)
-	}
-
-	// Пытаемся списать деньги атомарно (если не хватает — просто возвращаем ошибку).
-	_, ok, err := s.dbRepo.TryDebitBalance(username, extraDevicePriceRUB)
-	if err != nil {
-		return s.logError("ошибка списания средств", err, logger.Field{Key: "user_id", Value: username})
-	}
-	if !ok {
-		return domain.ErrInsufficientFunds
-	}
-
-	// Создаем отдельную запись услуги с собственным расписанием.
-	_, err = s.dbRepo.CreateDeviceAddon(username, time.Now().Add(30*24*time.Hour))
-	if err != nil {
-		return s.logError("ошибка создания услуги доп. устройства", err, logger.Field{Key: "user_id", Value: username})
-	}
-
-	// Обновляем счетчик в users для отображения.
-	newCount := activeAddons + 1
-	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
-		ExtraDevicesCount: &newCount,
-	})
-	if err != nil {
-		return s.logError("ошибка обновления счетчика доп. устройств", err, logger.Field{Key: "user_id", Value: username})
-	}
-
-	// Проставляем лимит устройств в RemnaWave: 1 + купленные.
+	// Проставляем лимит устройств в RemnaWave: базовое + купленные.
 	devices := uint8(baseDevicesLimit + newCount)
 	if err := s.remna.SetDevices(username, &devices); err != nil {
 		return s.logError("ошибка установки устройств в remnawave", err, logger.Field{Key: "user_id", Value: username})
