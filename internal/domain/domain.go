@@ -14,6 +14,23 @@ var (
 	ErrMaxDevices        = errors.New("max devices")
 )
 
+type ViewType string
+
+const (
+	ViewTypeDownloadApp        ViewType = "download_app"
+	ViewTypeIosRegion          ViewType = "ios_region"
+	ViewTypeTariffs            ViewType = "tariffs"
+	ViewTypeTopup              ViewType = "topup"
+	ViewTypePayment            ViewType = "payment"
+	ViewTypeCheckPayment       ViewType = "check_payment"
+	ViewTypeProfile            ViewType = "profile"
+	ViewTypeDeviceLimits       ViewType = "device_limits"
+	ViewTypeTrafficLimits      ViewType = "traffic_limits"
+	ViewTypeConnect            ViewType = "connect"
+	ViewTypeSubscriptionResult ViewType = "subscription_result"
+	ViewTypeMain               ViewType = "main"
+)
+
 // RemnawaveClient - то как мы хотим получать информацию
 type RemnawaveClient interface {
 	Login(ctx context.Context, username string, password string) error
