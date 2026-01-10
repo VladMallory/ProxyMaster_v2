@@ -131,6 +131,12 @@ func ProcessCallback(sender MessageSender,
 	case "btn_back_download_app":
 		return sender.ShowView(chatID, messageID, "download_app", "")
 	case "btn_unlimits":
+		// Показываем меню лимитов устройств
+		return sender.ShowView(chatID, messageID, "device_limits", "")
+	case "btn_traffic_limits":
+		// Вызываем меню лимитов трафика
+		return sender.ShowView(chatID, messageID, "traffic_limits", "")
+	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
 		user, err := userRepo.GetUserByID(userID)
