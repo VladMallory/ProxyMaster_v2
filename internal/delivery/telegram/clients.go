@@ -71,8 +71,18 @@ func (c *Client) Start(remnawaveClient domain.RemnawaveClient, subscriptionServi
 
 		// 2. Обработка обычных текстовых сообщений
 		if update.Message != nil {
+			firstName := ""
+			if update.Message.From != nil {
+				firstName = update.Message.From.FirstName
+			}
+
 			// Передаем текст сообщения в слой бизнес-логики
-			domainTelegram.ProcessCommand(c, update.Message.Chat.ID, update.Message.Text, remnawaveClient, userRepo)
+			domainTelegram.ProcessCommand(c,
+				update.Message.Chat.ID,
+				update.Message.Text,
+				firstName,
+				remnawaveClient,
+				userRepo)
 		}
 	}
 }
@@ -148,7 +158,11 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType string, data str
 		text = data
 		keyboard = c.profileKeyboard()
 	case "main":
-		text = "🌟 Добро пожаловать."
+		if data != "" {
+			text = data
+		} else {
+			text = "🌟 Добро пожаловать."
+		}
 		keyboard = c.mainKeyboard()
 	default:
 		return fmt.Errorf("неизвестный тип view: %s", viewType)
@@ -193,7 +207,7 @@ func (c *Client) mainKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("📱 Скачать приложение", "download_app"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📱 Подключиться", "btn_connect"),
+			tgbotapi.NewInlineKeyboardButtonData("📱 Подключить (Happ)", "btn_connect"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💰 Пополнить баланс", "btn_balance"),
