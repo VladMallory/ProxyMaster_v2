@@ -28,7 +28,11 @@ type SubscriptionService struct {
 }
 
 // NewSubscriptionService конструктор сервиса.
-func NewSubscriptionService(remna domain.RemnawaveClient, dbRepo *database.UserStorage, l logger.Logger) *SubscriptionService {
+func NewSubscriptionService(
+	remna domain.RemnawaveClient,
+	dbRepo *database.UserStorage,
+	l logger.Logger,
+) *SubscriptionService {
 	l.Info("Создан экземпляр подписочного сервиса")
 
 	svc := &SubscriptionService{
@@ -58,6 +62,7 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 	// Добавляем ошибку к полям
 	allFields := append([]logger.Field{{Key: "error", Value: err}}, fields...)
 	s.logger.Error(msg, allFields...)
+
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
@@ -80,8 +85,10 @@ func (s *SubscriptionService) AddPaidDevice(username string) error {
 				logger.Field{Key: "user_id", Value: username},
 				logger.Field{Key: "error", Value: err},
 			)
-			return err
+
+			return fmt.Errorf("ошибка добавления доп устройст: %w", err)
 		}
+
 		return s.logError("ошибка добавления доп. устройства", err, logger.Field{Key: "user_id", Value: username})
 	}
 
@@ -108,6 +115,7 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 	_, err := s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
 		ExtraDevicesCount: &zero,
 	})
+
 	if err != nil {
 		return s.logError("ошибка обновления счетчика доп. устройств", err, logger.Field{Key: "user_id", Value: username})
 	}
@@ -137,6 +145,7 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 	usersToReset, err := s.dbRepo.ProcessDueDeviceAddonsBilling(now, 200, extraDevicePriceRUB, 30*24*time.Hour)
 	if err != nil {
 		s.logger.Error("ошибка биллинга доп. устройств", logger.Field{Key: "err_msg", Value: err})
+
 		return
 	}
 
@@ -154,7 +163,10 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 
 // ActivateSubscription активирует подписку клиенту telegram на указанное количество месяцев.
 // Если имеется подписка - продлить. Если подписки нет - создать.
-func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int) (string, error) {
+func (s *SubscriptionService) ActivateSubscription(
+	telegramID int64,
+	months int,
+) (string, error) {
 	defer s.logDuration("ActivateSubscription")()
 
 	// User id telegram клиента
@@ -176,16 +188,22 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 				Trial:   false,
 			})
 			if createDBErr != nil {
-				return "", s.logError("ошибка создания пользователя в DB", createDBErr, logger.Field{Key: "user_id", Value: username})
+				return "", s.logError(
+					"ошибка создания пользователя в DB",
+					createDBErr,
+					logger.Field{Key: "user_id", Value: username},
+				)
 			}
 
 			user = newUser
 		} else {
-
 			// Если пользователь не найден, скорее всего это ошибка DB
-			return "", s.logError("ошибка поиска пользователя в DB", err, logger.Field{Key: "user_id", Value: username})
+			return "", s.logError(
+				"ошибка поиска пользователя в DB",
+				err,
+				logger.Field{Key: "user_id", Value: username},
+			)
 		}
-
 	}
 
 	s.logger.Info("пользователь найден", logger.Field{Key: "user_id", Value: username})
@@ -205,6 +223,7 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 			logger.Field{Key: "balance", Value: user.Balance},
 			logger.Field{Key: "required", Value: totalCost},
 		)
+
 		return "", fmt.Errorf("%w. Баланс: %d ₽, Требуется: %d ₽", domain.ErrInsufficientFunds, user.Balance, totalCost)
 	}
 
@@ -213,8 +232,13 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
 		Balance: &newBalance,
 	})
+
 	if err != nil {
-		return "", s.logError("ошибка обновления баланса пользователя в DB", err, logger.Field{Key: "user_id", Value: username})
+		return "", s.logError(
+			"ошибка обновления баланса пользователя в DB",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	// Проверяем есть ли пользователь в панели
@@ -224,6 +248,7 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 		if errors.Is(err, remnawave.ErrNotFound) {
 			s.logger.Info("пользователь не найден, создаем нового", logger.Field{Key: "username", Value: username})
 			err = s.remna.CreateUser(username, totalDays)
+
 			if err != nil {
 				return "", s.logError("ошибка создания пользователя", err, logger.Field{Key: "username", Value: username})
 			}
@@ -245,6 +270,7 @@ func (s *SubscriptionService) ActivateSubscription(telegramID int64, months int)
 		logger.Field{Key: "username", Value: username},
 		logger.Field{Key: "days", Value: totalDays},
 	)
+
 	return "подписка для пользователя " + username + " продлена на " + strconv.Itoa(totalDays) + " дней", nil
 }
 
@@ -259,7 +285,7 @@ func (s *SubscriptionService) AddDevice(username string) error {
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return err
+		return fmt.Errorf("failed to get user: %w", err)
 	}
 
 	user, err := s.remna.GetUserInfo(uuid)
@@ -269,7 +295,7 @@ func (s *SubscriptionService) AddDevice(username string) error {
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return err
+		return fmt.Errorf("failed to get user info: %w", err)
 	}
 
 	// Проверяем сколько уже устройств
@@ -289,7 +315,7 @@ func (s *SubscriptionService) AddDevice(username string) error {
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return err
+		return fmt.Errorf("failed to set devices: %w", err)
 	}
 
 	s.logger.Info(
