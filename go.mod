@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 )
