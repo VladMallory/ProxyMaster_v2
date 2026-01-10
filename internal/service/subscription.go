@@ -128,7 +128,7 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 	}
 
 	// Ставим всегда 1 устройство, как ты просил.
-	devices := uint8(1)
+	devices := uint8(baseDevicesLimit)
 	if err := s.remna.SetDevices(username, &devices); err != nil {
 		return s.logError("ошибка установки устройств в remnawave", err, logger.Field{Key: "user_id", Value: username})
 	}
@@ -138,39 +138,31 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 
 // runExtraDevicesBillingLoop раз в час проверяет и списывает доп. устройства.
 func (s *SubscriptionService) runExtraDevicesBillingLoop() {
+	s.processExtraDevicesBilling(time.Now())
+
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		now := time.Now()
+		s.processExtraDevicesBilling(time.Now())
+	}
+}
 
-		// Берем пачку услуг, у которых наступило время списания.
-		addons, err := s.dbRepo.ListDueActiveDeviceAddons(now, 200)
-		if err != nil {
-			s.logger.Error("ошибка получения услуг для биллинга", logger.Field{Key: "err_msg", Value: err})
-			continue
-		}
+func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
+	usersToReset, err := s.dbRepo.ProcessDueDeviceAddonsBilling(now, 200, extraDevicePriceRUB, 30*24*time.Hour)
+	if err != nil {
+		s.logger.Error("ошибка биллинга доп. устройств", logger.Field{Key: "err_msg", Value: err})
+		return
+	}
 
-		for _, addon := range addons {
-			// Пытаемся списать 50₽ за конкретную услугу.
-			_, ok, err := s.dbRepo.TryDebitBalance(addon.UserID, extraDevicePriceRUB)
-			if err != nil {
-				s.logger.Error("ошибка списания за доп. устройство", logger.Field{Key: "user_id", Value: addon.UserID}, logger.Field{Key: "err_msg", Value: err})
-				continue
-			}
-
-			// Если денег не хватило — сбрасываем услугу в 0.
-			if !ok {
-				_ = s.ResetPaidDevices(addon.UserID)
-				continue
-			}
-
-			// Переносим дату следующего списания на месяц вперед.
-			next := now.Add(30 * 24 * time.Hour)
-			if err := s.dbRepo.UpdateDeviceAddonNextChargeAt(addon.ID, next); err != nil {
-				s.logger.Error("ошибка переноса next_charge_at", logger.Field{Key: "user_id", Value: addon.UserID}, logger.Field{Key: "err_msg", Value: err})
-				continue
-			}
+	for _, userID := range usersToReset {
+		devices := uint8(baseDevicesLimit)
+		if err := s.remna.SetDevices(userID, &devices); err != nil {
+			s.logger.Error(
+				"ошибка установки базового лимита устройств в remnawave",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: err},
+			)
 		}
 	}
 }
