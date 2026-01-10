@@ -54,9 +54,12 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		if user.ExtraDevicesCount != extraCount {
-			_, _ = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
+			_, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
 				ExtraDevicesCount: &extraCount,
 			})
+			if err != nil {
+				return "", err
+			}
 		}
 
 		return user.ID + "|" + strconv.Itoa(user.Balance) + "|" + strconv.Itoa(extraCount), nil
@@ -127,7 +130,7 @@ func ProcessCallback(sender MessageSender,
 		return sender.ShowView(chatID, messageID, "ios_region", "")
 	case "btn_back_download_app":
 		return sender.ShowView(chatID, messageID, "download_app", "")
-	case "btn_profile":
+	case "btn_unlimits":
 		userID := strconv.FormatInt(chatID, 10)
 
 		user, err := userRepo.GetUserByID(userID)
