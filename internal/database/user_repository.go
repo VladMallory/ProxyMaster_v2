@@ -2,6 +2,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 // UserStorage structure for working with users table
@@ -244,39 +246,158 @@ func (s *UserStorage) DeactivateAllDeviceAddons(userID string) error {
 	return nil
 }
 
-// ListDueActiveDeviceAddons возвращает активные услуги, у которых наступило списание.
-func (s *UserStorage) ListDueActiveDeviceAddons(now time.Time, limit int) ([]models.DeviceAddon, error) {
+type dueDeviceAddonRow struct {
+	ID     string `db:"id"`
+	UserID string `db:"user_id"`
+}
+
+func (s *UserStorage) ProcessDueDeviceAddonsBilling(now time.Time, limit int, priceRUB int, chargePeriod time.Duration) ([]string, error) {
 	if limit <= 0 {
-		limit = 100
+		limit = 200
+	}
+	if priceRUB <= 0 {
+		return nil, fmt.Errorf("priceRUB должен быть > 0")
+	}
+	if chargePeriod <= 0 {
+		return nil, fmt.Errorf("chargePeriod должен быть > 0")
 	}
 
-	query := `
-	SELECT id, user_id, next_charge_at, active, created_at
+	tx, err := s.db.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	selectUsersQuery := `
+	SELECT DISTINCT ON (user_id) user_id
 	FROM device_addons
 	WHERE active = TRUE AND next_charge_at <= $1
-	ORDER BY next_charge_at ASC
+	ORDER BY user_id, next_charge_at ASC
+	FOR UPDATE SKIP LOCKED
 	LIMIT $2
 	`
 
-	var addons []models.DeviceAddon
-	if err := s.db.Select(&addons, query, now, limit); err != nil {
-		return nil, fmt.Errorf("failed to list due device addons: %w", err)
+	var userIDs []string
+	if err := tx.Select(&userIDs, selectUsersQuery, now, limit); err != nil {
+		return nil, fmt.Errorf("failed to select due device addon users: %w", err)
+	}
+	if len(userIDs) == 0 {
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("failed to commit empty billing transaction: %w", err)
+		}
+		return nil, nil
 	}
 
-	return addons, nil
+	selectDueForUsersQuery := `
+	SELECT id, user_id
+	FROM device_addons
+	WHERE active = TRUE AND next_charge_at <= $1 AND user_id = ANY($2)
+	ORDER BY user_id, next_charge_at ASC
+	FOR UPDATE
+	`
+
+	var due []dueDeviceAddonRow
+	if err := tx.Select(&due, selectDueForUsersQuery, now, pq.Array(userIDs)); err != nil {
+		return nil, fmt.Errorf("failed to select due device addons for users: %w", err)
+	}
+
+	byUser := make(map[string][]string, len(userIDs))
+	for _, row := range due {
+		byUser[row.UserID] = append(byUser[row.UserID], row.ID)
+	}
+
+	nextChargeAt := now.Add(chargePeriod)
+
+	usersToReset := make([]string, 0)
+	for userID, addonIDs := range byUser {
+		if len(addonIDs) == 0 {
+			continue
+		}
+		amount := len(addonIDs) * priceRUB
+
+		_, ok, err := tryDebitBalanceTx(tx, userID, amount)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			if err := deactivateAllDeviceAddonsTx(tx, userID); err != nil {
+				return nil, err
+			}
+			if err := setExtraDevicesCountTx(tx, userID, 0); err != nil {
+				return nil, err
+			}
+			usersToReset = append(usersToReset, userID)
+			continue
+		}
+
+		if err := updateDeviceAddonsNextChargeAtTx(tx, addonIDs, nextChargeAt); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return usersToReset, nil
 }
 
-// UpdateDeviceAddonNextChargeAt переносит следующую дату списания.
-func (s *UserStorage) UpdateDeviceAddonNextChargeAt(addonID string, nextChargeAt time.Time) error {
+func tryDebitBalanceTx(tx *sqlx.Tx, userID string, amount int) (newBalance int, ok bool, err error) {
+	if amount <= 0 {
+		return 0, false, fmt.Errorf("amount должен быть > 0")
+	}
+
+	query := `
+	UPDATE users
+	SET balance = balance - $1
+	WHERE id = $2 AND balance >= $1
+	RETURNING balance
+	`
+
+	var bal int
+	if err := tx.QueryRowx(query, amount, userID).Scan(&bal); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, false, nil
+		}
+		return 0, false, fmt.Errorf("failed to debit balance: %w", err)
+	}
+
+	return bal, true, nil
+}
+
+func deactivateAllDeviceAddonsTx(tx *sqlx.Tx, userID string) error {
+	query := `
+	UPDATE device_addons
+	SET active = FALSE
+	WHERE user_id = $1 AND active = TRUE
+	`
+	if _, err := tx.Exec(query, userID); err != nil {
+		return fmt.Errorf("failed to deactivate device addons: %w", err)
+	}
+	return nil
+}
+
+func setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
+	query := `
+	UPDATE users
+	SET extra_devices_count = $1
+	WHERE id = $2
+	`
+	if _, err := tx.Exec(query, cnt, userID); err != nil {
+		return fmt.Errorf("failed to update extra_devices_count: %w", err)
+	}
+	return nil
+}
+
+func updateDeviceAddonsNextChargeAtTx(tx *sqlx.Tx, addonIDs []string, nextChargeAt time.Time) error {
 	query := `
 	UPDATE device_addons
 	SET next_charge_at = $1
-	WHERE id = $2
+	WHERE id = ANY($2)
 	`
-
-	if _, err := s.db.Exec(query, nextChargeAt, addonID); err != nil {
-		return fmt.Errorf("failed to update device addon next_charge_at: %w", err)
+	if _, err := tx.Exec(query, nextChargeAt, pq.Array(addonIDs)); err != nil {
+		return fmt.Errorf("failed to update next_charge_at: %w", err)
 	}
-
 	return nil
 }
