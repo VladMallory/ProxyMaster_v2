@@ -199,8 +199,8 @@ func ProcessCallback(sender MessageSender,
 		// Информация о боте
 		return sender.SendMessage(chatID, "В разработке")
 	case "btn_back":
-		// Кнопка "Назад" возвращает в главное меню
-		return sender.ShowView(chatID, messageID, "main", "")
+		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
+		return sender.ShowView(chatID, messageID, "main", text)
 	default:
 		return sender.SendMessage(chatID, "Неизвестная команда")
 	}
@@ -288,8 +288,7 @@ func handleSubscriptionFromBalance(sender MessageSender, subscriptionService dom
 
 // ProcessCommand обрабатывает текстовые команды (например, /start).
 // Эта функция — "мозг" обработки текста.
-func ProcessCommand(sender MessageSender, chatID int64, command string, remnawaveClient domain.RemnawaveClient, userRepo *database.UserStorage) error {
-	var replyText string
+func ProcessCommand(sender MessageSender, chatID int64, command string, firstName string, remnawaveClient domain.RemnawaveClient, userRepo *database.UserStorage) error {
 	switch command {
 	case "/start":
 		userID := strconv.FormatInt(chatID, 10)
@@ -313,16 +312,103 @@ func ProcessCommand(sender MessageSender, chatID int64, command string, remnawav
 		}
 
 		username := strconv.Itoa(int(chatID))
-		err = remnawaveClient.CreateUser(username, 5)
-		if err != nil {
+		if err := remnawaveClient.CreateUser(username, 5); err != nil {
 			log.Println("Ошибка создания пользователя")
 		}
 
-		replyText = "Добро пожаловать! Я помогу вам управлять подписками."
+		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
+		return sender.ShowView(chatID, 0, "main", text)
 	default:
-		replyText = "Неизвестная команда. Пожалуйста, используйте /start."
+		return sender.SendMessage(chatID, "Неизвестная команда. Пожалуйста, используйте /start.")
+	}
+}
+
+func buildMainViewText(chatID int64, firstName string, remnawaveClient domain.RemnawaveClient, userRepo *database.UserStorage) string {
+	username := strconv.FormatInt(chatID, 10)
+
+	user, err := userRepo.GetUserByID(username)
+	if err != nil {
+		// Если пользователя нету, создаем его в базе
+		if errors.Is(err, domain.ErrUserNotFound) {
+			created, createErr := userRepo.CreateUser(models.CreateUserTGDTO{
+				ID:      username,
+				Balance: 0,
+				Trial:   false,
+			})
+			if createErr == nil {
+				return buildStartText(firstName, created.Balance, buildSubscriptionLine(username, remnawaveClient))
+			} else {
+				return buildStartText(firstName, 0, buildSubscriptionLine(username, remnawaveClient))
+			}
+		}
 	}
 
-	// Отправляем ответ
-	return sender.SendMessage(chatID, replyText)
+	return buildStartText(firstName, user.Balance, buildSubscriptionLine(username, remnawaveClient))
+}
+
+func buildStartText(firstName string, balance int, subscriptionLine string) string {
+	name := strings.TrimSpace(firstName)
+	if name == "" {
+		name = "друг"
+	}
+
+	return fmt.Sprintf(
+		"🌟 Добро пожаловать, %s!\n—💰 Ваш баланс: %.2f₽\n%s\n\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке Скачать приложение. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите Подключить (Happ), он импортирует подписку в Happ",
+		name,
+		float64(balance),
+		subscriptionLine,
+	)
+}
+
+func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClient) string {
+	uuid, err := remnawaveClient.GetUUIDByUsername(username)
+	if err != nil {
+		return "—❌ Подписка не активна"
+	}
+
+	info, err := remnawaveClient.GetUserInfo(uuid)
+	if err != nil {
+		return "—❌ Подписка не активна"
+	}
+
+	if strings.EqualFold(info.Response.Status, "ACTIVE") && info.Response.ExpireAt.After(time.Now()) {
+		return "—✅ Подписка активна до " + formatRussianDate(info.Response.ExpireAt)
+	}
+
+	return "—❌ Подписка не активна"
+}
+
+func formatRussianDate(t time.Time) string {
+	return fmt.Sprintf("%d %d %s", t.Year(), t.Day(), russianMonthGenitive(t.Month()))
+}
+
+func russianMonthGenitive(m time.Month) string {
+	switch m {
+	case time.January:
+		return "января"
+	case time.February:
+		return "февраля"
+	case time.March:
+		return "марта"
+	case time.April:
+		return "апреля"
+	case time.May:
+		return "мая"
+	case time.June:
+		return "июня"
+	case time.July:
+		return "июля"
+	case time.August:
+		return "августа"
+	case time.September:
+		return "сентября"
+	case time.October:
+		return "октября"
+	case time.November:
+		return "ноября"
+	case time.December:
+		return "декабря"
+	default:
+		return ""
+	}
 }
