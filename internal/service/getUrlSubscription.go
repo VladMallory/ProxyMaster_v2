@@ -5,16 +5,16 @@ package service
 import "ProxyMaster_v2/internal/domain"
 
 // GetURLSubscription получает url подписки пользователя через username (Telegram ID).
-func GetURLSubscription(remnawaveClient domain.RemnawaveClient, username string) string {
+func GetURLSubscription(remnawaveClient domain.RemnawaveClient, username string) (string, error) {
 	uuid, err := remnawaveClient.GetUUIDByUsername(username)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
 	userInfo, err := remnawaveClient.GetUserInfo(uuid)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
-	return userInfo.Response.SubscriptionURL
+	return userInfo.Response.SubscriptionURL, nil
 }
