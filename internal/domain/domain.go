@@ -31,6 +31,8 @@ const (
 	ViewTypeMain               ViewType = "main"
 )
 
+type slogLevel string
+
 // RemnawaveClient - то как мы хотим получать информацию
 type RemnawaveClient interface {
 	Login(ctx context.Context, username string, password string) error
