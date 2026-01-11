@@ -1,6 +1,6 @@
 // Package telegram отвечает за взаимодействие с Telegram API
 //
-//nolint:cyclop
+//nolint:cyclop,funlen
 package telegram
 
 import (
@@ -145,6 +145,8 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 	if messageID > 0 {
 		// Редактируем существующее сообщение
 		msg := tgbotapi.NewEditMessageText(chatID, messageID, text)
+		// Добавляем форматирование HTML
+		msg.ParseMode = "HTML"
 		msg.ReplyMarkup = &keyboard
 		_, err := c.api.Send(msg)
 		if err != nil {
@@ -156,6 +158,8 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 	// Отправляем новое сообщение
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ReplyMarkup = keyboard
+	// Добавляем форматирование HTML
+	msg.ParseMode = "HTML"
 	_, err := c.api.Send(msg)
 	if err != nil {
 		return fmt.Errorf("ошибка отправки нового сообщения: %w", err)
@@ -272,6 +276,8 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 // Реализует метод интерфейса domain.MessageSender.
 func (c *Client) SendMessage(chatID int64, text string) error {
 	msg := tgbotapi.NewMessage(chatID, text)
+	// Добавляем форматирование HTML
+	msg.ParseMode = "HTML"
 
 	// Всегда показываем главное меню под сообщением
 	msg.ReplyMarkup = c.mainKeyboard()

@@ -72,6 +72,7 @@ type TrialService interface {
 	ActivateTrial(telegramID int64) (string, error)
 }
 
+// ServerAPI - интерфейс для работы с сервером
 type ServerAPI interface {
 	Serve(string) error
 }
