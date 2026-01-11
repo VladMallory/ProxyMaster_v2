@@ -30,7 +30,9 @@ func NewSlog(level string) (Logger, error) {
 		Level: l,
 	})
 
-	return &slogLogger{logger: slog.New(handler)}, nil
+	return &slogLogger{
+		logger: slog.New(handler),
+	}, nil
 }
 
 // Debug выводит сообщение в лог с уровнем Debug.

@@ -269,13 +269,16 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(now time.Time, limit int, pr
 	defer func() { _ = tx.Rollback() }()
 
 	selectUsersQuery := `
-	SELECT DISTINCT ON (user_id) user_id
-	FROM device_addons
-	WHERE active = TRUE AND next_charge_at <= $1
-	ORDER BY user_id, next_charge_at ASC
-	FOR UPDATE SKIP LOCKED
-	LIMIT $2
-	`
+SELECT user_id
+FROM (
+    SELECT DISTINCT ON (user_id) user_id
+    FROM device_addons
+    WHERE active = TRUE AND next_charge_at <= $1
+    ORDER BY user_id, next_charge_at ASC
+    LIMIT $2
+) AS subq
+FOR UPDATE SKIP LOCKED
+`
 
 	var userIDs []string
 	if err := tx.Select(&userIDs, selectUsersQuery, now, limit); err != nil {

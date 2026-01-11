@@ -18,7 +18,7 @@ func NewZap(level string) (Logger, error) {
 	// Конфигурация по умолчанию (Prod)
 	cfg := zap.NewProductionConfig()
 
-	// Установка уровня логирования
+	// Установка уровня логирования если не задано
 	if level != "" {
 		l, err := zap.ParseAtomicLevel(level)
 		if err == nil {
