@@ -3,7 +3,6 @@
 package logger
 
 // Field описывает поле лога (ключ-значение).
-// zap требует писать ключ-значение.
 type Field struct {
 	Key   string
 	Value any
