@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"ProxyMaster_v2/internal/domain"
 	"log/slog"
 	"os"
 )
@@ -11,15 +12,15 @@ type slogLogger struct {
 }
 
 // NewSlog создаем экземпляр slog логгер.
-func NewSlog(level string) (Logger, error) {
+func NewSlog(level domain.LevelLogger) (Logger, error) {
 	var l slog.Level
 
 	switch level {
-	case "debug":
+	case domain.LevelDebug:
 		l = slog.LevelDebug
-	case "warn":
+	case domain.LevelWarn:
 		l = slog.LevelWarn
-	case "error":
+	case domain.LevelError:
 		l = slog.LevelError
 	default:
 		l = slog.LevelInfo
