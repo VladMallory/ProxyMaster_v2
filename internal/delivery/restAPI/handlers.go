@@ -23,7 +23,7 @@ func NewHandler(remnawaveClient *remnawave.RemnaClient) *Handler {
 }
 
 // respondWithJSON - вспомагательная функция для отправки JSON ответа
-func (H *Handler) responseWithJSON(w http.ResponseWriter, payload any, statusCode int) {
+func (h *Handler) responseWithJSON(w http.ResponseWriter, payload any, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 
 	w.WriteHeader(statusCode)

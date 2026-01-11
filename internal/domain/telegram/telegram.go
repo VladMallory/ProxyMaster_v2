@@ -25,7 +25,7 @@ type MessageSender interface {
 	// ShowView отправляет сообщение с нужной клавиатурой
 	// viewType: "tariffs", "payment", "main"
 	// messageID: ID сообщения для редактирования (0 — отправить новое)
-	ShowView(chatID int64, messageID int, viewType, data string) error
+	ShowView(chatID int64, messageID int, viewType domain.ViewType, data string) error
 }
 
 // ProcessCallback обрабатывает нажатия на инлайн-кнопки (которые под сообщениями).
@@ -79,7 +79,7 @@ func ProcessCallback(sender MessageSender,
 			return sender.SendMessage(chatID, "Ошибка создания транзакции")
 		}
 
-		return sender.ShowView(chatID, messageID, "check_payment", url+"|"+id)
+		return sender.ShowView(chatID, messageID, domain.ViewTypeCheckPayment, url+"|"+id)
 	}
 
 	if transactionID, ok := strings.CutPrefix(data, "btn_check_payment_"); ok {
@@ -109,7 +109,7 @@ func ProcessCallback(sender MessageSender,
 
 	switch data {
 	case "btn_tariffs":
-		return sender.ShowView(chatID, messageID, "tariffs", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeTariffs, "")
 	case "btn_sub_tariff_1":
 		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 1)
 	case "btn_sub_tariff_2":
@@ -117,25 +117,25 @@ func ProcessCallback(sender MessageSender,
 	case "btn_sub_tariff_3":
 		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 3)
 	case "btn_balance":
-		return sender.ShowView(chatID, messageID, "topup", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeTopup, "")
 	case "btn_topup_100":
-		return sender.ShowView(chatID, messageID, "payment", "100")
+		return sender.ShowView(chatID, messageID, domain.ViewTypePayment, "100")
 	case "btn_topup_200":
-		return sender.ShowView(chatID, messageID, "payment", "200")
+		return sender.ShowView(chatID, messageID, domain.ViewTypePayment, "200")
 	case "btn_topup_300":
-		return sender.ShowView(chatID, messageID, "payment", "300")
+		return sender.ShowView(chatID, messageID, domain.ViewTypePayment, "300")
 	case "download_app":
-		return sender.ShowView(chatID, messageID, "download_app", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeDownloadApp, "")
 	case "btn_ios_menu":
-		return sender.ShowView(chatID, messageID, "ios_region", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeIosRegion, "")
 	case "btn_back_download_app":
-		return sender.ShowView(chatID, messageID, "download_app", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeDownloadApp, "")
 	case "btn_unlimits":
 		// Показываем меню лимитов устройств
-		return sender.ShowView(chatID, messageID, "device_limits", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeDeviceLimits, "")
 	case "btn_traffic_limits":
 		// Вызываем меню лимитов трафика
-		return sender.ShowView(chatID, messageID, "traffic_limits", "")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeTrafficLimits, "")
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -183,7 +183,7 @@ func ProcessCallback(sender MessageSender,
 			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
 		}
 
-		return sender.ShowView(chatID, messageID, "profile", profileData)
+		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
 	case "btn_reset_devices":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -196,7 +196,7 @@ func ProcessCallback(sender MessageSender,
 			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
 		}
 
-		return sender.ShowView(chatID, messageID, "profile", profileData)
+		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
 	case "btn_connect":
 		username := strconv.FormatInt(chatID, 10)
 		url, err := service.GetURLSubscription(remnawaveClient, username)
@@ -207,15 +207,15 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		if url == "" {
-			return sender.ShowView(chatID, messageID, "connect", "Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.")
+			return sender.ShowView(chatID, messageID, domain.ViewTypeConnect, "Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.")
 		}
-		return sender.ShowView(chatID, messageID, "connect", url)
+		return sender.ShowView(chatID, messageID, domain.ViewTypeConnect, url)
 	case "btn_info":
 		// Информация о боте
 		return sender.SendMessage(chatID, "В разработке")
 	case "btn_back":
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
-		return sender.ShowView(chatID, messageID, "main", text)
+		return sender.ShowView(chatID, messageID, domain.ViewTypeMain, text)
 	default:
 		return sender.SendMessage(chatID, "Неизвестная команда")
 	}
@@ -286,19 +286,19 @@ func handleSuccessfulPayment(sender MessageSender, chatID int64, messageID int, 
 		return sender.SendMessage(chatID, "Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.")
 	}
 
-	return sender.ShowView(chatID, messageID, "subscription_result", fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount))
+	return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount))
 }
 
 func handleSubscriptionFromBalance(sender MessageSender, subscriptionService domain.SubscriptionService, chatID int64, messageID int, months int) error {
 	result, err := subscriptionService.ActivateSubscription(chatID, months)
 	if err != nil {
 		if errors.Is(err, domain.ErrInsufficientFunds) {
-			return sender.ShowView(chatID, messageID, "subscription_result", "❌ Недостаточно средств на балансе")
+			return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, "❌ Недостаточно средств на балансе")
 		}
-		return sender.ShowView(chatID, messageID, "subscription_result", "Произошла ошибка при оформлении подписки")
+		return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, "Произошла ошибка при оформлении подписки")
 	}
 
-	return sender.ShowView(chatID, messageID, "subscription_result", "✅ "+result)
+	return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, "✅ "+result)
 }
 
 // ProcessCommand обрабатывает текстовые команды (например, /start).
@@ -332,7 +332,7 @@ func ProcessCommand(sender MessageSender, chatID int64, command string, firstNam
 		}
 
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
-		return sender.ShowView(chatID, 0, "main", text)
+		return sender.ShowView(chatID, 0, domain.ViewTypeMain, text)
 	default:
 		return sender.SendMessage(chatID, "Неизвестная команда. Пожалуйста, используйте /start.")
 	}
