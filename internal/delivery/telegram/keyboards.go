@@ -24,7 +24,7 @@ func (c *Client) downloadAppKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonURL("🐧 Linux", linuxAppURL),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🏠 Главна", "btn_back"),
+			tgbotapi.NewInlineKeyboardButtonData("🏠 Главная", "btn_back"),
 		),
 	)
 }

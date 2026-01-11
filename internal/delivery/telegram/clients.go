@@ -109,34 +109,34 @@ func (c *Client) Start(
 
 // ShowView отправляет сообщение с нужной клавиатурой в зависимости от типа
 // Если messageID > 0, то сообщение редактируется. Иначе — отправляется новое.
-func (c *Client) ShowView(chatID int64, messageID int, viewType string, data string) error {
+func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType, data string) error {
 	var text string
 	var keyboard tgbotapi.InlineKeyboardMarkup
 
 	switch viewType {
-	case "download_app":
+	case domain.ViewTypeDownloadApp:
 		text, keyboard = c.handleDownloadAppView()
-	case "ios_region":
+	case domain.ViewTypeIosRegion:
 		text, keyboard = c.handleIosRegionView()
-	case "tariffs":
+	case domain.ViewTypeTariffs:
 		text, keyboard = c.handleTariffsView()
-	case "topup":
+	case domain.ViewTypeTopup:
 		text, keyboard = c.handleTopupView()
-	case "payment":
+	case domain.ViewTypePayment:
 		text, keyboard = c.handlePaymentView(data)
-	case "check_payment":
+	case domain.ViewTypeCheckPayment:
 		text, keyboard = c.handleCheckPaymentView(data)
-	case "profile":
+	case domain.ViewTypeProfile:
 		text, keyboard = c.handleProfileView(data)
-	case "device_limits":
+	case domain.ViewTypeDeviceLimits:
 		text, keyboard = c.handleDeviceLimitsView()
-	case "traffic_limits":
+	case domain.ViewTypeTrafficLimits:
 		text, keyboard = c.handleTrafficLimitsView()
-	case "connect":
+	case domain.ViewTypeConnect:
 		text, keyboard = c.handleConnectView(data)
-	case "subscription_result":
+	case domain.ViewTypeSubscriptionResult:
 		text, keyboard = c.handleSubscriptionResultView(data)
-	case "main":
+	case domain.ViewTypeMain:
 		text, keyboard = c.handleMainView(data)
 	default:
 		return fmt.Errorf("неизвестный тип view: %s", viewType)
