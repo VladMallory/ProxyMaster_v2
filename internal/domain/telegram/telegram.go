@@ -1,5 +1,7 @@
 // Package telegram содержит бизнес логику бота и интерфейсы
 // для взаимодействия. Определяется как себя будут вести команды и что выполнять
+//
+//nolint:goconst
 package telegram
 
 import (
@@ -40,7 +42,8 @@ func ProcessCallback(sender MessageSender,
 	remnawaveClient domain.RemnawaveClient,
 	subscriptionService domain.SubscriptionService,
 	paymentGateway domain.PaymentGateway,
-	userRepo *database.UserStorage) error {
+	userRepo *database.UserStorage,
+) error {
 
 	buildProfileData := func(userID string) (string, error) {
 		user, err := userRepo.GetUserByID(userID)
@@ -97,6 +100,7 @@ func ProcessCallback(sender MessageSender,
 			if started {
 				return sender.SendMessage(chatID, "⏳ Оплата еще не поступила. Я буду автоматически проверять статус каждые 2 секунды и сообщу, когда платеж подтвердится.")
 			}
+
 			return sender.SendMessage(chatID, "⏳ Автопроверка уже запущена. Я сообщу, когда платеж подтвердится.")
 		default:
 			return sender.SendMessage(chatID, "❌ Оплата не прошла или отменена.")
@@ -283,6 +287,7 @@ func handleSuccessfulPayment(sender MessageSender, chatID int64, messageID int, 
 	})
 	if err != nil {
 		log.Printf("Ошибка обновления баланса: %v", err)
+
 		return sender.SendMessage(chatID, "Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.")
 	}
 
@@ -368,7 +373,7 @@ func buildStartText(firstName string, balance int, subscriptionLine string) stri
 	}
 
 	return fmt.Sprintf(
-		"🌟 Добро пожаловать, %s!\n<blockquote>—💰 Ваш баланс: %.2f₽\n%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке Скачать приложение. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите Подключить (Happ), он импортирует подписку в Happ",
+		"🌟 Добро пожаловать, %s!\n<blockquote>—💰 Ваш баланс: %.2f₽\n%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, он импортирует подписку в Happ",
 		name,
 		float64(balance),
 		subscriptionLine,
