@@ -3,6 +3,7 @@ package app
 
 import (
 	"fmt"
+	"log"
 
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
@@ -40,7 +41,7 @@ func New() (Application, error) {
 
 	// ===logger===
 	// Инициализируем главный логгер.
-	loggerClient, err := logger.New(cfg.LoggerLevel)
+	loggerClient, err := logger.NewZap(cfg.LoggerLevel)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
@@ -96,7 +97,12 @@ func (a *app) Run() {
 	go a.telegramClient.Start(a.remnawaveClient, a.subscriptionService, a.paymentGateway, a.userRepo)
 
 	//запускаем restAPI
-	go a.restAPI.Serve(":8080") //временно на локал хосте
+	go func() {
+		if err := a.restAPI.Serve(":8080"); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
 	// Чтобы программа не завершалась
 	select {}
 }
