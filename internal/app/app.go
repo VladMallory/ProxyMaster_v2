@@ -41,7 +41,7 @@ func New() (Application, error) {
 
 	// ===logger===
 	// Инициализируем главный логгер.
-	loggerClient, err := logger.NewZap(cfg.LoggerLevel)
+	loggerClient, err := logger.NewSlog(cfg.LoggerLevel)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
