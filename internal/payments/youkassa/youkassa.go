@@ -60,7 +60,7 @@ func NewClient(shopID, secretKey, returnURL string, l logger.Logger) *Client {
 
 // CreateTransaction создает платеж в ЮKassa и возвращает ссылку для оплаты и внешний ID платежа.
 //
-// amount  - сумма в рублях (например 100.00)
+// Amount  - сумма в рублях (например 100.00)
 // orderID - ID заказа внутри вашей системы (пойдет в description и в ключ идемпотентности)
 func (c *Client) CreateTransaction(ctx context.Context, amount float64, orderID string) (paymentURL, externalID string, err error) {
 	defer c.logDuration("CreateTransaction")()
