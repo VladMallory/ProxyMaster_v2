@@ -17,7 +17,7 @@ import (
 )
 
 // Application главный интерфейс приложения
-type ProgramDADA interface {
+type Application interface {
 	RunAPP()
 }
 
@@ -32,7 +32,7 @@ type app struct {
 }
 
 // New собирает приложение
-func New() (ProgramDADA, error) {
+func New() (Application, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
 	if err != nil {
@@ -45,7 +45,6 @@ func New() (ProgramDADA, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
-	loggerClient.Info("asdasd")
 
 	// Создаем logger для remnawave
 	remnawaveLogger := loggerClient.Named("remnawave")
