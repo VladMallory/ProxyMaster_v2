@@ -17,8 +17,8 @@ import (
 )
 
 // Application главный интерфейс приложения
-type Application interface {
-	Run()
+type ProgramDADA interface {
+	RunAPP()
 }
 
 // App зависимости приложения
@@ -32,7 +32,7 @@ type app struct {
 }
 
 // New собирает приложение
-func New() (Application, error) {
+func New() (ProgramDADA, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
 	if err != nil {
@@ -41,10 +41,11 @@ func New() (Application, error) {
 
 	// ===logger===
 	// Инициализируем главный логгер.
-	loggerClient, err := logger.NewSlog(cfg.LoggerLevel)
+	loggerClient, err := logger.NewZap(cfg.LoggerLevel)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
+	loggerClient.Info("asdasd")
 
 	// Создаем logger для remnawave
 	remnawaveLogger := loggerClient.Named("remnawave")
@@ -92,7 +93,7 @@ func New() (Application, error) {
 }
 
 // Run запуск приложения
-func (a *app) Run() {
+func (a *app) RunAPP() {
 	// Запускаем Telegram бота в горутине
 	go a.telegramClient.Start(a.remnawaveClient, a.subscriptionService, a.paymentGateway, a.userRepo)
 

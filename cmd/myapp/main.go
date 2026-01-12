@@ -9,12 +9,14 @@ import (
 
 func main() {
 	// сборка приложения
-	var myApp app.Application
+	var myApp app.ProgramDADA
 	myApp, err := app.New()
 	if err != nil {
 		log.Fatal("ошибка сборки приложения", err)
 	}
 
+	app.ProgramDADA.RunAPP()
+
 	// запуск приложения
-	myApp.Run()
+	myApp.RunAPP()
 }
