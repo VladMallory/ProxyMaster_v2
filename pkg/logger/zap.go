@@ -21,9 +21,10 @@ func NewZap(level string) (Logger, error) {
 	// Установка уровня логирования если не задано
 	if level != "" {
 		l, err := zap.ParseAtomicLevel(level)
-		if err == nil {
-			cfg.Level = l
+		if err != nil {
+			return nil, fmt.Errorf("ошибка при парсинге уровня логирования: %w", err)
 		}
+		cfg.Level = l
 	}
 
 	// Настройка формата времени
