@@ -41,7 +41,9 @@ func NewZap(level string) (Logger, error) {
 		return nil, fmt.Errorf("ошибка при билде логгера: %w", err)
 	}
 
-	return &zapLogger{logger: l}, nil
+	return &zapLogger{
+		logger: l,
+	}, nil
 }
 
 // Debug логирует сообщение с уровнем Debug.

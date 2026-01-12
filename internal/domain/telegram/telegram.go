@@ -51,11 +51,13 @@ func ProcessCallback(sender MessageSender,
 			return "", err
 		}
 
+		// Получаем 100% точный результат количества устройств
 		extraCount, err := userRepo.CountActiveDeviceAddons(userID)
 		if err != nil {
 			return "", err
 		}
 
+		// Проверяем
 		if user.ExtraDevicesCount != extraCount {
 			_, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
 				ExtraDevicesCount: &extraCount,
