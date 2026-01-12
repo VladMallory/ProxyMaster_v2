@@ -74,7 +74,9 @@ func (l *zapLogger) With(fields ...Field) Logger {
 // Named возвращает новый логгер с добавленным именем (категорией).
 // Это позволяет разделять логи по модулям (например, "remnawave", "telegram").
 func (l *zapLogger) Named(name string) Logger {
-	return &zapLogger{logger: l.logger.Named(name)}
+	return &zapLogger{
+		logger: l.logger.Named(name),
+	}
 }
 
 // Sync сбрасывает буфер логгера.
