@@ -1,3 +1,4 @@
+//golint:golines
 package telegram
 
 import (
@@ -46,7 +47,7 @@ func (c *Client) iosRegionKeyboard() tgbotapi.InlineKeyboardMarkup {
 // tariffsKeyboard генерирует Inline-клавиатуру с вариантами подписки.
 // Кнопки содержат:
 // 1. Текст, который видит пользователь (например, "📅 1 Месяц - 100₽")
-// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1")
+// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1").
 func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -64,17 +65,17 @@ func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-func (c *Client) topupKeyboard() tgbotapi.InlineKeyboardMarkup {
+func (c *Client) topUpKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 100₽", "btn_topup_100"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 200₽", "btn_topup_200"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 300₽", "btn_topup_300"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 100₽", "btn_topUp_100"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 200₽", "btn_topUp_200"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 300₽", "btn_topUp_300"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 500₽", "btn_topup_500"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 700₽", "btn_topup_700"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 1000₽", "btn_topup_1000"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 500₽", "btn_topUp_500"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 700₽", "btn_topUp_700"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 1000₽", "btn_topUp_1000"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),

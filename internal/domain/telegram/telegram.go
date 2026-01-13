@@ -72,13 +72,12 @@ func ProcessCallback(sender MessageSender,
 	if amountStr, ok := strings.CutPrefix(data, "btn_pay_sbp_"); ok {
 		amount, err := strconv.Atoi(amountStr)
 		if err != nil {
-			// Логируем внутреннюю ошибку
 			log.Printf("Ошибка конвертации суммы платежа: %v", err)
-			// Отправляем пользователю сообщение об ошибке
+
 			if sendErr := sender.SendMessage(chatID, "Ошибка обработки суммы"); sendErr != nil {
-				// Если отправка сообщения тоже провалилась, заворачиваем и возвращаем эту ошибку
-				return fmt.Errorf("не удалось отправить сообщение об ошибке обработки суммы: %w", sendErr)
+				return fmt.Errorf("ошибка обработки суммы: %w", sendErr)
 			}
+
 			return nil // Мы обработали ошибку, отправив сообщение
 		}
 
@@ -94,12 +93,14 @@ func ProcessCallback(sender MessageSender,
 			if sendErr := sender.SendMessage(chatID, "Ошибка создания транзакции"); sendErr != nil {
 				return fmt.Errorf("не удалось отправить сообщение об ошибке создания транзакции: %w", sendErr)
 			}
+
 			return nil
 		}
 
 		if err := sender.ShowView(chatID, messageID, domain.ViewTypeCheckPayment, url+"|"+id); err != nil {
 			return fmt.Errorf("ошибка отображения QR-кода для оплаты: %w", err)
 		}
+
 		return nil
 	}
 
@@ -182,12 +183,18 @@ func ProcessCallback(sender MessageSender,
 		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 3)
 	case "btn_balance":
 		return showView(domain.ViewTypeTopUp, "", "ошибка отображения меню пополнения")
-	case "btn_topup_100":
+	case "btn_topUp_100":
 		return showView(domain.ViewTypePayment, "100", "ошибка отображения вариантов оплаты")
-	case "btn_topup_200":
+	case "btn_topUp_200":
 		return showView(domain.ViewTypePayment, "200", "ошибка отображения вариантов оплаты")
-	case "btn_topup_300":
+	case "btn_topUp_300":
 		return showView(domain.ViewTypePayment, "300", "ошибка отображения вариантов оплаты")
+	case "btn_topUp_500":
+		return showView(domain.ViewTypePayment, "500", "ошибка отображения вариантов оплаты")
+	case "btn_topUp_700":
+		return showView(domain.ViewTypePayment, "700", "ошибка отображения вариантов оплаты")
+	case "btn_topUp_1000":
+		return showView(domain.ViewTypePayment, "1000", "ошибка отображения вариантов оплаты")
 	case "download_app":
 		return showView(domain.ViewTypeDownloadApp, "", "ошибка отображения меню загрузки")
 	case "btn_ios_menu":
