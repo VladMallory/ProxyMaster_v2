@@ -121,7 +121,7 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 	case domain.ViewTypeTariffs:
 		text, keyboard = c.handleTariffsView()
 	case domain.ViewTypeTopUp:
-		text, keyboard = c.handleTopupView()
+		text, keyboard = c.handleTopUpView()
 	case domain.ViewTypePayment:
 		text, keyboard = c.handlePaymentView(data)
 	case domain.ViewTypeCheckPayment:
@@ -201,8 +201,8 @@ func (c *Client) handleTariffsView() (string, tgbotapi.InlineKeyboardMarkup) {
 	return "Выберите тариф подписки:", c.tariffsKeyboard()
 }
 
-func (c *Client) handleTopupView() (string, tgbotapi.InlineKeyboardMarkup) {
-	return "💰 Выберите сумму для пополнения баланса:", c.topupKeyboard()
+func (c *Client) handleTopUpView() (string, tgbotapi.InlineKeyboardMarkup) {
+	return "💰 Выберите сумму для пополнения баланса:", c.topUpKeyboard()
 }
 
 func (c *Client) handlePaymentView(data string) (string, tgbotapi.InlineKeyboardMarkup) {

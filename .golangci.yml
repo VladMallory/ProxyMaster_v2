@@ -10,6 +10,7 @@ linters:
     - gocognit
     - cyclop
     - funlen
+    - noinlineerr
 
 formatters:
   # Enable specific formatter.
