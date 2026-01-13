@@ -141,12 +141,50 @@ func ProcessCallback(sender MessageSender,
 		// Вызываем меню лимитов трафика
 		return sender.ShowView(chatID, messageID, domain.ViewTypeTrafficLimits, "")
 	case "btn_add_50gb":
+		userID := strconv.Itoa(int(chatID))
+		if err := remnawaveClient.AddTraffic(userID, 50); err != nil {
+			//заменить логгер
+			log.Printf("не удалось добавить трафик у пользователя %s, %v", userID, err)
+			return sender.SendMessage(chatID, "Не удалось добавить трафик")
+		}
+
+		profileData, err := buildProfileData(userID)
+		if err != nil {
+			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+		}
+
+		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
 
 	case "btn_add_100gb":
-		return nil
+		userID := strconv.Itoa(int(chatID))
+		if err := remnawaveClient.AddTraffic(userID, 100); err != nil {
+			//заменить логгер
+			log.Printf("не удалось добавить трафик у пользователя %s, %v", userID, err)
+			return sender.SendMessage(chatID, "Не удалось добавить трафик")
+		}
+
+		profileData, err := buildProfileData(userID)
+		if err != nil {
+			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+		}
+
+		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
+
 	case "btn_reset_traffic":
-		remnawaveClient.SetTraffic()
-		return nil
+		userID := strconv.Itoa(int(chatID))
+		if err := remnawaveClient.SetTraffic(userID, 200); err != nil {
+			//заменить логгер
+			log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
+			return sender.SendMessage(chatID, "Не удалось сбросить трафик")
+		}
+
+		profileData, err := buildProfileData(userID)
+		if err != nil {
+			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+		}
+
+		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
+
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
