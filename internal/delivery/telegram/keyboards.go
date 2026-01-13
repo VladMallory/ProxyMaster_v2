@@ -1,4 +1,3 @@
-//golint:golines
 package telegram
 
 import (
@@ -86,7 +85,7 @@ func (c *Client) topUpKeyboard() tgbotapi.InlineKeyboardMarkup {
 func (c *Client) profileKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("➕ Добавить устройство (+50₽/мес)", "btn_add_device"),
+			tgbotapi.NewInlineKeyboardButtonData("➕ Добавить устройство (+50₽/мес)", "btn_add_device"), // nolint: golines
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("♻️ Сбросить доп. устройства", "btn_reset_devices"),
@@ -112,7 +111,7 @@ func (c *Client) checkPaymentKeyboard(url, transactionID string) tgbotapi.Inline
 			tgbotapi.NewInlineKeyboardButtonURL("🔗 Оплатить", url),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Проверить платеж", "btn_check_payment_"+transactionID),
+			tgbotapi.NewInlineKeyboardButtonData("🔄 Проверить платеж", "btn_check_payment_"+transactionID), // nolint: golines
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 В главное меню", "btn_back"),
@@ -128,7 +127,8 @@ func (c *Client) paymentKeyboard(amount string) tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("🪙 Криптовалюта", "btn_pay_crypto_"+amount),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад к тарифам", "btn_balance"), // Возвращаем к выбору тарифов
+			// Возвращаем к выбору тарифов
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад к тарифам", "btn_balance"), // nolint: golines
 		),
 	)
 }

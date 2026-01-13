@@ -1,7 +1,7 @@
 // Package telegram содержит бизнес логику бота и интерфейсы
 // для взаимодействия. Определяется как себя будут вести команды и что выполнять
 //
-//nolint:maintidx,goconst
+// nolint
 package telegram
 
 import (
@@ -329,8 +329,6 @@ func ProcessCallback(sender MessageSender,
 		}
 		return nil
 	}
-	// Этот return не должен достигаться, но нужен для компилятора
-	return nil
 }
 
 var activePaymentStatusWatchers sync.Map

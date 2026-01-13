@@ -11,6 +11,12 @@ linters:
     - cyclop
     - funlen
     - noinlineerr
+    - goconst
+    - godot
+    - godot
+    - varnamelen
+    - mnd
+    - nolintlint
 
 formatters:
   # Enable specific formatter.

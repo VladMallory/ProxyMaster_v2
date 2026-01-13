@@ -1,16 +1,14 @@
-// Package database отвечает за работу с Postgres (чтение/запись пользователей и услуг).
 package database
 
 import (
+	"ProxyMaster_v2/internal/domain"
+	"ProxyMaster_v2/internal/models"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
-
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/models"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -48,6 +46,7 @@ func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserT
 		0,
 		now,
 	).StructScan(&user)
+
 	if err != nil {
 		slog.Error(
 			"failed to create user",
@@ -85,6 +84,7 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 // GetUserByID is methos for getting user by id
 func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 	var user models.UserTG
+
 	query := `
 	SELECT id, balance, trial, extra_devices_count, created_at
 	FROM users
@@ -113,7 +113,10 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 }
 
 // UpdateUser обновляет юзера.
-func (s *UserStorage) UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error) {
+func (s *UserStorage) UpdateUser(
+	id string,
+	updateData models.UpdateUserTGDTO,
+) (*models.UserTG, error) {
 	user, err := s.GetUserByID(id)
 	if err != nil {
 		return nil, err
@@ -162,7 +165,10 @@ func (s *UserStorage) UpdateUser(id string, updateData models.UpdateUserTGDTO) (
 
 // TryDebitBalance пытается списать amount с баланса пользователя атомарно.
 // Если денег не хватает, ok=false и баланс не меняется.
-func (s *UserStorage) TryDebitBalance(userID string, amount int) (newBalance int, ok bool, err error) {
+func (s *UserStorage) TryDebitBalance(
+	userID string,
+	amount int,
+) (newBalance int, ok bool, err error) {
 	if amount <= 0 {
 		return 0, false, fmt.Errorf("amount должен быть > 0")
 	}
@@ -186,7 +192,10 @@ func (s *UserStorage) TryDebitBalance(userID string, amount int) (newBalance int
 }
 
 // CreateDeviceAddon создает запись купленной услуги "доп. устройство".
-func (s *UserStorage) CreateDeviceAddon(userID string, nextChargeAt time.Time) (*models.DeviceAddon, error) {
+func (s *UserStorage) CreateDeviceAddon(
+	userID string,
+	nextChargeAt time.Time,
+) (*models.DeviceAddon, error) {
 	addon := &models.DeviceAddon{
 		ID:           uuid.NewString(),
 		UserID:       userID,
@@ -251,7 +260,12 @@ type dueDeviceAddonRow struct {
 	UserID string `db:"user_id"`
 }
 
-func (s *UserStorage) ProcessDueDeviceAddonsBilling(now time.Time, limit int, priceRUB int, chargePeriod time.Duration) ([]string, error) {
+func (s *UserStorage) ProcessDueDeviceAddonsBilling(
+	now time.Time,
+	limit int,
+	priceRUB int,
+	chargePeriod time.Duration,
+) ([]string, error) {
 	if limit <= 0 {
 		limit = 200
 	}
@@ -262,7 +276,10 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(now time.Time, limit int, pr
 		return nil, fmt.Errorf("chargePeriod должен быть > 0")
 	}
 
-	tx, err := s.db.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	tx, err := s.db.BeginTxx(
+		context.Background(),
+		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -342,7 +359,11 @@ LIMIT $2
 	return usersToReset, nil
 }
 
-func tryDebitBalanceTx(tx *sqlx.Tx, userID string, amount int) (newBalance int, ok bool, err error) {
+func tryDebitBalanceTx(
+	tx *sqlx.Tx,
+	userID string,
+	amount int,
+) (newBalance int, ok bool, err error) {
 	if amount <= 0 {
 		return 0, false, fmt.Errorf("amount должен быть > 0")
 	}
@@ -389,7 +410,11 @@ func setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
 	return nil
 }
 
-func updateDeviceAddonsNextChargeAtTx(tx *sqlx.Tx, addonIDs []string, nextChargeAt time.Time) error {
+func updateDeviceAddonsNextChargeAtTx(
+	tx *sqlx.Tx,
+	addonIDs []string,
+	nextChargeAt time.Time,
+) error {
 	query := `
 	UPDATE device_addons
 	SET next_charge_at = $1
@@ -404,9 +429,16 @@ func updateDeviceAddonsNextChargeAtTx(tx *sqlx.Tx, addonIDs []string, nextCharge
 // AddDeviceAddonAtomic атомарно добавляет доп. устройство пользователю.
 // Выполняет в одной транзакции: проверку лимита, списание денег, создание addon, обновление счётчика.
 // Возвращает новое количество активных устройств (без базового).
-func (s *UserStorage) AddDeviceAddonAtomic(userID string, baseLimit, maxLimit, priceRUB int, chargePeriod time.Duration) (newCount int, err error) {
+func (s *UserStorage) AddDeviceAddonAtomic(
+	userID string,
+	baseLimit, maxLimit, priceRUB int,
+	chargePeriod time.Duration,
+) (newCount int, err error) {
 	// Начинаем транзакцию с блокировкой.
-	tx, err := s.db.BeginTxx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	tx, err := s.db.BeginTxx(
+		context.Background(),
+		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
+	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -431,7 +463,11 @@ func (s *UserStorage) AddDeviceAddonAtomic(userID string, baseLimit, maxLimit, p
 
 	// Проверяем лимит: базовое + купленные >= максимум.
 	if baseLimit+activeAddons >= maxLimit {
-		return 0, fmt.Errorf("%w: у пользователя уже %d устройств", domain.ErrMaxDevices, baseLimit+activeAddons)
+		return 0, fmt.Errorf(
+			"%w: у пользователя уже %d устройств",
+			domain.ErrMaxDevices,
+			baseLimit+activeAddons,
+		)
 	}
 
 	// Пытаемся списать деньги.

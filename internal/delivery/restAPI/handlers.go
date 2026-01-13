@@ -1,3 +1,5 @@
+// Package restapi содержит хэндлеры для REST API.
+// nolint
 package restapi
 
 import (
