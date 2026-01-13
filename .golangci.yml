@@ -14,13 +14,13 @@ linters:
     - godot
     - varnamelen
     - mnd
+    - nolintlint
 
 formatters:
   # Enable specific formatter.
   # Default: [] (uses standard Go formatting)
   enable:
     - gofmt
-    - gofumpt
     - goimports
     - golines
   # Formatters settings.
