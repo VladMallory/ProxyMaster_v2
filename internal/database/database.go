@@ -39,7 +39,7 @@ func Connect(databaseURL string) (*sqlx.DB, error) {
 func ensureSchema(db *sqlx.DB) error {
 	// Добавляем колонку extra_devices_count, если её еще нет.
 	// Она нужна для отображения в личном кабинете.
-	if _, err := db.Exec(`
+	if _, err := db.ExecContext(context.Background(), `
 		ALTER TABLE users
 		ADD COLUMN IF NOT EXISTS extra_devices_count INTEGER NOT NULL DEFAULT 0
 	`); err != nil {
