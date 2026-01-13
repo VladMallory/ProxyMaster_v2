@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	// ErrInsufficientFunds ошибка недостаточного баланса
+	// ErrInsufficientFunds ошибка недостаточного баланса.
 	ErrInsufficientFunds = errors.New("insufficient funds")
 	ErrUserNotFound      = errors.New("user not found")
 	ErrMaxDevices        = errors.New("max devices")
@@ -16,11 +16,15 @@ var (
 
 type ViewType string
 
+func (v ViewType) String() string {
+	return string(v)
+}
+
 const (
 	ViewTypeDownloadApp        ViewType = "download_app"
 	ViewTypeIosRegion          ViewType = "ios_region"
 	ViewTypeTariffs            ViewType = "tariffs"
-	ViewTypeTopup              ViewType = "topup"
+	ViewTypeTopUp              ViewType = "top_up"
 	ViewTypePayment            ViewType = "payment"
 	ViewTypeCheckPayment       ViewType = "check_payment"
 	ViewTypeProfile            ViewType = "profile"
@@ -29,6 +33,12 @@ const (
 	ViewTypeConnect            ViewType = "connect"
 	ViewTypeSubscriptionResult ViewType = "subscription_result"
 	ViewTypeMain               ViewType = "main"
+)
+
+// Ошибка приложения.
+var (
+	ErrDuplicateKey       = errors.New("duplicate key")
+	ErrDatabaseConnection = errors.New("database connection error")
 )
 
 // RemnawaveClient - то как мы хотим получать информацию
@@ -52,7 +62,7 @@ type UserRepository interface {
 
 // SubscriptionService - бизнес логика управления подписками
 type SubscriptionService interface {
-	// ActivateSubscriotion обрабатывает логику создания или
+	// ActivateSubscription обрабатывает логику создания или
 	// продления подписки
 	// принимает телеграм id и на сколько месяцев нужно
 	ActivateSubscription(telegramID int64, months int) (string, error)
@@ -60,10 +70,10 @@ type SubscriptionService interface {
 	// AddDevice добавляет 1 устройство пользователю
 	AddDevice(username string) error
 
-	// AddPaidDevice покупает 1 доп. устройство за 50₽/мес
+	// AddPaidDevice покупает 1 дополнительные устройство за 50₽/мес
 	AddPaidDevice(username string) error
 
-	// ResetPaidDevices сбрасывает доп. устройства до 0
+	// ResetPaidDevices сбрасывает дополнительные устройства до 0
 	ResetPaidDevices(username string) error
 }
 
