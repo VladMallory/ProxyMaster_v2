@@ -380,6 +380,7 @@ func tryDebitBalanceTx(
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, false, nil
 		}
+
 		return 0, false, fmt.Errorf("failed to debit balance: %w", err)
 	}
 
