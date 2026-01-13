@@ -120,7 +120,7 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 		text, keyboard = c.handleIosRegionView()
 	case domain.ViewTypeTariffs:
 		text, keyboard = c.handleTariffsView()
-	case domain.ViewTypeTopup:
+	case domain.ViewTypeTopUp:
 		text, keyboard = c.handleTopupView()
 	case domain.ViewTypePayment:
 		text, keyboard = c.handlePaymentView(data)
