@@ -3,11 +3,11 @@ package database
 import (
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/models"
+	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,13 +17,15 @@ import (
 
 // UserStorage structure for working with users table
 type UserStorage struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger logger.Logger
 }
 
 // NewUserStorage is constructor for UserStorage struct
-func NewUserStorage(db *sqlx.DB) *UserStorage {
+func NewUserStorage(db *sqlx.DB, logger logger.Logger) *UserStorage {
 	return &UserStorage{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -48,9 +50,9 @@ func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserT
 	).StructScan(&user)
 
 	if err != nil {
-		slog.Error(
-			"failed to create user",
-			"error_message", err,
+		s.logger.Error("failed to create user",
+			logger.Field{Key: "user_id", Value: user.ID},
+			logger.Field{Key: "err_msg", Value: err},
 		)
 
 		return nil, fmt.Errorf("failed to scan struct: %w", err)
@@ -70,9 +72,9 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 	`
 
 	if err := s.db.Select(&users, query); err != nil {
-		slog.Error(
-			"failed to get users",
-			"error_message", err,
+
+		s.logger.Error("failed to get all users",
+			logger.Field{Key: "err_msg", Value: err},
 		)
 
 		return nil, fmt.Errorf("failed to get all users: %w", err)
@@ -93,20 +95,23 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 
 	if err := s.db.Get(&user, query, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			slog.Error(
+			s.logger.Error(
 				"user not found",
-				"id", id,
-				"error_message", err,
+				logger.Field{Key: "id", Value: id},
+				logger.Field{Key: "err_msg", Value: err},
 			)
 
 			// Возвращем ошибку о том что пользователя нет в DB
 			return nil, domain.ErrUserNotFound
 		}
-		slog.Error(
-			"failed to get user",
-			"id", id,
-			"error_message", err,
+
+		s.logger.Error("failed to get user",
+			logger.Field{Key: "id", Value: id},
+			logger.Field{Key: "err_msg", Value: err},
 		)
+
+		return nil, fmt.Errorf("failed to get user: %w", err)
+
 	}
 
 	return &user, nil
@@ -151,13 +156,13 @@ func (s *UserStorage) UpdateUser(
 		user.ExtraDevicesCount,
 		id,
 	).StructScan(&updatedUser); err != nil {
-		slog.Error(
-			"failed to update user",
-			"updateData", updateData,
-			"error_message", err,
+
+		s.logger.Error("failed to update user",
+			logger.Field{Key: "updateData", Value: updateData},
+			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return nil, fmt.Errorf("failed to scan struct: %w", err)
+		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	return &updatedUser, nil
@@ -170,7 +175,12 @@ func (s *UserStorage) TryDebitBalance(
 	amount int,
 ) (newBalance int, ok bool, err error) {
 	if amount <= 0 {
-		return 0, false, fmt.Errorf("amount должен быть > 0")
+		err := fmt.Errorf("amount должен быть > 0")
+		s.logger.Error("invalid amount",
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, false, err
 	}
 
 	query := `
@@ -185,6 +195,11 @@ func (s *UserStorage) TryDebitBalance(
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, false, nil
 		}
+		s.logger.Error("failed to debit balance",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, false, err
 	}
 
@@ -218,6 +233,12 @@ func (s *UserStorage) CreateDeviceAddon(
 		addon.Active,
 		addon.CreatedAt,
 	).StructScan(addon); err != nil {
+		s.logger.Error("failed to create device addon",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "addon_id", Value: addon.ID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
 		return nil, fmt.Errorf("failed to create device addon: %w", err)
 	}
 
@@ -234,6 +255,10 @@ func (s *UserStorage) CountActiveDeviceAddons(userID string) (int, error) {
 
 	var cnt int
 	if err := s.db.QueryRowx(query, userID).Scan(&cnt); err != nil {
+		s.logger.Error("failed to count device addons",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to count device addons: %w", err)
 	}
 
@@ -249,6 +274,10 @@ func (s *UserStorage) DeactivateAllDeviceAddons(userID string) error {
 	`
 
 	if _, err := s.db.Exec(query, userID); err != nil {
+		s.logger.Error("failed to deactivate device addons",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return fmt.Errorf("failed to deactivate device addons: %w", err)
 	}
 
@@ -270,10 +299,20 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		limit = 200
 	}
 	if priceRUB <= 0 {
-		return nil, fmt.Errorf("priceRUB должен быть > 0")
+		err := fmt.Errorf("priceRUB должен быть > 0")
+		s.logger.Error("invalid priceRUB",
+			logger.Field{Key: "priceRUB", Value: priceRUB},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return nil, err
 	}
 	if chargePeriod <= 0 {
-		return nil, fmt.Errorf("chargePeriod должен быть > 0")
+		err := fmt.Errorf("chargePeriod должен быть > 0")
+		s.logger.Error("invalid chargePeriod",
+			logger.Field{Key: "chargePeriod", Value: chargePeriod},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return nil, err
 	}
 
 	tx, err := s.db.BeginTxx(
@@ -281,6 +320,9 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
 	)
 	if err != nil {
+		s.logger.Error("failed to begin transaction",
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -295,10 +337,17 @@ LIMIT $2
 
 	var userIDs []string
 	if err := tx.Select(&userIDs, selectUsersQuery, now, limit); err != nil {
+		s.logger.Error("failed to select due device addon users",
+			logger.Field{Key: "limit", Value: limit},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return nil, fmt.Errorf("failed to select due device addon users: %w", err)
 	}
 	if len(userIDs) == 0 {
 		if err := tx.Commit(); err != nil {
+			s.logger.Error("failed to commit empty billing transaction",
+				logger.Field{Key: "err_msg", Value: err},
+			)
 			return nil, fmt.Errorf("failed to commit empty billing transaction: %w", err)
 		}
 		return nil, nil
@@ -314,6 +363,10 @@ LIMIT $2
 
 	var due []dueDeviceAddonRow
 	if err := tx.Select(&due, selectDueForUsersQuery, now, pq.Array(userIDs)); err != nil {
+		s.logger.Error("failed to select due device addons for users",
+			logger.Field{Key: "user_ids_count", Value: len(userIDs)},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return nil, fmt.Errorf("failed to select due device addons for users: %w", err)
 	}
 
@@ -331,41 +384,67 @@ LIMIT $2
 		}
 		amount := len(addonIDs) * priceRUB
 
-		_, ok, err := tryDebitBalanceTx(tx, userID, amount)
+		_, ok, err := s.tryDebitBalanceTx(tx, userID, amount)
 		if err != nil {
+			s.logger.Error("failed to debit balance during billing",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "amount", Value: amount},
+				logger.Field{Key: "err_msg", Value: err},
+			)
 			return nil, err
 		}
 
 		if !ok {
-			if err := deactivateAllDeviceAddonsTx(tx, userID); err != nil {
+			if err := s.deactivateAllDeviceAddonsTx(tx, userID); err != nil {
+				s.logger.Error("failed to deactivate all addons during billing",
+					logger.Field{Key: "user_id", Value: userID},
+					logger.Field{Key: "err_msg", Value: err},
+				)
 				return nil, err
 			}
-			if err := setExtraDevicesCountTx(tx, userID, 0); err != nil {
+			if err := s.setExtraDevicesCountTx(tx, userID, 0); err != nil {
+				s.logger.Error("failed to reset extra devices count during billing",
+					logger.Field{Key: "user_id", Value: userID},
+					logger.Field{Key: "err_msg", Value: err},
+				)
 				return nil, err
 			}
 			usersToReset = append(usersToReset, userID)
 			continue
 		}
 
-		if err := updateDeviceAddonsNextChargeAtTx(tx, addonIDs, nextChargeAt); err != nil {
+		if err := s.updateDeviceAddonsNextChargeAtTx(tx, addonIDs, nextChargeAt); err != nil {
+			s.logger.Error("failed to update next_charge_at for addons",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "addon_ids", Value: addonIDs},
+				logger.Field{Key: "err_msg", Value: err},
+			)
 			return nil, err
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
+		s.logger.Error("failed to commit billing transaction",
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return usersToReset, nil
 }
 
-func tryDebitBalanceTx(
+func (s *UserStorage) tryDebitBalanceTx(
 	tx *sqlx.Tx,
 	userID string,
 	amount int,
 ) (newBalance int, ok bool, err error) {
 	if amount <= 0 {
-		return 0, false, fmt.Errorf("amount должен быть > 0")
+		err := fmt.Errorf("amount должен быть > 0")
+		s.logger.Error("invalid amount in tryDebitBalanceTx",
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, false, err
 	}
 
 	query := `
@@ -380,37 +459,51 @@ func tryDebitBalanceTx(
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, false, nil
 		}
+		s.logger.Error("failed to debit balance in tryDebitBalanceTx",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, false, fmt.Errorf("failed to debit balance: %w", err)
 	}
 
 	return bal, true, nil
 }
 
-func deactivateAllDeviceAddonsTx(tx *sqlx.Tx, userID string) error {
+func (s *UserStorage) deactivateAllDeviceAddonsTx(tx *sqlx.Tx, userID string) error {
 	query := `
 	UPDATE device_addons
 	SET active = FALSE
 	WHERE user_id = $1 AND active = TRUE
 	`
 	if _, err := tx.Exec(query, userID); err != nil {
+		s.logger.Error("failed to deactivate device addons in tx",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return fmt.Errorf("failed to deactivate device addons: %w", err)
 	}
 	return nil
 }
 
-func setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
+func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
 	query := `
 	UPDATE users
 	SET extra_devices_count = $1
 	WHERE id = $2
 	`
 	if _, err := tx.Exec(query, cnt, userID); err != nil {
+		s.logger.Error("failed to update extra_devices_count in tx",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "cnt", Value: cnt},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return fmt.Errorf("failed to update extra_devices_count: %w", err)
 	}
 	return nil
 }
 
-func updateDeviceAddonsNextChargeAtTx(
+func (s *UserStorage) updateDeviceAddonsNextChargeAtTx(
 	tx *sqlx.Tx,
 	addonIDs []string,
 	nextChargeAt time.Time,
@@ -421,6 +514,10 @@ func updateDeviceAddonsNextChargeAtTx(
 	WHERE id = ANY($2)
 	`
 	if _, err := tx.Exec(query, nextChargeAt, pq.Array(addonIDs)); err != nil {
+		s.logger.Error("failed to update next_charge_at in tx",
+			logger.Field{Key: "addon_ids", Value: addonIDs},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return fmt.Errorf("failed to update next_charge_at: %w", err)
 	}
 	return nil
@@ -440,6 +537,10 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
 	)
 	if err != nil {
+		s.logger.Error("failed to begin transaction for AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -449,8 +550,16 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	var lockedID string
 	if err := tx.QueryRowx(lockQuery, userID).Scan(&lockedID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			s.logger.Error("user not found when locking for AddDeviceAddonAtomic",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: domain.ErrUserNotFound},
+			)
 			return 0, domain.ErrUserNotFound
 		}
+		s.logger.Error("failed to lock user for AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to lock user: %w", err)
 	}
 
@@ -458,24 +567,45 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	countQuery := `SELECT COUNT(*) FROM device_addons WHERE user_id = $1 AND active = TRUE`
 	var activeAddons int
 	if err := tx.QueryRowx(countQuery, userID).Scan(&activeAddons); err != nil {
+		s.logger.Error("failed to count active addons for AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to count active addons: %w", err)
 	}
 
 	// Проверяем лимит: базовое + купленные >= максимум.
 	if baseLimit+activeAddons >= maxLimit {
-		return 0, fmt.Errorf(
+		err := fmt.Errorf(
 			"%w: у пользователя уже %d устройств",
 			domain.ErrMaxDevices,
 			baseLimit+activeAddons,
 		)
+		s.logger.Error("max devices limit reached",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "limit", Value: maxLimit},
+			logger.Field{Key: "current", Value: baseLimit + activeAddons},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, err
 	}
 
 	// Пытаемся списать деньги.
-	_, ok, err := tryDebitBalanceTx(tx, userID, priceRUB)
+	_, ok, err := s.tryDebitBalanceTx(tx, userID, priceRUB)
 	if err != nil {
+		s.logger.Error("failed to debit balance for AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "priceRUB", Value: priceRUB},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to debit balance: %w", err)
 	}
 	if !ok {
+		s.logger.Error("insufficient funds for AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "priceRUB", Value: priceRUB},
+			logger.Field{Key: "err_msg", Value: domain.ErrInsufficientFunds},
+		)
 		return 0, domain.ErrInsufficientFunds
 	}
 
@@ -487,17 +617,31 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	VALUES ($1, $2, $3, TRUE, $4)
 	`
 	if _, err := tx.Exec(insertQuery, addonID, userID, nextChargeAt, time.Now()); err != nil {
+		s.logger.Error("failed to insert device addon in AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "addon_id", Value: addonID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to create device addon: %w", err)
 	}
 
 	// Обновляем счётчик в users для отображения.
 	newCount = activeAddons + 1
-	if err := setExtraDevicesCountTx(tx, userID, newCount); err != nil {
+	if err := s.setExtraDevicesCountTx(tx, userID, newCount); err != nil {
+		s.logger.Error("failed to set extra devices count in AddDeviceAddonAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "new_count", Value: newCount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, err
 	}
 
 	// Коммитим транзакцию.
 	if err := tx.Commit(); err != nil {
+		s.logger.Error("failed to commit AddDeviceAddonAtomic transaction",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
