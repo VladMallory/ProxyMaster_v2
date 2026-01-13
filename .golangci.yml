@@ -11,6 +11,8 @@ linters:
     - cyclop
     - funlen
     - noinlineerr
+    - goconst
+    - godot
     - godot
     - varnamelen
     - mnd
@@ -21,6 +23,7 @@ formatters:
   # Default: [] (uses standard Go formatting)
   enable:
     - gofmt
+    - gofumpt
     - goimports
     - golines
   # Formatters settings.
