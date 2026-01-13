@@ -14,12 +14,10 @@ var (
 	ErrMaxDevices        = errors.New("max devices")
 )
 
+// ViewType тип ошибки
 type ViewType string
 
-func (v ViewType) String() string {
-	return string(v)
-}
-
+// ViewType какие ошибки могут быть
 const (
 	ViewTypeDownloadApp        ViewType = "download_app"
 	ViewTypeIosRegion          ViewType = "ios_region"
@@ -33,9 +31,10 @@ const (
 	ViewTypeConnect            ViewType = "connect"
 	ViewTypeSubscriptionResult ViewType = "subscription_result"
 	ViewTypeMain               ViewType = "main"
+	ViewTypeError              ViewType = "unknown view type"
 )
 
-// Ошибка приложения.
+// Ошибка приложения
 var (
 	ErrDuplicateKey       = errors.New("duplicate key")
 	ErrDatabaseConnection = errors.New("database connection error")
@@ -56,8 +55,8 @@ type RemnawaveClient interface {
 type UserRepository interface {
 	CreateUser(models.CreateUserTGDTO) (*models.UserTG, error)
 	GetAllUsers() ([]models.UserTG, error)
-	GetUserByID(string) (*models.UserTG, error)
-	UpdateUser(string, models.UpdateUserTGDTO) (*models.UserTG, error)
+	GetUserByID(id string) (*models.UserTG, error)
+	UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error)
 }
 
 // SubscriptionService - бизнес логика управления подписками
