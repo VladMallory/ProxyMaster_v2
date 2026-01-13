@@ -125,6 +125,7 @@ func (c *Client) ShowView(
 
 	var keyboard tgbotapi.InlineKeyboardMarkup
 
+	// viewType
 	switch viewType {
 	case domain.ViewTypeDownloadApp:
 		text, keyboard = c.handleDownloadAppView()
@@ -151,7 +152,7 @@ func (c *Client) ShowView(
 	case domain.ViewTypeMain:
 		text, keyboard = c.handleMainView(data)
 	default:
-		return fmt.Errorf("неизвестный тип view: %s", viewType) // nolint: err113
+		return fmt.Errorf("%w: %s", domain.ErrUserNotFound, viewType)
 	}
 
 	if messageID > 0 {
