@@ -11,6 +11,9 @@ linters:
     - cyclop
     - funlen
     - noinlineerr
+    - godot
+    - varnamelen
+    - mnd
 
 formatters:
   # Enable specific formatter.

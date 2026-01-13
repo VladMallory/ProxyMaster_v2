@@ -2,9 +2,6 @@
 package app
 
 import (
-	"fmt"
-	"log"
-
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
 	restapi "ProxyMaster_v2/internal/delivery/restAPI"
@@ -14,11 +11,13 @@ import (
 	"ProxyMaster_v2/internal/payments/youkassa"
 	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
+	"fmt"
+	"log"
 )
 
 // Application главный интерфейс приложения
 type Application interface {
-	RunAPP()
+	Run()
 }
 
 // App зависимости приложения
@@ -68,7 +67,12 @@ func New() (Application, error) {
 	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
 
 	// ===youkassa===
-	youkassaClient := youkassa.NewClient(cfg.YouKassaShopID, cfg.YouKassaSecretKey, cfg.YouKassaReturnURL, youkassaLogger)
+	youkassaClient := youkassa.NewClient(
+		cfg.YouKassaShopID,
+		cfg.YouKassaSecretKey,
+		cfg.YouKassaReturnURL,
+		youkassaLogger,
+	)
 
 	// ===telegram bot===
 	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, loggerClient)
@@ -92,11 +96,16 @@ func New() (Application, error) {
 }
 
 // Run запуск приложения
-func (a *app) RunAPP() {
+func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
-	go a.telegramClient.Start(a.remnawaveClient, a.subscriptionService, a.paymentGateway, a.userRepo)
+	go a.telegramClient.Start(
+		a.remnawaveClient,
+		a.subscriptionService,
+		a.paymentGateway,
+		a.userRepo,
+	)
 
-	//запускаем restAPI
+	// запускаем restAPI
 	go func() {
 		if err := a.restAPI.Serve(":8080"); err != nil {
 			log.Fatal(err)

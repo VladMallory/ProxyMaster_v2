@@ -1,12 +1,13 @@
-// Package database содержит работу с Postgres: подключение и простые миграции схемы.
+// Package database содержит работу с Postgres подключение и простые миграции схемы.
 package database
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // postgres driver
 )
 
 // Connect is function for database connection
@@ -45,9 +46,9 @@ func ensureSchema(db *sqlx.DB) error {
 		return fmt.Errorf("failed to add extra_devices_count: %w", err)
 	}
 
-	// Создаем таблицу услуг доп. устройств, если её еще нет.
+	// Создаем таблицу услуг дополнительных устройств, если её еще нет.
 	// Каждая покупка = отдельная строка с собственной датой следующего списания.
-	if _, err := db.Exec(`
+	if _, err := db.ExecContext(context.Background(), `
 		CREATE TABLE IF NOT EXISTS device_addons (
 			id VARCHAR(36) PRIMARY KEY,
 			user_id VARCHAR(20) NOT NULL,
