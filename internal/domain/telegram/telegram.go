@@ -140,6 +140,13 @@ func ProcessCallback(sender MessageSender,
 	case "btn_traffic_limits":
 		// Вызываем меню лимитов трафика
 		return sender.ShowView(chatID, messageID, domain.ViewTypeTrafficLimits, "")
+	case "btn_add_50gb":
+
+	case "btn_add_100gb":
+		return nil
+	case "btn_reset_traffic":
+		remnawaveClient.SetTraffic()
+		return nil
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
