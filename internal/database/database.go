@@ -2,22 +2,21 @@
 package database
 
 import (
+	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // postgres driver
 )
 
 // Connect is function for database connection
-func Connect(databaseURL string) (*sqlx.DB, error) {
+func Connect(databaseURL string, l logger.Logger) (*sqlx.DB, error) {
 	// Подключаемся к Postgres.
 	db, err := sqlx.Connect("postgres", databaseURL)
 	if err != nil {
-		slog.Warn(
-			"Failed db connection",
-			"error_message", err,
+		l.Error("failed db connection",
+			logger.Field{Key: "err_msg", Value: err},
 		)
 
 		return nil, fmt.Errorf("failed database connection: %w", err)
