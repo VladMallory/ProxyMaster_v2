@@ -66,6 +66,7 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	defer c.logDuration("EncryptURL")()
 
 	data := &models.EncryptURLRequest{URL: url}
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		c.logger.Error(
