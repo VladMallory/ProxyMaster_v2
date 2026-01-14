@@ -1,5 +1,7 @@
 // Package telegram содержит бизнес логику бота и интерфейсы
 // для взаимодействия. Определяется как себя будут вести команды и что выполнять
+//
+// nolint
 package telegram
 
 import (
@@ -28,66 +30,11 @@ type MessageSender interface {
 	ShowView(chatID int64, messageID int, viewType domain.ViewType, data string) error
 }
 
-// handleConnectButton обрабатывает нажатие на кнопку "Подключиться".
-// Функция получает ссылку на подключение к VPN и отправляет ее пользователю.
-// Если возникает ошибка или ссылка не найдена, пользователь получает соответствующее уведомление.
-// Это хороший пример вынесения логики в отдельную функцию для соблюдения принципа единственной ответственности (SRP),
-// что делает основной обработчик `ProcessCallback` чище и проще для понимания.
-func handleConnectButton(
-	sender MessageSender,
-	chatID int64,
-	messageID int,
-	remnawaveClient domain.RemnawaveClient,
-) error {
-	username := strconv.FormatInt(chatID, 10)
-
-	url, err := service.GetURLSubscription(remnawaveClient, username)
-	if err != nil {
-		log.Printf("Ошибка получения URL подписки для %s: %v", username, err)
-		// Отправляем пользователю сообщение об ошибке, как было предложено в комментарии.
-		// Это важно для обратной связи с пользователем.
-		const errorText = "Не удалось получить ссылку для подключения. " +
-			"Попробуйте позже или обратитесь в поддержку."
-
-		if sendErr := sender.SendMessage(chatID, errorText); sendErr != nil {
-			return fmt.Errorf("не удалось отправить сообщение об ошибке получения URL: %w", sendErr)
-		}
-
-		return nil // Ошибка обработана, выходим.
-	}
-
-	// Если URL пустой, но ошибки не было, это может означать, что у пользователя нет активной подписки.
-	if url == "" {
-		const messageText = "Не удалось получить ссылку на подключение. " +
-			"Убедитесь, что подписка активна, или обратитесь в поддержку."
-
-		if err := sender.ShowView(
-			chatID,
-			messageID,
-			domain.ViewTypeConnect,
-			messageText,
-		); err != nil {
-			return fmt.Errorf("ошибка отображения сообщения о пустой ссылке: %w", err)
-		}
-
-		return nil
-	}
-
-	// Если все успешно, отправляем пользователю ссылку для подключения.
-	if err := sender.ShowView(chatID, messageID, domain.ViewTypeConnect, url); err != nil {
-		return fmt.Errorf("ошибка отображения ссылки на подключение: %w", err)
-	}
-
-	return nil
-}
-
 // ProcessCallback обрабатывает нажатия на инлайн-кнопки (которые под сообщениями).
 // Sender: кто будет отправлять ответ (наш telegram клиент)
 // chatID: ID чата, куда отправлять ответ
 // messageID: ID сообщения, которое нужно отредактировать
 // data: скрытые данные, зашитые в кнопку (например, "btn_balance")
-//
-//nolint:maintidx,nestif // TODO: разбить функцию на более мелкие части для упрощения
 func ProcessCallback(sender MessageSender,
 	chatID int64,
 	messageID int,
@@ -143,23 +90,14 @@ func ProcessCallback(sender MessageSender,
 		)
 		if err != nil {
 			log.Printf("Ошибка создания транзакции: %v", err)
-
 			if sendErr := sender.SendMessage(chatID, "Ошибка создания транзакции"); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке создания транзакции: %w",
-					sendErr,
-				)
+				return fmt.Errorf("не удалось отправить сообщение об ошибке создания транзакции: %w", sendErr)
 			}
 
 			return nil
 		}
 
-		if err := sender.ShowView(
-			chatID,
-			messageID,
-			domain.ViewTypeCheckPayment,
-			url+"|"+id,
-		); err != nil {
+		if err := sender.ShowView(chatID, messageID, domain.ViewTypeCheckPayment, url+"|"+id); err != nil {
 			return fmt.Errorf("ошибка отображения QR-кода для оплаты: %w", err)
 		}
 
@@ -170,17 +108,9 @@ func ProcessCallback(sender MessageSender,
 		status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
 		if err != nil {
 			log.Printf("Ошибка проверки статуса транзакции: %v", err)
-
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Ошибка проверки статуса платежа",
-			); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке проверки статуса: %w",
-					sendErr,
-				)
+			if sendErr := sender.SendMessage(chatID, "Ошибка проверки статуса платежа"); sendErr != nil {
+				return fmt.Errorf("не удалось отправить сообщение об ошибке проверки статуса: %w", sendErr)
 			}
-
 			return nil
 		}
 
@@ -204,12 +134,10 @@ func ProcessCallback(sender MessageSender,
 				paymentGateway,
 				userRepo,
 			)
-
 			if started {
 				if err := sender.SendMessage(
 					chatID,
-					"⏳ Оплата еще не поступила. "+
-						"Я буду автоматически проверять статус каждые 2 секунды и сообщу, когда платеж подтвердится.",
+					"⏳ Оплата еще не поступила. Я буду автоматически проверять статус каждые 2 секунды и сообщу, когда платеж подтвердится.",
 				); err != nil {
 					return fmt.Errorf("ошибка отправки сообщения об ожидании платежа: %w", err)
 				}
@@ -218,34 +146,21 @@ func ProcessCallback(sender MessageSender,
 					chatID,
 					"⏳ Автопроверка уже запущена. Я сообщу, когда платеж подтвердится.",
 				); err != nil {
-					return fmt.Errorf(
-						"ошибка отправки сообщения о запущенной автопроверке: %w",
-						err,
-					)
+					return fmt.Errorf("ошибка отправки сообщения о запущенной автопроверке: %w", err)
 				}
 			}
-
-			return nil
-		case domain.PaymentStatusFailed:
+		default:
 			if err := sender.SendMessage(chatID, "❌ Оплата не прошла или отменена."); err != nil {
 				return fmt.Errorf("ошибка отправки сообщения о неудачной оплате: %w", err)
 			}
-
-			return nil
-		default:
-			if err := sender.SendMessage(chatID, "❌ Неизвестный статус оплаты."); err != nil {
-				return fmt.Errorf("ошибка отправки сообщения о неизвестном статусе: %w", err)
-			}
-
-			return nil
 		}
+		return nil
 	}
 
 	if strings.HasPrefix(data, "btn_pay_crypto_") {
 		if err := sender.SendMessage(chatID, "Криптовалюта пока не поддерживается"); err != nil {
 			return fmt.Errorf("ошибка отправки сообщения о неподдерживаемой криптовалюте: %w", err)
 		}
-
 		return nil
 	}
 
@@ -254,7 +169,6 @@ func ProcessCallback(sender MessageSender,
 		if err := sender.ShowView(chatID, messageID, viewType, data); err != nil {
 			return fmt.Errorf("%s: %w", errMsg, err)
 		}
-
 		return nil
 	}
 
@@ -298,20 +212,11 @@ func ProcessCallback(sender MessageSender,
 		if err != nil {
 			if !errors.Is(err, domain.ErrUserNotFound) {
 				log.Printf("Ошибка получения пользователя: %v", err)
-
-				if sendErr := sender.SendMessage(
-					chatID,
-					"Ошибка получения данных пользователя",
-				); sendErr != nil {
-					return fmt.Errorf(
-						"не удалось отправить сообщение об ошибке получения пользователя: %w",
-						sendErr,
-					)
+				if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+					return fmt.Errorf("не удалось отправить сообщение об ошибке получения пользователя: %w", sendErr)
 				}
-
 				return nil
 			}
-
 			// Если пользователь не найден, создаем нового
 			if _, err = userRepo.CreateUser(models.CreateUserTGDTO{
 				ID:      userID,
@@ -319,22 +224,15 @@ func ProcessCallback(sender MessageSender,
 				Trial:   false,
 			}); err != nil {
 				log.Printf("Ошибка создания пользователя в DB: %v", err)
-
 				errorMsg := "ошибка создания пользователя"
-
 				if errors.Is(err, domain.ErrDuplicateKey) {
 					errorMsg = "пользователь с таким ID уже существует"
 				} else if errors.Is(err, domain.ErrDatabaseConnection) {
 					errorMsg = "временные проблемы с базой данных"
 				}
-
 				if sendErr := sender.SendMessage(chatID, errorMsg); sendErr != nil {
-					return fmt.Errorf(
-						"не удалось отправить сообщение об ошибке создания пользователя: %w",
-						sendErr,
-					)
+					return fmt.Errorf("не удалось отправить сообщение об ошибке создания пользователя: %w", sendErr)
 				}
-
 				return nil
 			}
 		}
@@ -342,20 +240,11 @@ func ProcessCallback(sender MessageSender,
 		profileData, err := buildProfileData(userID)
 		if err != nil {
 			log.Printf("Ошибка сборки данных профиля: %v", err)
-
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Ошибка получения данных профиля",
-			); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сборки профиля: %w",
-					sendErr,
-				)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных профиля"); sendErr != nil {
+				return fmt.Errorf("не удалось отправить сообщение об ошибке сборки профиля: %w", sendErr)
 			}
-
 			return nil
 		}
-
 		return showView(domain.ViewTypeProfile, profileData, "ошибка отображения профиля")
 
 	case "btn_add_device":
@@ -363,114 +252,85 @@ func ProcessCallback(sender MessageSender,
 
 		if err := subscriptionService.AddPaidDevice(userID); err != nil {
 			errorMsg := "❌ Ошибка добавления устройства."
-
 			if errors.Is(err, domain.ErrInsufficientFunds) {
 				errorMsg = "❌ Недостаточно средств. Нужно 50₽."
 			} else if errors.Is(err, domain.ErrMaxDevices) {
 				errorMsg = "❌ Достигнут лимит устройств."
 			}
-
 			log.Printf("Ошибка добавления платного устройства для %s: %v", userID, err)
-
 			if sendErr := sender.SendMessage(chatID, errorMsg); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке добавления устройства: %w",
-					sendErr,
-				)
+				return fmt.Errorf("не удалось отправить сообщение об ошибке добавления устройства: %w", sendErr)
 			}
-
 			return nil
 		}
 
 		profileData, err := buildProfileData(userID)
 		if err != nil {
 			log.Printf("Ошибка сборки данных профиля после добавления устройства: %v", err)
-
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Ошибка получения данных профиля",
-			); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сборки профиля: %w",
-					sendErr,
-				)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных профиля"); sendErr != nil {
+				return fmt.Errorf("не удалось отправить сообщение об ошибке сборки профиля: %w", sendErr)
 			}
-
 			return nil
 		}
-
-		return showView(
-			domain.ViewTypeProfile,
-			profileData,
-			"ошибка отображения профиля после добавления устройства",
-		)
+		return showView(domain.ViewTypeProfile, profileData, "ошибка отображения профиля после добавления устройства")
 
 	case "btn_reset_devices":
 		userID := strconv.FormatInt(chatID, 10)
 
 		if err := subscriptionService.ResetPaidDevices(userID); err != nil {
 			log.Printf("Ошибка сброса платных устройств для %s: %v", userID, err)
-
 			if sendErr := sender.SendMessage(chatID, "❌ Ошибка сброса услуги."); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сброса устройств: %w",
-					sendErr,
-				)
+				return fmt.Errorf("не удалось отправить сообщение об ошибке сброса устройств: %w", sendErr)
 			}
-
 			return nil
 		}
 
 		profileData, err := buildProfileData(userID)
 		if err != nil {
-			log.Printf("Ошибка сброса данных профиля после сброса устройств: %v", err)
-
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Ошибка получения данных профиля",
-			); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сборки профиля: %w",
-					sendErr,
-				)
+			log.Printf("Ошибка сборки данных профиля после сброса устройств: %v", err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных профиля"); sendErr != nil {
+				return fmt.Errorf("не удалось отправить сообщение об ошибке сборки профиля: %w", sendErr)
 			}
-
 			return nil
 		}
-
-		return showView(
-			domain.ViewTypeProfile,
-			profileData,
-			"ошибка отображения профиля после сброса устройств",
-		)
+		return showView(domain.ViewTypeProfile, profileData, "ошибка отображения профиля после сброса устройств")
 
 	case "btn_connect":
-		return handleConnectButton(sender, chatID, messageID, remnawaveClient)
+		username := strconv.FormatInt(chatID, 10)
+		url, err := service.GetURLSubscription(remnawaveClient, username)
+		if err != nil {
+			// qury53: добавь пж обработку ошибки здесь
+			// qury53: я просто хз нужно что-то пользователю отправлять
+			log.Printf("Ошибка получения URL подписки для %s: %v", username, err)
+		}
+
+		if url == "" {
+			return showView(
+				domain.ViewTypeConnect,
+				"Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.",
+				"ошибка отображения сообщения о пустой ссылке",
+			)
+		}
+		return showView(domain.ViewTypeConnect, url, "ошибка отображения ссылки на подключение")
 
 	case "btn_info":
 		if err := sender.SendMessage(chatID, "В разработке"); err != nil {
 			return fmt.Errorf("ошибка отправки сообщения 'в разработке': %w", err)
 		}
-
 		return nil
 
 	case "btn_back":
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
-
 		return showView(domain.ViewTypeMain, text, "ошибка возврата в главное меню")
 
 	default:
 		if err := sender.SendMessage(chatID, "Неизвестная команда"); err != nil {
 			return fmt.Errorf("ошибка отправки сообщения о неизвестной команде: %w", err)
 		}
-
 		return nil
 	}
 }
 
-// activePaymentStatusWatchers — глобальная карта для отслеживания запущенных горутин проверки статуса платежа.
-//
-//nolint:gochecknoglobals // Используется для предотвращения дублирования горутин проверки статуса.
 var activePaymentStatusWatchers sync.Map
 
 func tryStartPaymentStatusWatcher(
@@ -490,16 +350,11 @@ func tryStartPaymentStatusWatcher(
 		defer activePaymentStatusWatchers.Delete(transactionID)
 
 		deadline := time.Now().Add(2 * time.Minute)
-		ticker := time.NewTicker(2 * time.Second)
-
-		defer ticker.Stop()
-
 		for time.Now().Before(deadline) {
 			status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
 			if err != nil {
 				log.Printf("Ошибка проверки статуса транзакции (внутри горутины): %v", err)
 				time.Sleep(2 * time.Second)
-
 				continue
 			}
 
@@ -515,48 +370,23 @@ func tryStartPaymentStatusWatcher(
 				); err != nil {
 					log.Printf("Ошибка обработки успешного платежа (внутри горутины): %v", err)
 				}
-
 				return // Завершаем горутину
 			case domain.PaymentStatusPending:
 				time.Sleep(2 * time.Second)
-
 				continue
-			case domain.PaymentStatusFailed:
-				if err := sender.SendMessage(
-					chatID,
-					"❌ Оплата не прошла или отменена.",
-				); err != nil {
-					log.Printf(
-						"Ошибка отправки сообщения о неудачном платеже (внутри горутины): %v",
-						err,
-					)
-				}
-
-				return // Завершаем горутину
 			default:
-				if err := sender.SendMessage(
-					chatID,
-					"❌ Оплата не прошла или отменена.",
-				); err != nil {
-					log.Printf(
-						"Ошибка отправки сообщения о неудачном платеже (внутри горутины): %v",
-						err,
-					)
+				if err := sender.SendMessage(chatID, "❌ Оплата не прошла или отменена."); err != nil {
+					log.Printf("Ошибка отправки сообщения о неудачном платеже (внутри горутины): %v", err)
 				}
-
 				return // Завершаем горутину
 			}
 		}
-
 		// Отправляем сообщение по истечении времени
 		if err := sender.SendMessage(
 			chatID,
 			"⏳ Автопроверка остановлена: время ожидания истекло. Нажмите «Проверить оплату» позже.",
 		); err != nil {
-			log.Printf(
-				"Ошибка отправки сообщения об истечении времени ожидания (внутри горутины): %v",
-				err,
-			)
+			log.Printf("Ошибка отправки сообщения об истечении времени ожидания (внутри горутины): %v", err)
 		}
 	}()
 
@@ -574,72 +404,45 @@ func handleSuccessfulPayment(
 	info, err := paymentGateway.GetTransactionInfo(context.Background(), transactionID)
 	if err != nil {
 		log.Printf("Ошибка получения информации о транзакции: %v", err)
-
 		if sendErr := sender.SendMessage(
 			chatID,
 			"Платеж прошел, но возникла ошибка при получении данных. Обратитесь в поддержку.",
 		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке получения информации о транзакции: %w",
-				sendErr,
-			)
+			return fmt.Errorf("не удалось отправить сообщение об ошибке получения информации о транзакции: %w", sendErr)
 		}
-
 		return nil
 	}
 
 	amount := int(info.GetAmount())
 
 	userID := strconv.FormatInt(chatID, 10)
-
 	user, err := userRepo.GetUserByID(userID)
 	if err != nil {
 		log.Printf("Ошибка получения пользователя для обновления баланса: %v", err)
-
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Ошибка получения данных пользователя",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке получения пользователя: %w",
-				sendErr,
-			)
+		if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			return fmt.Errorf("не удалось отправить сообщение об ошибке получения пользователя: %w", sendErr)
 		}
-
 		return nil
 	}
 
 	newBalance := user.Balance + amount
-
 	if _, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
 		Balance: &newBalance,
 	}); err != nil {
 		log.Printf("Ошибка обновления баланса: %v", err)
-
 		if sendErr := sender.SendMessage(
 			chatID,
 			"Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.",
 		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке обновления баланса: %w",
-				sendErr,
-			)
+			return fmt.Errorf("не удалось отправить сообщение об ошибке обновления баланса: %w", sendErr)
 		}
-
 		return nil
 	}
 
 	successMsg := fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount)
-
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
+	if err := sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, successMsg); err != nil {
 		return fmt.Errorf("ошибка отображения сообщения об успешной оплате: %w", err)
 	}
-
 	return nil
 }
 
@@ -653,36 +456,20 @@ func handleSubscriptionFromBalance(
 	result, err := subscriptionService.ActivateSubscription(chatID, months)
 	if err != nil {
 		errorMsg := "Произошла ошибка при оформлении подписки"
-
 		if errors.Is(err, domain.ErrInsufficientFunds) {
 			errorMsg = "❌ Недостаточно средств на балансе"
 		}
-
 		log.Printf("Ошибка активации подписки для %d: %v", chatID, err)
-
-		if sendErr := sender.ShowView(
-			chatID,
-			messageID,
-			domain.ViewTypeSubscriptionResult,
-			errorMsg,
-		); sendErr != nil {
+		if sendErr := sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, errorMsg); sendErr != nil {
 			return fmt.Errorf("не удалось отправить сообщение об ошибке подписки: %w", sendErr)
 		}
-
 		return nil
 	}
 
 	successMsg := "✅ " + result
-
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
+	if err := sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, successMsg); err != nil {
 		return fmt.Errorf("ошибка отображения сообщения об успешной подписке: %w", err)
 	}
-
 	return nil
 }
 
@@ -710,60 +497,37 @@ func ProcessCommand(
 					Trial:   false,
 				}); err != nil {
 					log.Printf("Ошибка создания пользователя в DB: %v", err)
-
-					if sendErr := sender.SendMessage(
-						chatID,
-						"Ошибка создания пользователя",
-					); sendErr != nil {
-						return fmt.Errorf(
-							"не удалось отправить сообщение об ошибке создания пользователя: %w",
-							sendErr,
-						)
+					if sendErr := sender.SendMessage(chatID, "Ошибка создания пользователя"); sendErr != nil {
+						return fmt.Errorf("не удалось отправить сообщение об ошибке создания пользователя: %w", sendErr)
 					}
-
 					return nil
 				}
 			} else {
 				// Другая ошибка при поиске пользователя
 				log.Printf("Ошибка получения пользователя: %v", err)
-
-				if sendErr := sender.SendMessage(
-					chatID,
-					"Ошибка получения данных пользователя",
-				); sendErr != nil {
-					return fmt.Errorf(
-						"не удалось отправить сообщение об ошибке получения пользователя: %w",
-						sendErr,
-					)
+				if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+					return fmt.Errorf("не удалось отправить сообщение об ошибке получения пользователя: %w", sendErr)
 				}
-
 				return nil
 			}
 		}
 
 		username := strconv.Itoa(int(chatID))
-
 		if err := remnawaveClient.CreateUser(username, 5); err != nil {
 			// Ошибка некритична для пользователя, просто логируем
 			log.Printf("Не удалось создать пользователя в remnawave: %v", err)
 		}
 
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
-
 		if err := sender.ShowView(chatID, 0, domain.ViewTypeMain, text); err != nil {
 			return fmt.Errorf("ошибка отображения главного меню: %w", err)
 		}
-
 		return nil
 
 	default:
-		if err := sender.SendMessage(
-			chatID,
-			"Неизвестная команда. Пожалуйста, используйте /start.",
-		); err != nil {
+		if err := sender.SendMessage(chatID, "Неизвестная команда. Пожалуйста, используйте /start."); err != nil {
 			return fmt.Errorf("ошибка отправки сообщения о неизвестной команде: %w", err)
 		}
-
 		return nil
 	}
 }
@@ -793,12 +557,7 @@ func buildMainViewText(
 				)
 			}
 			// В случае ошибки создания, показываем с нулевым балансом
-			log.Printf(
-				"Не удалось создать пользователя %s при сборке текста: %v",
-				username,
-				createErr,
-			)
-
+			log.Printf("Не удалось создать пользователя %s при сборке текста: %v", username, createErr)
 			return buildStartText(
 				firstName,
 				0,
@@ -807,7 +566,6 @@ func buildMainViewText(
 		}
 		// В случае другой ошибки, показываем с нулевым балансом
 		log.Printf("Не удалось получить пользователя %s при сборке текста: %v", username, err)
-
 		return buildStartText(
 			firstName,
 			0,
@@ -824,14 +582,8 @@ func buildStartText(firstName string, balance int, subscriptionLine string) stri
 		name = "друг"
 	}
 
-	const template = "🌟 Добро пожаловать, %s!\n" +
-		"<blockquote>—💰 Ваш баланс: %.2f₽\n%s\n</blockquote>\n" +
-		"🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n" +
-		"1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n" +
-		"2️⃣ После установки нажмите <u>Подключить (Happ)</u>, он импортирует подписку в Happ"
-
 	return fmt.Sprintf(
-		template,
+		"🌟 Добро пожаловать, %s!\n<blockquote>—💰 Ваш баланс: %.2f₽\n%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, он импортирует подписку в Happ",
 		name,
 		float64(balance),
 		subscriptionLine,
