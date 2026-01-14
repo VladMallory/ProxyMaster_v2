@@ -31,7 +31,6 @@ const (
 	ViewTypeConnect            ViewType = "connect"
 	ViewTypeSubscriptionResult ViewType = "subscription_result"
 	ViewTypeMain               ViewType = "main"
-	ViewTypeError              ViewType = "unknown view type"
 )
 
 // Ошибка приложения
