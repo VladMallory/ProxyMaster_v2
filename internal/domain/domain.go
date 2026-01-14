@@ -31,6 +31,9 @@ const (
 	ViewTypeConnect            ViewType = "connect"
 	ViewTypeSubscriptionResult ViewType = "subscription_result"
 	ViewTypeMain               ViewType = "main"
+	ViewTypeServiceInfo        ViewType = "service_info"
+	ViewTypePrivacyPolicy      ViewType = "privacy_policy"
+	ViewTypeUserAgreement      ViewType = "user_agreement"
 	ViewTypeError              ViewType = "unknown view type"
 )
 

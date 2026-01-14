@@ -311,13 +311,16 @@ func ProcessCallback(sender MessageSender,
 				"ошибка отображения сообщения о пустой ссылке",
 			)
 		}
+
 		return showView(domain.ViewTypeConnect, url, "ошибка отображения ссылки на подключение")
 
 	case "btn_info":
-		if err := sender.SendMessage(chatID, "В разработке"); err != nil {
-			return fmt.Errorf("ошибка отправки сообщения 'в разработке': %w", err)
-		}
-		return nil
+		return showView(domain.ViewTypeServiceInfo, "", "ошибка отображения информации о сервисе")
+
+	case "btn_privacy_policy":
+		return showView(domain.ViewTypePrivacyPolicy, "", "ошибка отображения политики конфиденциальности")
+	case "btn_user_agreement":
+		return showView(domain.ViewTypeUserAgreement, "", "ошибка отображения пользовательского соглашения")
 
 	case "btn_back":
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
@@ -327,6 +330,7 @@ func ProcessCallback(sender MessageSender,
 		if err := sender.SendMessage(chatID, "Неизвестная команда"); err != nil {
 			return fmt.Errorf("ошибка отправки сообщения о неизвестной команде: %w", err)
 		}
+
 		return nil
 	}
 }
