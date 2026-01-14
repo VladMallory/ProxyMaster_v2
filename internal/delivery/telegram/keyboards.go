@@ -129,24 +129,6 @@ func (c *Client) checkPaymentKeyboard(url, transactionID string) tgbotapi.Inline
 	)
 }
 
-func (c *Client) paymentKeyboard(amount string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💳 СБП", "btn_pay_sbp_"+amount),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🪙 Криптовалюта", "btn_pay_crypto_"+amount),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			// Возвращаем к выбору тарифов
-			tgbotapi.NewInlineKeyboardButtonData(
-				"🔙 Назад к тарифам",
-				"btn_balance",
-			), // nolint: golines
-		),
-	)
-}
-
 // deviceLimitsKeyboard генерирует Inline-клавиатуру для меню лимитов устройств.
 // Позволяет пользователю выбрать между просмотром профиля или управлением лимитами.
 func (c *Client) deviceLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {

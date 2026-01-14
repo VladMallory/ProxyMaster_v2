@@ -136,8 +136,7 @@ func (c *Client) ShowView(
 		text, keyboard = c.handleTariffsView()
 	case domain.ViewTypeTopUp:
 		text, keyboard = c.handleTopUpView()
-	case domain.ViewTypePayment:
-		text, keyboard = c.handlePaymentView(data)
+
 	case domain.ViewTypeCheckPayment:
 		text, keyboard = c.handleCheckPaymentView(data)
 	case domain.ViewTypeProfile:
@@ -247,10 +246,6 @@ func (c *Client) handleTariffsView() (string, tgbotapi.InlineKeyboardMarkup) {
 
 func (c *Client) handleTopUpView() (string, tgbotapi.InlineKeyboardMarkup) {
 	return "💰 Выберите сумму для пополнения баланса:", c.topUpKeyboard()
-}
-
-func (c *Client) handlePaymentView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
-	return "Выберите способ оплаты:", c.paymentKeyboard(data)
 }
 
 func (c *Client) handleConnectView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
