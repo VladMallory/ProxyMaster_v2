@@ -9,6 +9,7 @@ import (
 	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
 	"ProxyMaster_v2/pkg/logger"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -151,6 +152,12 @@ func (c *Client) ShowView(
 		text, keyboard = c.handleSubscriptionResultView(data)
 	case domain.ViewTypeMain:
 		text, keyboard = c.handleMainView(data)
+	case domain.ViewTypeServiceInfo:
+		text, keyboard = c.handleServiceInfoView()
+	case domain.ViewTypePrivacyPolicy:
+		text, keyboard = c.handlePrivacyPolicyView()
+	case domain.ViewTypeUserAgreement:
+		text, keyboard = c.handleUserAgreementView()
 	default:
 		return fmt.Errorf("%w: %s", domain.ErrUserNotFound, viewType)
 	}
@@ -315,6 +322,53 @@ func (c *Client) handleTrafficLimitsView() (string, tgbotapi.InlineKeyboardMarku
 	text := "На сколько GB нужно увеличить лимит трафика?"
 
 	return text, c.trafficLimitsKeyboard()
+}
+
+// handleServiceInfoView сука
+func (c *Client) handleServiceInfoView() (string, tgbotapi.InlineKeyboardMarkup) {
+	text := "Выберите раздел:"
+
+	return text, c.serviceInfoKeyboard()
+}
+
+// handlePrivacyPolicyView читаеттекст политики конфиденциальности и возвращает
+// вместе с соотвествующей клавиатурой
+func (c *Client) handlePrivacyPolicyView() (string, tgbotapi.InlineKeyboardMarkup) {
+	// Читаем файл
+	content, err := os.ReadFile("assets/police.txt")
+	if err != nil {
+		c.logger.Error("ошибка чтения файла",
+			logger.Field{Key: "file", Value: content},
+			logger.Field{Key: "error", Value: err},
+		)
+
+		text := "не удалось загрузить файл политики конфиденциальности"
+
+		return text, privacyPolicyKeyboard()
+	}
+
+	// Если все хорошо, возвращаем текст и клавиатуру
+	return string(content), privacyPolicyKeyboard()
+}
+
+// handleUserAgreementView читает текст пользовательского соглашения и возвращает
+// вместе с соотвествующей клавиатурой
+func (c *Client) handleUserAgreementView() (string, tgbotapi.InlineKeyboardMarkup) {
+	// Читаем файл
+	content, err := os.ReadFile("assets/user_agreement.txt")
+	if err != nil {
+		c.logger.Error("ошибка чтения файла",
+			logger.Field{Key: "file", Value: "assets/user_agreement.txt"},
+			logger.Field{Key: "error", Value: err},
+		)
+
+		text := "не удалось загрузить файл пользовательского соглашения"
+
+		return text, privacyPolicyKeyboard() // Можно использовать ту же клавиатуру
+	}
+
+	// Если все хорошо, возвращаем текст и клавиатуру
+	return string(content), privacyPolicyKeyboard()
 }
 
 // mainKeyboard создает структуру кнопок для главного меню.
