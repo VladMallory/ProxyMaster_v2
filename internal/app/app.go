@@ -55,13 +55,15 @@ func New() (Application, error) {
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
 	// ===DB===
-	db, err := database.Connect(cfg.DatabaseURL)
+	databaseLogger := loggerClient.Named("database")
+	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
 	}
 
 	// repository
-	userRepo := database.NewUserStorage(db)
+	//
+	userRepo := database.NewUserStorage(db, databaseLogger)
 
 	// ===services===
 	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
