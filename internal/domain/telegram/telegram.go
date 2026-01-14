@@ -69,7 +69,7 @@ func ProcessCallback(sender MessageSender,
 		return user.ID + "|" + strconv.Itoa(user.Balance) + "|" + strconv.Itoa(extraCount), nil
 	}
 
-	if amountStr, ok := strings.CutPrefix(data, "btn_pay_sbp_"); ok {
+	if amountStr, ok := strings.CutPrefix(data, "btn_topUp_"); ok {
 		amount, err := strconv.Atoi(amountStr)
 		if err != nil {
 			log.Printf("Ошибка конвертации суммы платежа: %v", err)
@@ -157,13 +157,6 @@ func ProcessCallback(sender MessageSender,
 		return nil
 	}
 
-	if strings.HasPrefix(data, "btn_pay_crypto_") {
-		if err := sender.SendMessage(chatID, "Криптовалюта пока не поддерживается"); err != nil {
-			return fmt.Errorf("ошибка отправки сообщения о неподдерживаемой криптовалюте: %w", err)
-		}
-		return nil
-	}
-
 	// Обертка для вызовов sender.ShowView для упрощения
 	showView := func(viewType domain.ViewType, data string, errMsg string) error {
 		if err := sender.ShowView(chatID, messageID, viewType, data); err != nil {
@@ -183,18 +176,6 @@ func ProcessCallback(sender MessageSender,
 		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 3)
 	case "btn_balance":
 		return showView(domain.ViewTypeTopUp, "", "ошибка отображения меню пополнения")
-	case "btn_topUp_100":
-		return showView(domain.ViewTypePayment, "100", "ошибка отображения вариантов оплаты")
-	case "btn_topUp_200":
-		return showView(domain.ViewTypePayment, "200", "ошибка отображения вариантов оплаты")
-	case "btn_topUp_300":
-		return showView(domain.ViewTypePayment, "300", "ошибка отображения вариантов оплаты")
-	case "btn_topUp_500":
-		return showView(domain.ViewTypePayment, "500", "ошибка отображения вариантов оплаты")
-	case "btn_topUp_700":
-		return showView(domain.ViewTypePayment, "700", "ошибка отображения вариантов оплаты")
-	case "btn_topUp_1000":
-		return showView(domain.ViewTypePayment, "1000", "ошибка отображения вариантов оплаты")
 	case "download_app":
 		return showView(domain.ViewTypeDownloadApp, "", "ошибка отображения меню загрузки")
 	case "btn_ios_menu":
