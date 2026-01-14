@@ -29,8 +29,22 @@ func NewUserStorage(db *sqlx.DB, logger logger.Logger) *UserStorage {
 	}
 }
 
+// logDuration логирует время выполнения метода.
+func (s *UserStorage) logDuration(method string) func() {
+	start := time.Now()
+
+	return func() {
+		s.logger.Info("вызов метода завершен",
+			logger.Field{Key: "method", Value: method},
+			logger.Field{Key: "duration", Value: time.Since(start)},
+		)
+	}
+}
+
 // CreateUser создает пользователя в DB
 func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserTG, error) {
+	defer s.logDuration("CreateUser")()
+
 	var user models.UserTG
 
 	query := `
@@ -63,6 +77,8 @@ func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserT
 
 // GetAllUsers is method for getting all users
 func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
+	defer s.logDuration("GetAllUser")()
+
 	var users []models.UserTG
 
 	query := `
@@ -85,6 +101,8 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 
 // GetUserByID is methos for getting user by id
 func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
+	defer s.logDuration("GetUserByID")()
+
 	var user models.UserTG
 
 	query := `
@@ -122,6 +140,7 @@ func (s *UserStorage) UpdateUser(
 	id string,
 	updateData models.UpdateUserTGDTO,
 ) (*models.UserTG, error) {
+	defer s.logDuration("UpdateUser")()
 	user, err := s.GetUserByID(id)
 	if err != nil {
 		return nil, err
@@ -174,6 +193,7 @@ func (s *UserStorage) TryDebitBalance(
 	userID string,
 	amount int,
 ) (newBalance int, ok bool, err error) {
+	defer s.logDuration("TryDebitBalance")()
 	if amount <= 0 {
 		err := fmt.Errorf("amount должен быть > 0")
 		s.logger.Error("invalid amount",
@@ -211,6 +231,7 @@ func (s *UserStorage) CreateDeviceAddon(
 	userID string,
 	nextChargeAt time.Time,
 ) (*models.DeviceAddon, error) {
+	defer s.logDuration("CreateDeviceAddon")()
 	addon := &models.DeviceAddon{
 		ID:           uuid.NewString(),
 		UserID:       userID,
@@ -247,6 +268,7 @@ func (s *UserStorage) CreateDeviceAddon(
 
 // CountActiveDeviceAddons возвращает количество активных доп. устройств пользователя.
 func (s *UserStorage) CountActiveDeviceAddons(userID string) (int, error) {
+	defer s.logDuration("CountActiveDeviceAddons")()
 	query := `
 	SELECT COUNT(*)
 	FROM device_addons
@@ -267,6 +289,7 @@ func (s *UserStorage) CountActiveDeviceAddons(userID string) (int, error) {
 
 // DeactivateAllDeviceAddons отключает все доп. устройства пользователя.
 func (s *UserStorage) DeactivateAllDeviceAddons(userID string) error {
+	defer s.logDuration("DeactivateAllDeviceAddons")()
 	query := `
 	UPDATE device_addons
 	SET active = FALSE
@@ -295,6 +318,7 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	priceRUB int,
 	chargePeriod time.Duration,
 ) ([]string, error) {
+	defer s.logDuration("ProcessDueDeviceAddonsBilling")()
 	if limit <= 0 {
 		limit = 200
 	}
@@ -438,6 +462,7 @@ func (s *UserStorage) tryDebitBalanceTx(
 	userID string,
 	amount int,
 ) (newBalance int, ok bool, err error) {
+	defer s.logDuration("tryDebitBalanceTx")()
 	if amount <= 0 {
 		err := fmt.Errorf("amount должен быть > 0")
 		s.logger.Error("invalid amount in tryDebitBalanceTx",
@@ -471,6 +496,7 @@ func (s *UserStorage) tryDebitBalanceTx(
 }
 
 func (s *UserStorage) deactivateAllDeviceAddonsTx(tx *sqlx.Tx, userID string) error {
+	defer s.logDuration("deactivateAllDeviceAddonsTx")()
 	query := `
 	UPDATE device_addons
 	SET active = FALSE
@@ -487,6 +513,7 @@ func (s *UserStorage) deactivateAllDeviceAddonsTx(tx *sqlx.Tx, userID string) er
 }
 
 func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
+	defer s.logDuration("setExtraDevicesCountTx")()
 	query := `
 	UPDATE users
 	SET extra_devices_count = $1
@@ -508,6 +535,7 @@ func (s *UserStorage) updateDeviceAddonsNextChargeAtTx(
 	addonIDs []string,
 	nextChargeAt time.Time,
 ) error {
+	defer s.logDuration("updateDeviceAddonsNextChargeAtTx")()
 	query := `
 	UPDATE device_addons
 	SET next_charge_at = $1
@@ -531,6 +559,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	baseLimit, maxLimit, priceRUB int,
 	chargePeriod time.Duration,
 ) (newCount int, err error) {
+	defer s.logDuration("AddDeviceAddonAtomic")()
 	// Начинаем транзакцию с блокировкой.
 	tx, err := s.db.BeginTxx(
 		context.Background(),
