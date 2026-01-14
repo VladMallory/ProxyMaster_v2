@@ -16,7 +16,7 @@ import (
 )
 
 // Чтобы линтер не жаловался на дублирование кода
-const parseModeHTML = "parseModeHTML"
+const parseModeHTML = "HTML"
 
 // Client — это обертка над стандартной библиотекой tgbotapi.
 // Он хранит в себе подключение к API и умеет отправлять сообщения.
