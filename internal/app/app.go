@@ -50,12 +50,9 @@ func New() (Application, error) {
 	subscriptionLogger := loggerClient.Named("subscription")
 	youkassaLogger := loggerClient.Named("youkassa")
 	restAPILogger := loggerClient.Named("restAPI")
-
-	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
-
-	// ===DB===
 	databaseLogger := loggerClient.Named("database")
+
 	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
