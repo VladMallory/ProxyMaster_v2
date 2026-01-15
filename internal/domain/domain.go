@@ -58,6 +58,7 @@ type RemnawaveClient interface {
 type UserRepository interface {
 	CreateUser(models.CreateUserTGDTO) (*models.UserTG, error)
 	GetAllUsers() ([]models.UserTG, error)
+	GetActiveUserIDs() ([]string, error)
 	GetUserByID(id string) (*models.UserTG, error)
 	UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error)
 }

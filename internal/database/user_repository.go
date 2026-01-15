@@ -1,3 +1,7 @@
+// Package database предоставляет UserStorage для взаимодействия с таблицей
+// пользователей в базе данных. Он включает методы для создания, получения,
+// обновления и управления данными пользователей, а также другие операции,
+// связанные с пользователями.
 package database
 
 import (
@@ -675,6 +679,18 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	}
 
 	return newCount, nil
+}
+
+// GetActiveUserIDs возвращает ID всех активных пользователей.
+// Этот метод используется для получения списка всех пользователей, которым будет отправлена рассылка.
+func (s *UserStorage) GetActiveUserIDs() ([]string, error) {
+	var userIDs []string
+	query := `SELECT id FROM users`
+	if err := s.db.Select(&userIDs, query); err != nil {
+		s.logger.Error("failed to get all user IDs", logger.Field{Key: "err_msg", Value: err})
+		return nil, fmt.Errorf("failed to get all user IDs: %w", err)
+	}
+	return userIDs, nil
 }
 
 //
