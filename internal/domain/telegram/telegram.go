@@ -110,6 +110,17 @@ func ProcessCallback(sender MessageSender,
 			return fmt.Errorf("ошибка отображения QR-кода для оплаты: %w", err)
 		}
 
+		// Запускаем автоматическую проверку через 15 секунд после создания платежа
+		// Это помогает клиентам, которые не догадываются нажать кнопку "Проверить платеж"
+		startAutoPaymentCheck(
+			sender,
+			chatID,
+			messageID,
+			id,
+			paymentGateway,
+			userRepo,
+		)
+
 		return nil
 	}
 
@@ -384,6 +395,82 @@ func ProcessCallback(sender MessageSender,
 }
 
 var activePaymentStatusWatchers sync.Map
+
+// startAutoPaymentCheck запускает автоматическую проверку платежа.
+// Начинает проверку через 15 секунд после создания, затем проверяет каждые 5 секунд в течение 2 минут.
+// Эта функция нужна для того, чтобы клиентам не приходилось вручную нажимать "Проверить платеж".
+func startAutoPaymentCheck(
+	sender MessageSender,
+	chatID int64,
+	messageID int,
+	transactionID string,
+	paymentGateway domain.PaymentGateway,
+	userRepo *database.UserStorage,
+) {
+	// Проверяем, не запущена ли уже проверка для этой транзакции
+	_, alreadyRunning := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
+	if alreadyRunning {
+		log.Printf("[АВТОПРОВЕРКА] Проверка для транзакции %s уже запущена, пропускаем", transactionID)
+		return
+	}
+
+	go func() {
+		// Удаляем транзакцию из активных при завершении горутины
+		defer activePaymentStatusWatchers.Delete(transactionID)
+
+		log.Printf("[АВТОПРОВЕРКА] Запущена для транзакции %s, ожидание 15 секунд...", transactionID)
+
+		// Ждем 15 секунд перед первой проверкой (даем время на оплату)
+		time.Sleep(15 * time.Second)
+
+		// Проверяем каждые 5 секунд в течение 2 минут
+		deadline := time.Now().Add(20 * time.Minute)
+		checkInterval := 5 * time.Second
+
+		for time.Now().Before(deadline) {
+			log.Printf("[АВТОПРОВЕРКА] Проверяем статус транзакции %s", transactionID)
+
+			// Проверяем статус платежа
+			status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
+			if err != nil {
+				log.Printf("[АВТОПРОВЕРКА] Ошибка проверки статуса транзакции %s: %v", transactionID, err)
+				time.Sleep(checkInterval)
+				continue
+			}
+
+			log.Printf("[АВТОПРОВЕРКА] Статус транзакции %s: %s", transactionID, status)
+
+			switch status {
+			case domain.PaymentStatusSuccess:
+				log.Printf("[АВТОПРОВЕРКА] Платеж %s успешен, обрабатываем...", transactionID)
+				if err := handleSuccessfulPayment(
+					sender,
+					chatID,
+					messageID,
+					transactionID,
+					paymentGateway,
+					userRepo,
+				); err != nil {
+					log.Printf("[АВТОПРОВЕРКА] Ошибка обработки успешного платежа %s: %v", transactionID, err)
+				} else {
+					log.Printf("[АВТОПРОВЕРКА] Платеж %s успешно обработан!", transactionID)
+				}
+				return // Завершаем горутину после успешной обработки
+
+			case domain.PaymentStatusFailed:
+				log.Printf("[АВТОПРОВЕРКА] Платеж %s отменен или не прошел", transactionID)
+				return // Завершаем горутину, платеж точно не пройдет
+
+			case domain.PaymentStatusPending:
+				// Платеж еще в ожидании, продолжаем проверять
+				time.Sleep(checkInterval)
+				continue
+			}
+		}
+
+		log.Printf("[АВТОПРОВЕРКА] Время ожидания истекло для транзакции %s", transactionID)
+	}()
+}
 
 func tryStartPaymentStatusWatcher(
 	sender MessageSender,
