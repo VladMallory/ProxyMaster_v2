@@ -80,7 +80,3 @@ go build /cmd/serverBuild/main.go
 1. В `/infrastructure/payment`
 2. Создать `robokassa.go`
 3. В `domain` и `service` ничего не ломается, потому что они зависят от Интерфейса, а не от конкретного файла.
-
-# Стек
-- sqlite
-  - потом сделаем postgresql если будет необходимость или желание
