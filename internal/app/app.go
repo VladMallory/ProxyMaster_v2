@@ -45,13 +45,14 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
 
-	// Создаем logger для remnawave
+	// Создаем под каждый сервис логгер.
 	remnawaveLogger := loggerClient.Named("remnawave")
 	subscriptionLogger := loggerClient.Named("subscription")
 	youkassaLogger := loggerClient.Named("youkassa")
 	restAPILogger := loggerClient.Named("restAPI")
-	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 	databaseLogger := loggerClient.Named("database")
+
+	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
 	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {
