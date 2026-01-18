@@ -1,3 +1,4 @@
+//nolint:golines
 package telegram
 
 import (
@@ -46,7 +47,7 @@ func (c *Client) iosRegionKeyboard() tgbotapi.InlineKeyboardMarkup {
 // tariffsKeyboard генерирует Inline-клавиатуру с вариантами подписки.
 // Кнопки содержат:
 // 1. Текст, который видит пользователь (например, "📅 1 Месяц - 100₽")
-// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1")
+// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1").
 func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -64,17 +65,17 @@ func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-func (c *Client) topupKeyboard() tgbotapi.InlineKeyboardMarkup {
+func (c *Client) topUpKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 100₽", "btn_topup_100"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 200₽", "btn_topup_200"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 300₽", "btn_topup_300"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 100₽", "btn_topUp_100"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 200₽", "btn_topUp_200"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 300₽", "btn_topUp_300"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 500₽", "btn_topup_500"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 700₽", "btn_topup_700"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 1000₽", "btn_topup_1000"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 500₽", "btn_topUp_500"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 700₽", "btn_topUp_700"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 1000₽", "btn_topUp_1000"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
@@ -85,13 +86,19 @@ func (c *Client) topupKeyboard() tgbotapi.InlineKeyboardMarkup {
 func (c *Client) profileKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("➕ Добавить устройство (+50₽/мес)", "btn_add_device"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"➕ Добавить устройство (+50₽/мес)",
+				"btn_add_device",
+			), // nolint: golines
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("♻️ Сбросить доп. устройства", "btn_reset_devices"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"♻️ Сбросить доп. устройства",
+				"btn_reset_devices",
+			),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 В главное меню", "btn_back"),
+			tgbotapi.NewInlineKeyboardButtonData("🏠 В главное меню", "btn_back"),
 		),
 	)
 }
@@ -111,23 +118,13 @@ func (c *Client) checkPaymentKeyboard(url, transactionID string) tgbotapi.Inline
 			tgbotapi.NewInlineKeyboardButtonURL("🔗 Оплатить", url),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Проверить платеж", "btn_check_payment_"+transactionID),
+			tgbotapi.NewInlineKeyboardButtonData(
+				"🔄 Проверить платеж",
+				"btn_check_payment_"+transactionID,
+			), // nolint: golines
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 В главное меню", "btn_back"),
-		),
-	)
-}
-func (c *Client) paymentKeyboard(amount string) tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💳 СБП", "btn_pay_sbp_"+amount),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🪙 Криптовалюта", "btn_pay_crypto_"+amount),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад к тарифам", "btn_balance"), // Возвращаем к выбору тарифов
+			tgbotapi.NewInlineKeyboardButtonData("🏠 В главное меню", "btn_back"),
 		),
 	)
 }
@@ -143,7 +140,7 @@ func (c *Client) deviceLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("📊 Лимиты трафика", "btn_traffic_limits"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 В главное меню", "btn_back"),
+			tgbotapi.NewInlineKeyboardButtonData("🏠 В главное меню", "btn_back"),
 		),
 	)
 }
@@ -160,6 +157,36 @@ func (c *Client) trafficLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("Добавить 50 гигабайт (+...₽/мес)", "btn_add_50gb_2"),
+		),
+	)
+}
+
+// serviceInfoKeyboard генерирует клавиатуру для раздела "Информация о сервисе".
+func (c *Client) serviceInfoKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Политика конфиденциальности",
+				"btn_privacy_policy",
+			),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
+				"Пользовательское соглашение",
+				"btn_user_agreement",
+			),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
+		),
+	)
+}
+
+// privacyPolicyKeyboard
+func privacyPolicyKeyboard() tgbotapi.InlineKeyboardMarkup {
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🏠 В главное меню", "btn_back"),
 		),
 	)
 }

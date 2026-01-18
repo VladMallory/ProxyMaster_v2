@@ -2,9 +2,6 @@
 package app
 
 import (
-	"fmt"
-	"log"
-
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
 	restapi "ProxyMaster_v2/internal/delivery/restAPI"
@@ -14,6 +11,8 @@ import (
 	"ProxyMaster_v2/internal/payments/youkassa"
 	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
+	"fmt"
+	"log"
 )
 
 // Application главный интерфейс приложения
@@ -46,29 +45,34 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}
 
-	// Создаем logger для remnawave
+	// Создаем под каждый сервис логгер.
 	remnawaveLogger := loggerClient.Named("remnawave")
 	subscriptionLogger := loggerClient.Named("subscription")
 	youkassaLogger := loggerClient.Named("youkassa")
 	restAPILogger := loggerClient.Named("restAPI")
+	databaseLogger := loggerClient.Named("database")
 
-	// ===remnawave===
 	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
-	// ===DB===
-	db, err := database.Connect(cfg.DatabaseURL)
+	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
 	}
 
 	// repository
-	userRepo := database.NewUserStorage(db)
+	//
+	userRepo := database.NewUserStorage(db, databaseLogger)
 
 	// ===services===
 	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
 
 	// ===youkassa===
-	youkassaClient := youkassa.NewClient(cfg.YouKassaShopID, cfg.YouKassaSecretKey, cfg.YouKassaReturnURL, youkassaLogger)
+	youkassaClient := youkassa.NewClient(
+		cfg.YouKassaShopID,
+		cfg.YouKassaSecretKey,
+		cfg.YouKassaReturnURL,
+		youkassaLogger,
+	)
 
 	// ===telegram bot===
 	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, loggerClient)
@@ -94,9 +98,14 @@ func New() (Application, error) {
 // Run запуск приложения
 func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
-	go a.telegramClient.Start(a.remnawaveClient, a.subscriptionService, a.paymentGateway, a.userRepo)
+	go a.telegramClient.Start(
+		a.remnawaveClient,
+		a.subscriptionService,
+		a.paymentGateway,
+		a.userRepo,
+	)
 
-	//запускаем restAPI
+	// запускаем restAPI
 	go func() {
 		if err := a.restAPI.Serve(":8080"); err != nil {
 			log.Fatal(err)
