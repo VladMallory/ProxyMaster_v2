@@ -18,12 +18,15 @@ func NewZap(level string) (Logger, error) {
 	// Конфигурация по умолчанию (Prod)
 	cfg := zap.NewProductionConfig()
 
-	// Установка уровня логирования
+	// Установка уровня логирования если не задано
 	if level != "" {
 		l, err := zap.ParseAtomicLevel(level)
-		if err == nil {
-			cfg.Level = l
+
+		if err != nil {
+			return nil, fmt.Errorf("ошибка при парсинге уровня логирования: %w", err)
 		}
+
+		cfg.Level = l
 	}
 
 	// Настройка формата времени
@@ -41,7 +44,9 @@ func NewZap(level string) (Logger, error) {
 		return nil, fmt.Errorf("ошибка при билде логгера: %w", err)
 	}
 
-	return &zapLogger{logger: l}, nil
+	return &zapLogger{
+		logger: l,
+	}, nil
 }
 
 // Debug логирует сообщение с уровнем Debug.
@@ -72,7 +77,9 @@ func (l *zapLogger) With(fields ...Field) Logger {
 // Named возвращает новый логгер с добавленным именем (категорией).
 // Это позволяет разделять логи по модулям (например, "remnawave", "telegram").
 func (l *zapLogger) Named(name string) Logger {
-	return &zapLogger{logger: l.logger.Named(name)}
+	return &zapLogger{
+		logger: l.logger.Named(name),
+	}
 }
 
 // Sync сбрасывает буфер логгера.

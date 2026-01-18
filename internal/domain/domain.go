@@ -8,19 +8,21 @@ import (
 )
 
 var (
-	// ErrInsufficientFunds ошибка недостаточного баланса
+	// ErrInsufficientFunds ошибка недостаточного баланса.
 	ErrInsufficientFunds = errors.New("insufficient funds")
 	ErrUserNotFound      = errors.New("user not found")
 	ErrMaxDevices        = errors.New("max devices")
 )
 
+// ViewType тип ошибки
 type ViewType string
 
+// ViewType какие ошибки могут быть
 const (
 	ViewTypeDownloadApp        ViewType = "download_app"
 	ViewTypeIosRegion          ViewType = "ios_region"
 	ViewTypeTariffs            ViewType = "tariffs"
-	ViewTypeTopup              ViewType = "topup"
+	ViewTypeTopUp              ViewType = "top_up"
 	ViewTypePayment            ViewType = "payment"
 	ViewTypeCheckPayment       ViewType = "check_payment"
 	ViewTypeProfile            ViewType = "profile"
@@ -29,6 +31,16 @@ const (
 	ViewTypeConnect            ViewType = "connect"
 	ViewTypeSubscriptionResult ViewType = "subscription_result"
 	ViewTypeMain               ViewType = "main"
+	ViewTypeServiceInfo        ViewType = "service_info"
+	ViewTypePrivacyPolicy      ViewType = "privacy_policy"
+	ViewTypeUserAgreement      ViewType = "user_agreement"
+	ViewTypeError              ViewType = "unknown view type"
+)
+
+// Ошибка приложения
+var (
+	ErrDuplicateKey       = errors.New("duplicate key")
+	ErrDatabaseConnection = errors.New("database connection error")
 )
 
 // RemnawaveClient - то как мы хотим получать информацию
@@ -48,13 +60,14 @@ type RemnawaveClient interface {
 type UserRepository interface {
 	CreateUser(models.CreateUserTGDTO) (*models.UserTG, error)
 	GetAllUsers() ([]models.UserTG, error)
-	GetUserByID(string) (*models.UserTG, error)
-	UpdateUser(string, models.UpdateUserTGDTO) (*models.UserTG, error)
+	GetActiveUserIDs() ([]string, error)
+	GetUserByID(id string) (*models.UserTG, error)
+	UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error)
 }
 
 // SubscriptionService - бизнес логика управления подписками
 type SubscriptionService interface {
-	// ActivateSubscriotion обрабатывает логику создания или
+	// ActivateSubscription обрабатывает логику создания или
 	// продления подписки
 	// принимает телеграм id и на сколько месяцев нужно
 	ActivateSubscription(telegramID int64, months int) (string, error)
@@ -62,10 +75,10 @@ type SubscriptionService interface {
 	// AddDevice добавляет 1 устройство пользователю
 	AddDevice(username string) error
 
-	// AddPaidDevice покупает 1 доп. устройство за 50₽/мес
+	// AddPaidDevice покупает 1 дополнительные устройство за 50₽/мес
 	AddPaidDevice(username string) error
 
-	// ResetPaidDevices сбрасывает доп. устройства до 0
+	// ResetPaidDevices сбрасывает дополнительные устройства до 0
 	ResetPaidDevices(username string) error
 }
 

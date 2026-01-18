@@ -73,3 +73,5 @@ id_rsa.pub
 # Temporary files
 tmp/
 temp/
+
+other/backups/

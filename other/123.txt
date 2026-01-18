@@ -21,7 +21,6 @@ issues:
   fix: false
 
 linters-settings:
-
   govet:
     enable-all: true
     settings:
@@ -111,6 +110,8 @@ linters-settings:
   depguard:
     rules:
       main:
+        allow:
+          - "ProxyMaster_v2/internal/..."
         deny:
           - pkg: "github.com/pkg/errors"
             desc: "errors.Wrap запрещён"
@@ -138,6 +139,7 @@ linters:
     - revive
     - ineffassign
     - unused
+    - godoclint
 
     # СТИЛЬ И ЧИТАЕМОСТЬ
     - nlreturn

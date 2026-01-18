@@ -9,11 +9,15 @@ import (
 	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
 	"ProxyMaster_v2/pkg/logger"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
+
+// Чтобы линтер не жаловался на дублирование кода
+const parseModeHTML = "HTML"
 
 // Client — это обертка над стандартной библиотекой tgbotapi.
 // Он хранит в себе подключение к API и умеет отправлять сообщения.
@@ -79,8 +83,11 @@ func (c *Client) Start(
 			}
 
 			// Обязательно отвечаем Telegram, что мы приняли нажатие (иначе у юзера будет крутиться "часики")
-			if _, err := c.api.AnswerCallbackQuery(tgbotapi.NewCallback(update.CallbackQuery.ID, "")); err != nil {
-				c.logger.Error("Ошибка ответа на callback query", logger.Field{Key: "error", Value: err})
+			cd := tgbotapi.NewCallback(update.CallbackQuery.ID, "")
+			if _, err := c.api.AnswerCallbackQuery(cd); err != nil {
+				c.logger.Error("Ошибка ответа на callback query",
+					logger.Field{Key: "error", Value: err},
+				)
 			}
 
 			continue
@@ -109,10 +116,17 @@ func (c *Client) Start(
 
 // ShowView отправляет сообщение с нужной клавиатурой в зависимости от типа
 // Если messageID > 0, то сообщение редактируется. Иначе — отправляется новое.
-func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType, data string) error {
+func (c *Client) ShowView(
+	chatID int64,
+	messageID int,
+	viewType domain.ViewType,
+	data string,
+) error {
 	var text string
+
 	var keyboard tgbotapi.InlineKeyboardMarkup
 
+	// viewType
 	switch viewType {
 	case domain.ViewTypeDownloadApp:
 		text, keyboard = c.handleDownloadAppView()
@@ -120,10 +134,9 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 		text, keyboard = c.handleIosRegionView()
 	case domain.ViewTypeTariffs:
 		text, keyboard = c.handleTariffsView()
-	case domain.ViewTypeTopup:
-		text, keyboard = c.handleTopupView()
-	case domain.ViewTypePayment:
-		text, keyboard = c.handlePaymentView(data)
+	case domain.ViewTypeTopUp:
+		text, keyboard = c.handleTopUpView()
+
 	case domain.ViewTypeCheckPayment:
 		text, keyboard = c.handleCheckPaymentView(data)
 	case domain.ViewTypeProfile:
@@ -138,16 +151,23 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 		text, keyboard = c.handleSubscriptionResultView(data)
 	case domain.ViewTypeMain:
 		text, keyboard = c.handleMainView(data)
+	case domain.ViewTypeServiceInfo:
+		text, keyboard = c.handleServiceInfoView()
+	case domain.ViewTypePrivacyPolicy:
+		text, keyboard = c.handlePrivacyPolicyView()
+	case domain.ViewTypeUserAgreement:
+		text, keyboard = c.handleUserAgreementView()
 	default:
-		return fmt.Errorf("неизвестный тип view: %s", viewType)
+		return fmt.Errorf("%w: %s", domain.ErrUserNotFound, viewType)
 	}
 
 	if messageID > 0 {
 		// Редактируем существующее сообщение
 		msg := tgbotapi.NewEditMessageText(chatID, messageID, text)
-		// Добавляем форматирование HTML
-		msg.ParseMode = "HTML"
+		// Добавляем форматирование parseModeHTML
+		msg.ParseMode = parseModeHTML
 		msg.ReplyMarkup = &keyboard
+
 		_, err := c.api.Send(msg)
 		if err != nil {
 			return fmt.Errorf("ошибка редактирования сообщения: %w", err)
@@ -155,14 +175,35 @@ func (c *Client) ShowView(chatID int64, messageID int, viewType domain.ViewType,
 
 		return nil
 	}
+
 	// Отправляем новое сообщение
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ReplyMarkup = keyboard
-	// Добавляем форматирование HTML
-	msg.ParseMode = "HTML"
+	// Добавляем форматирование parseModeHTML
+	msg.ParseMode = parseModeHTML
+
 	_, err := c.api.Send(msg)
 	if err != nil {
 		return fmt.Errorf("ошибка отправки нового сообщения: %w", err)
+	}
+
+	return nil
+}
+
+// SendMessage отправляет текстовое сообщение пользователю.
+// Также всегда прикрепляет главную клавиатуру, чтобы она не пропадала.
+// Реализует метод интерфейса domain.MessageSender.
+func (c *Client) SendMessage(chatID int64, text string) error {
+	msg := tgbotapi.NewMessage(chatID, text)
+	// Добавляем форматирование parseModeHTML
+	msg.ParseMode = parseModeHTML
+
+	// Всегда показываем главное меню под сообщением
+	msg.ReplyMarkup = c.mainKeyboard()
+
+	_, err := c.api.Send(msg)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки сообщения: %w", err)
 	}
 
 	return nil
@@ -173,9 +214,11 @@ func (c *Client) handleCheckPaymentView(data string) (string, tgbotapi.InlineKey
 	parts := strings.Split(data, "|")
 	url := parts[0]
 	transactionID := ""
+
 	if len(parts) > 1 {
 		transactionID = parts[1]
 	}
+
 	text := "Ссылка на оплату сформирована. После оплаты нажмите 'Проверить платеж'."
 	keyboard := c.checkPaymentKeyboard(url, transactionID)
 
@@ -201,12 +244,8 @@ func (c *Client) handleTariffsView() (string, tgbotapi.InlineKeyboardMarkup) {
 	return "Выберите тариф подписки:", c.tariffsKeyboard()
 }
 
-func (c *Client) handleTopupView() (string, tgbotapi.InlineKeyboardMarkup) {
-	return "💰 Выберите сумму для пополнения баланса:", c.topupKeyboard()
-}
-
-func (c *Client) handlePaymentView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
-	return "Выберите способ оплаты:", c.paymentKeyboard(data)
+func (c *Client) handleTopUpView() (string, tgbotapi.InlineKeyboardMarkup) {
+	return "💰 Выберите сумму для пополнения баланса:", c.topUpKeyboard()
 }
 
 func (c *Client) handleConnectView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
@@ -244,12 +283,15 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 	userID := ""
 	balance := "0"
 	extraDevices := "0"
+
 	if len(parts) > 0 {
 		userID = parts[0]
 	}
+
 	if len(parts) > 1 {
 		balance = parts[1]
 	}
+
 	if len(parts) > 2 {
 		extraDevices = parts[2]
 	}
@@ -271,29 +313,57 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 	return text, keyboard
 }
 
-// SendMessage отправляет текстовое сообщение пользователю.
-// Также всегда прикрепляет главную клавиатуру, чтобы она не пропадала.
-// Реализует метод интерфейса domain.MessageSender.
-func (c *Client) SendMessage(chatID int64, text string) error {
-	msg := tgbotapi.NewMessage(chatID, text)
-	// Добавляем форматирование HTML
-	msg.ParseMode = "HTML"
-
-	// Всегда показываем главное меню под сообщением
-	msg.ReplyMarkup = c.mainKeyboard()
-
-	_, err := c.api.Send(msg)
-	if err != nil {
-		return fmt.Errorf("ошибка отправки сообщения: %w", err)
-	}
-
-	return nil
-}
-
 func (c *Client) handleTrafficLimitsView() (string, tgbotapi.InlineKeyboardMarkup) {
 	text := "На сколько GB нужно увеличить лимит трафика?"
 
 	return text, c.trafficLimitsKeyboard()
+}
+
+// handleServiceInfoView сука
+func (c *Client) handleServiceInfoView() (string, tgbotapi.InlineKeyboardMarkup) {
+	text := "Выберите раздел:"
+
+	return text, c.serviceInfoKeyboard()
+}
+
+// handlePrivacyPolicyView читаеттекст политики конфиденциальности и возвращает
+// вместе с соотвествующей клавиатурой
+func (c *Client) handlePrivacyPolicyView() (string, tgbotapi.InlineKeyboardMarkup) {
+	// Читаем файл
+	content, err := os.ReadFile("assets/police.txt")
+	if err != nil {
+		c.logger.Error("ошибка чтения файла",
+			logger.Field{Key: "file", Value: content},
+			logger.Field{Key: "error", Value: err},
+		)
+
+		text := "не удалось загрузить файл политики конфиденциальности"
+
+		return text, privacyPolicyKeyboard()
+	}
+
+	// Если все хорошо, возвращаем текст и клавиатуру
+	return string(content), privacyPolicyKeyboard()
+}
+
+// handleUserAgreementView читает текст пользовательского соглашения и возвращает
+// вместе с соотвествующей клавиатурой
+func (c *Client) handleUserAgreementView() (string, tgbotapi.InlineKeyboardMarkup) {
+	// Читаем файл
+	content, err := os.ReadFile("assets/user_agreement.txt")
+	if err != nil {
+		c.logger.Error("ошибка чтения файла",
+			logger.Field{Key: "file", Value: "assets/user_agreement.txt"},
+			logger.Field{Key: "error", Value: err},
+		)
+
+		text := "не удалось загрузить файл пользовательского соглашения"
+
+		return text, privacyPolicyKeyboard() // Можно использовать ту же клавиатуру
+	}
+
+	// Если все хорошо, возвращаем текст и клавиатуру
+	return string(content), privacyPolicyKeyboard()
 }
 
 // mainKeyboard создает структуру кнопок для главного меню.
