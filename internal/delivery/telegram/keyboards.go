@@ -152,6 +152,12 @@ func (c *Client) trafficLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_unlimits"),
 		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Добавить 50 гигабайт (+...₽/мес)", "btn_add_50gb_1"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Добавить 50 гигабайт (+...₽/мес)", "btn_add_50gb_2"),
+		),
 	)
 }
 
