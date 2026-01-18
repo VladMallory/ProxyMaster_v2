@@ -634,6 +634,43 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	return nil
 }
 
+// AddTraffic добавляет траффик к текущему
+func (c *RemnaClient) AddTraffic(username string, gb uint64) error {
+	user, err := c.GetUserInfo(username)
+	if err != nil {
+		c.logger.Error(
+			"failed to add traffic",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "GB", Value: gb},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	userTraffic := user.Response.TrafficLimitBytes / (1024 * 1024 * 1024)
+	if err = c.SetTraffic(username, (uint64(userTraffic) + gb)); err != nil {
+		c.logger.Error(
+			"failed to add traffic",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "GB", Value: gb},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	c.logger.Info(
+		"added traffic succesfully",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "was GB", Value: userTraffic},
+		logger.Field{Key: "added GB", Value: gb},
+		logger.Field{Key: "current GB", Value: (uint64(userTraffic) + gb)},
+	)
+
+	return nil
+}
+
 // GetUserInfo - возвращает информацию.
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
 	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
