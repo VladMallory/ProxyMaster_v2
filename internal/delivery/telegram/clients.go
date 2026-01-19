@@ -274,10 +274,11 @@ func (c *Client) handleMainView(data string) (string, tgbotapi.InlineKeyboardMar
 }
 
 func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
-	parts := strings.SplitN(data, "|", 3)
+	parts := strings.SplitN(data, "|", 4)
 	userID := ""
 	balance := "0"
 	extraDevices := "0"
+	nextPayment := "—"
 
 	if len(parts) > 0 {
 		userID = parts[0]
@@ -290,6 +291,9 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 	if len(parts) > 2 {
 		extraDevices = parts[2]
 	}
+	if len(parts) > 3 && parts[3] != "" {
+		nextPayment = parts[3]
+	}
 
 	extraDevicesInt, err := strconv.Atoi(extraDevices)
 	if err != nil {
@@ -297,11 +301,12 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 	}
 
 	text := fmt.Sprintf(
-		"ID пользователя: %s\nБаланс: %s ₽\nДоп. устройств: %d\nДоп. списание: %d ₽/мес",
+		"ID пользователя: %s\nБаланс: %s ₽\nДоп. устройств: %d\nДоп. списание: %d ₽/мес\nНужно оплатить до: %s",
 		userID,
 		balance,
 		extraDevicesInt,
 		extraDevicesInt*50,
+		nextPayment,
 	)
 	keyboard := c.profileKeyboard()
 

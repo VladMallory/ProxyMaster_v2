@@ -9,9 +9,10 @@ import (
 
 var (
 	// ErrInsufficientFunds ошибка недостаточного баланса.
-	ErrInsufficientFunds = errors.New("insufficient funds")
-	ErrUserNotFound      = errors.New("user not found")
-	ErrMaxDevices        = errors.New("max devices")
+	ErrInsufficientFunds    = errors.New("insufficient funds")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrMaxDevices           = errors.New("max devices")
+	ErrNoActiveDeviceAddons = errors.New("no active device addons")
 )
 
 // ViewType тип ошибки
@@ -80,6 +81,8 @@ type SubscriptionService interface {
 
 	// ResetPaidDevices сбрасывает дополнительные устройства до 0
 	ResetPaidDevices(username string) error
+
+	PrepayPaidDevices(username string) (int, error)
 }
 
 // TrialService - бизнес логика пробного периода

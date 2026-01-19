@@ -291,6 +291,151 @@ func (s *UserStorage) CountActiveDeviceAddons(userID string) (int, error) {
 	return cnt, nil
 }
 
+func (s *UserStorage) GetNextDeviceAddonChargeAt(userID string) (*time.Time, error) {
+	defer s.logDuration("GetNextDeviceAddonChargeAt")()
+	query := `
+	SELECT MIN(next_charge_at)
+	FROM device_addons
+	WHERE user_id = $1 AND active = TRUE
+	`
+
+	var nextChargeAt sql.NullTime
+	if err := s.db.QueryRowx(query, userID).Scan(&nextChargeAt); err != nil {
+		s.logger.Error("failed to get next charge date for device addons",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return nil, fmt.Errorf("failed to get next charge date: %w", err)
+	}
+
+	if !nextChargeAt.Valid {
+		return nil, nil
+	}
+
+	return &nextChargeAt.Time, nil
+}
+
+func (s *UserStorage) PrepayDeviceAddonsAtomic(
+	userID string,
+	priceRUB int,
+	chargePeriod time.Duration,
+) (count int, err error) {
+	defer s.logDuration("PrepayDeviceAddonsAtomic")()
+	if priceRUB <= 0 {
+		err := fmt.Errorf("priceRUB должен быть > 0")
+		s.logger.Error("invalid priceRUB",
+			logger.Field{Key: "priceRUB", Value: priceRUB},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, err
+	}
+	if chargePeriod <= 0 {
+		err := fmt.Errorf("chargePeriod должен быть > 0")
+		s.logger.Error("invalid chargePeriod",
+			logger.Field{Key: "chargePeriod", Value: chargePeriod},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, err
+	}
+
+	tx, err := s.db.BeginTxx(
+		context.Background(),
+		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
+	)
+	if err != nil {
+		s.logger.Error("failed to begin transaction for PrepayDeviceAddonsAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	lockQuery := `SELECT id FROM users WHERE id = $1 FOR UPDATE`
+	var lockedID string
+	if err := tx.QueryRowx(lockQuery, userID).Scan(&lockedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			s.logger.Error("user not found when locking for PrepayDeviceAddonsAtomic",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: domain.ErrUserNotFound},
+			)
+			return 0, domain.ErrUserNotFound
+		}
+		s.logger.Error("failed to lock user for PrepayDeviceAddonsAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, fmt.Errorf("failed to lock user: %w", err)
+	}
+
+	addonsQuery := `
+	SELECT id
+	FROM device_addons
+	WHERE user_id = $1 AND active = TRUE
+	FOR UPDATE
+	`
+	var addonIDs []string
+	if err := tx.Select(&addonIDs, addonsQuery, userID); err != nil {
+		s.logger.Error("failed to select active addons for PrepayDeviceAddonsAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, fmt.Errorf("failed to select active addons: %w", err)
+	}
+	if len(addonIDs) == 0 {
+		if err := tx.Commit(); err != nil {
+			s.logger.Error("failed to commit PrepayDeviceAddonsAtomic with no addons",
+				logger.Field{Key: "err_msg", Value: err},
+			)
+			return 0, fmt.Errorf("failed to commit transaction: %w", err)
+		}
+		return 0, domain.ErrNoActiveDeviceAddons
+	}
+
+	amount := len(addonIDs) * priceRUB
+	_, ok, err := s.tryDebitBalanceTx(tx, userID, amount)
+	if err != nil {
+		s.logger.Error("failed to debit balance for PrepayDeviceAddonsAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, fmt.Errorf("failed to debit balance: %w", err)
+	}
+	if !ok {
+		s.logger.Error("insufficient funds for PrepayDeviceAddonsAtomic",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: domain.ErrInsufficientFunds},
+		)
+		return 0, domain.ErrInsufficientFunds
+	}
+
+	seconds := int64(chargePeriod.Seconds())
+	updateQuery := `
+	UPDATE device_addons
+	SET next_charge_at = next_charge_at + ($1 * INTERVAL '1 second')
+	WHERE id = ANY($2)
+	`
+	if _, err := tx.Exec(updateQuery, seconds, pq.Array(addonIDs)); err != nil {
+		s.logger.Error("failed to update next_charge_at for PrepayDeviceAddonsAtomic",
+			logger.Field{Key: "addon_ids", Value: addonIDs},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, fmt.Errorf("failed to update next_charge_at: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.logger.Error("failed to commit PrepayDeviceAddonsAtomic transaction",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return len(addonIDs), nil
+}
+
 // DeactivateAllDeviceAddons отключает все доп. устройства пользователя.
 func (s *UserStorage) DeactivateAllDeviceAddons(userID string) error {
 	defer s.logDuration("DeactivateAllDeviceAddons")()
