@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"ProxyMaster_v2/internal/database"
@@ -42,6 +43,7 @@ func NewSubscriptionService(
 	}
 
 	go svc.runExtraDevicesBillingLoop()
+	go svc.runSubscriptionBillingLoop()
 
 	return svc
 }
@@ -159,6 +161,97 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 			)
 		}
 	}
+}
+
+func (s *SubscriptionService) runSubscriptionBillingLoop() {
+	s.processSubscriptionBilling(time.Now())
+
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.processSubscriptionBilling(time.Now())
+	}
+}
+
+func (s *SubscriptionService) processSubscriptionBilling(now time.Time) {
+	userIDs, err := s.dbRepo.GetActiveUserIDs()
+	if err != nil {
+		s.logger.Error("ошибка получения пользователей для автопродления", logger.Field{Key: "err_msg", Value: err})
+		return
+	}
+
+	for _, userID := range userIDs {
+		telegramID, convErr := strconv.ParseInt(userID, 10, 64)
+		if convErr != nil {
+			s.logger.Error(
+				"ошибка конвертации user_id для автопродления",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: convErr},
+			)
+			continue
+		}
+
+		uuid, getUUIDErr := s.remna.GetUUIDByUsername(userID)
+		if getUUIDErr != nil {
+			if errors.Is(getUUIDErr, remnawave.ErrNotFound) {
+				if renewErr := s.tryAutoRenewSubscription(telegramID, userID); renewErr != nil {
+					s.logger.Error(
+						"ошибка автопродления подписки для отсутствующего пользователя",
+						logger.Field{Key: "user_id", Value: userID},
+						logger.Field{Key: "err_msg", Value: renewErr},
+					)
+				}
+				continue
+			}
+
+			s.logger.Error(
+				"ошибка получения UUID пользователя",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: getUUIDErr},
+			)
+			continue
+		}
+
+		info, infoErr := s.remna.GetUserInfo(uuid)
+		if infoErr != nil {
+			s.logger.Error(
+				"ошибка получения информации пользователя",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: infoErr},
+			)
+			continue
+		}
+
+		if strings.EqualFold(info.Response.Status, "ACTIVE") && info.Response.ExpireAt.After(now) {
+			continue
+		}
+
+		if renewErr := s.tryAutoRenewSubscription(telegramID, userID); renewErr != nil {
+			s.logger.Error(
+				"ошибка автопродления подписки",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: renewErr},
+			)
+		}
+	}
+}
+
+func (s *SubscriptionService) tryAutoRenewSubscription(telegramID int64, userID string) error {
+	_, err := s.ActivateSubscription(telegramID, 1)
+	if err != nil {
+		if errors.Is(err, domain.ErrInsufficientFunds) {
+			s.logger.Info(
+				"недостаточно средств для автопродления",
+				logger.Field{Key: "user_id", Value: userID},
+			)
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // ActivateSubscription активирует подписку клиенту telegram на указанное количество месяцев.

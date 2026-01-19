@@ -213,14 +213,9 @@ func (c *Client) handleCheckPaymentView(data string) (string, tgbotapi.InlineKey
 	// data format: "url|transactionID"
 	parts := strings.Split(data, "|")
 	url := parts[0]
-	transactionID := ""
 
-	if len(parts) > 1 {
-		transactionID = parts[1]
-	}
-
-	text := "Ссылка на оплату сформирована. После оплаты нажмите 'Проверить платеж'."
-	keyboard := c.checkPaymentKeyboard(url, transactionID)
+	text := "Ссылка на оплату сформирована. Я автоматически проверю платеж после оплаты."
+	keyboard := c.checkPaymentKeyboard(url)
 
 	return text, keyboard
 }

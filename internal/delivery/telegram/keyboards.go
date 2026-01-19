@@ -112,16 +112,10 @@ func (c *Client) connectKeyboard() tgbotapi.InlineKeyboardMarkup {
 }
 
 // checkPaymentKeyboard генерирует клавиатуру для проверки платежа.
-func (c *Client) checkPaymentKeyboard(url, transactionID string) tgbotapi.InlineKeyboardMarkup {
+func (c *Client) checkPaymentKeyboard(url string) tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("🔗 Оплатить", url),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(
-				"🔄 Проверить платеж",
-				"btn_check_payment_"+transactionID,
-			), // nolint: golines
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🏠 В главное меню", "btn_back"),
