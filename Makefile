@@ -92,6 +92,10 @@ dcl: dc
 dcd:
 	docker compose down
 
+server: 
+	git pull
+	make dcl
+
 # Запуск dev окружения (без Go приложения)
 dev: dev-stop
 	docker compose -f docker-compose.dev.yml up -d --build
