@@ -3,8 +3,10 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -45,6 +47,11 @@ func New() (*Config, error) {
 		log.Println("не удалось загрузить .env")
 	}
 
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if databaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL не установлен")
+	}
+
 	return &Config{
 		RemnaPanelURL:       os.Getenv("REMNA_BASE_PANEL"),
 		RemnaSecretURLToken: os.Getenv("REMNA_SECRET_TOKEN"),
@@ -53,7 +60,7 @@ func New() (*Config, error) {
 		RemnaKey:            os.Getenv("REMNA_TOKEN"),
 		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
-		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		DatabaseURL:         databaseURL,
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),
 		LoggerLevel:         os.Getenv("LOGGER_LEVEL"),
 		YouKassaShopID:      os.Getenv("YOUKASSA_SHOP_ID"),
