@@ -130,6 +130,28 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 	return nil
 }
 
+func (s *SubscriptionService) PrepayPaidDevices(username string) (int, error) {
+	defer s.logDuration("PrepayPaidDevices")()
+
+	count, err := s.dbRepo.PrepayDeviceAddonsAtomic(
+		username,
+		extraDevicePriceRUB,
+		30*24*time.Hour,
+	)
+	if err != nil {
+		if errors.Is(err, domain.ErrInsufficientFunds) || errors.Is(err, domain.ErrNoActiveDeviceAddons) {
+			s.logger.Error("ошибка предоплаты доп. устройств",
+				logger.Field{Key: "user_id", Value: username},
+				logger.Field{Key: "error", Value: err},
+			)
+			return 0, fmt.Errorf("ошибка предоплаты доп устройств: %w", err)
+		}
+		return 0, s.logError("ошибка предоплаты доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+	}
+
+	return count, nil
+}
+
 // runExtraDevicesBillingLoop раз в час проверяет и списывает доп. устройства.
 func (s *SubscriptionService) runExtraDevicesBillingLoop() {
 	s.processExtraDevicesBilling(time.Now())

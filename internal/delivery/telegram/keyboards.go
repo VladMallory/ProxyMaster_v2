@@ -93,6 +93,12 @@ func (c *Client) profileKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
+				"💳 Оплатить доп. устройства заранее",
+				"btn_prepay_devices",
+			),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(
 				"♻️ Сбросить доп. устройства",
 				"btn_reset_devices",
 			),

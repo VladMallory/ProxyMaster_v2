@@ -67,7 +67,17 @@ func ProcessCallback(sender MessageSender,
 			}
 		}
 
-		return user.ID + "|" + strconv.Itoa(user.Balance) + "|" + strconv.Itoa(extraCount), nil
+		nextChargeAt, err := userRepo.GetNextDeviceAddonChargeAt(userID)
+		if err != nil {
+			return "", fmt.Errorf("ошибка получения даты следующего списания: %w", err)
+		}
+
+		nextPayment := "—"
+		if nextChargeAt != nil {
+			nextPayment = formatDevicePaymentDate(*nextChargeAt, time.Now())
+		}
+
+		return user.ID + "|" + strconv.Itoa(user.Balance) + "|" + strconv.Itoa(extraCount) + "|" + nextPayment, nil
 	}
 
 	if amountStr, ok := strings.CutPrefix(data, "btn_topUp_"); ok {
@@ -373,7 +383,10 @@ func ProcessCallback(sender MessageSender,
 			return nil
 		}
 
-		paymentPurposeByTransaction.Store(id, paymentPurposeAddDevice)
+		paymentPurposeByTransaction.Store(id, paymentPurposeData{
+			purpose: paymentPurposeAddDevice,
+			amount:  addDevicePriceRUB,
+		})
 
 		if err := sender.ShowView(
 			chatID,
@@ -382,6 +395,73 @@ func ProcessCallback(sender MessageSender,
 			url+"|"+id,
 		); err != nil {
 			return fmt.Errorf("ошибка отображения ссылки на оплату устройства: %w", err)
+		}
+
+		startAutoPaymentCheck(
+			sender,
+			chatID,
+			messageID,
+			id,
+			paymentGateway,
+			subscriptionService,
+			userRepo,
+		)
+
+		return nil
+
+	case "btn_prepay_devices":
+		userID := strconv.FormatInt(chatID, 10)
+		activeAddons, err := userRepo.CountActiveDeviceAddons(userID)
+		if err != nil {
+			log.Printf("Ошибка подсчета доп. устройств для %s: %v", userID, err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение об ошибке получения данных пользователя: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+		if activeAddons <= 0 {
+			if sendErr := sender.SendMessage(chatID, "У вас нет активных доп. устройств для продления."); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение о отсутствии доп. устройств: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		amount := activeAddons * 50
+		orderID := fmt.Sprintf("tg_prepay_devices_%d_%d", chatID, time.Now().UnixNano())
+		url, id, err := paymentGateway.CreateTransaction(
+			context.Background(),
+			float64(amount),
+			orderID,
+		)
+		if err != nil {
+			log.Printf("Ошибка создания транзакции на предоплату устройств: %v", err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка создания транзакции"); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение об ошибке создания транзакции: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		paymentPurposeByTransaction.Store(id, paymentPurposeData{
+			purpose: paymentPurposePrepayDevices,
+			amount:  amount,
+		})
+
+		if err := sender.ShowView(
+			chatID,
+			messageID,
+			domain.ViewTypeCheckPayment,
+			url+"|"+id,
+		); err != nil {
+			return fmt.Errorf("ошибка отображения ссылки на оплату устройств: %w", err)
 		}
 
 		startAutoPaymentCheck(
@@ -480,7 +560,15 @@ func ProcessCallback(sender MessageSender,
 
 type paymentPurpose string
 
-const paymentPurposeAddDevice paymentPurpose = "add_device"
+const (
+	paymentPurposeAddDevice     paymentPurpose = "add_device"
+	paymentPurposePrepayDevices paymentPurpose = "prepay_devices"
+)
+
+type paymentPurposeData struct {
+	purpose paymentPurpose
+	amount  int
+}
 
 var paymentPurposeByTransaction sync.Map
 var activePaymentStatusWatchers sync.Map
@@ -659,17 +747,29 @@ func handleSuccessfulPayment(
 	}
 
 	amount := int(info.GetAmount())
-	if purpose, ok := paymentPurposeByTransaction.Load(transactionID); ok {
-		if purpose == paymentPurposeAddDevice {
-			paymentPurposeByTransaction.Delete(transactionID)
-			return handleSuccessfulAddDevicePayment(
-				sender,
-				chatID,
-				messageID,
-				amount,
-				subscriptionService,
-				userRepo,
-			)
+	if value, ok := paymentPurposeByTransaction.Load(transactionID); ok {
+		paymentPurposeByTransaction.Delete(transactionID)
+		if data, ok := value.(paymentPurposeData); ok {
+			switch data.purpose {
+			case paymentPurposeAddDevice:
+				return handleSuccessfulAddDevicePayment(
+					sender,
+					chatID,
+					messageID,
+					amount,
+					subscriptionService,
+					userRepo,
+				)
+			case paymentPurposePrepayDevices:
+				return handleSuccessfulPrepayDevicesPayment(
+					sender,
+					chatID,
+					messageID,
+					amount,
+					subscriptionService,
+					userRepo,
+				)
+			}
 		}
 	}
 
@@ -807,6 +907,80 @@ func handleSuccessfulAddDevicePayment(
 		successMsg,
 	); err != nil {
 		return fmt.Errorf("ошибка отображения сообщения об успешном добавлении устройства: %w", err)
+	}
+
+	return nil
+}
+
+func handleSuccessfulPrepayDevicesPayment(
+	sender MessageSender,
+	chatID int64,
+	messageID int,
+	amount int,
+	subscriptionService domain.SubscriptionService,
+	userRepo *database.UserStorage,
+) error {
+	userID := strconv.FormatInt(chatID, 10)
+	user, err := userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Ошибка получения пользователя для продления устройств: %v", err)
+		if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке получения пользователя: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	newBalance := user.Balance + amount
+	if _, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
+		Balance: &newBalance,
+	}); err != nil {
+		log.Printf("Ошибка обновления баланса для продления устройств: %v", err)
+		if sendErr := sender.SendMessage(
+			chatID,
+			"Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.",
+		); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке обновления баланса: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	count, err := subscriptionService.PrepayPaidDevices(userID)
+	if err != nil {
+		errorMsg := "❌ Ошибка продления доп. устройств."
+		if errors.Is(err, domain.ErrInsufficientFunds) {
+			errorMsg = "❌ Недостаточно средств для продления доп. устройств."
+		} else if errors.Is(err, domain.ErrNoActiveDeviceAddons) {
+			errorMsg = "У вас нет активных доп. устройств для продления."
+		}
+		log.Printf("Ошибка предоплаты доп. устройств для %s: %v", userID, err)
+		if sendErr := sender.ShowView(
+			chatID,
+			messageID,
+			domain.ViewTypeSubscriptionResult,
+			errorMsg,
+		); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке продления устройств: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	successMsg := fmt.Sprintf("✅ Доп. устройства продлены на 1 месяц. Количество: %d.", count)
+	if err := sender.ShowView(
+		chatID,
+		messageID,
+		domain.ViewTypeSubscriptionResult,
+		successMsg,
+	); err != nil {
+		return fmt.Errorf("ошибка отображения сообщения о продлении устройств: %w", err)
 	}
 
 	return nil
@@ -1068,6 +1242,13 @@ func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClie
 
 func formatRussianDate(t time.Time) string {
 	return fmt.Sprintf("%d %d %s", t.Year(), t.Day(), russianMonthGenitive(t.Month()))
+}
+
+func formatDevicePaymentDate(t time.Time, now time.Time) string {
+	if t.Year() == now.Year() {
+		return fmt.Sprintf("%d %s", t.Day(), russianMonthGenitive(t.Month()))
+	}
+	return fmt.Sprintf("%d %s %d", t.Day(), russianMonthGenitive(t.Month()), t.Year())
 }
 
 func russianMonthGenitive(m time.Month) string {
