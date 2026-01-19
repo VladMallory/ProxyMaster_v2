@@ -373,7 +373,6 @@ func (c *Client) mainKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💰 Пополнить баланс", "btn_balance"),
-			tgbotapi.NewInlineKeyboardButtonData("📦 Тарифы", "btn_tariffs"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("👤 Увеличение лимитов", "btn_unlimits"),

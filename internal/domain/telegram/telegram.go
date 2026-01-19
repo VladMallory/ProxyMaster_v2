@@ -198,8 +198,6 @@ func ProcessCallback(sender MessageSender,
 	}
 
 	switch data {
-	case "btn_tariffs":
-		return showView(domain.ViewTypeTariffs, "", "ошибка отображения тарифов")
 	case "btn_sub_tariff_1":
 		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 1)
 	case "btn_sub_tariff_2":
@@ -880,21 +878,17 @@ func buildMainViewText(
 ) string {
 	username := strconv.FormatInt(chatID, 10)
 
-	user, err := userRepo.GetUserByID(username)
+	_, err := userRepo.GetUserByID(username)
 	if err != nil {
 		// Если пользователя нету, создаем его в базе
 		if errors.Is(err, domain.ErrUserNotFound) {
-			created, createErr := userRepo.CreateUser(models.CreateUserTGDTO{
+			_, createErr := userRepo.CreateUser(models.CreateUserTGDTO{
 				ID:      username,
 				Balance: 0,
 				Trial:   false,
 			})
 			if createErr == nil {
-				return buildStartText(
-					firstName,
-					created.Balance,
-					buildSubscriptionLine(username, remnawaveClient),
-				)
+				return buildStartText(firstName, buildSubscriptionLine(username, remnawaveClient))
 			}
 			// В случае ошибки создания, показываем с нулевым балансом
 			log.Printf(
@@ -902,34 +896,25 @@ func buildMainViewText(
 				username,
 				createErr,
 			)
-			return buildStartText(
-				firstName,
-				0,
-				buildSubscriptionLine(username, remnawaveClient),
-			)
+			return buildStartText(firstName, buildSubscriptionLine(username, remnawaveClient))
 		}
 		// В случае другой ошибки, показываем с нулевым балансом
 		log.Printf("Не удалось получить пользователя %s при сборке текста: %v", username, err)
-		return buildStartText(
-			firstName,
-			0,
-			buildSubscriptionLine(username, remnawaveClient),
-		)
+		return buildStartText(firstName, buildSubscriptionLine(username, remnawaveClient))
 	}
 
-	return buildStartText(firstName, user.Balance, buildSubscriptionLine(username, remnawaveClient))
+	return buildStartText(firstName, buildSubscriptionLine(username, remnawaveClient))
 }
 
-func buildStartText(firstName string, balance int, subscriptionLine string) string {
+func buildStartText(firstName string, subscriptionLine string) string {
 	name := strings.TrimSpace(firstName)
 	if name == "" {
 		name = "друг"
 	}
 
 	return fmt.Sprintf(
-		"🌟 Добро пожаловать, %s!\n<blockquote>—💰 Ваш баланс: %.2f₽\n%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, он импортирует подписку в Happ",
+		"🌟 Добро пожаловать, %s!\n<blockquote>%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, он импортирует подписку в Happ",
 		name,
-		float64(balance),
 		subscriptionLine,
 	)
 }
