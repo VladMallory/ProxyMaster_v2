@@ -321,43 +321,80 @@ func ProcessCallback(sender MessageSender,
 
 	case "btn_add_device":
 		userID := strconv.FormatInt(chatID, 10)
-
-		if err := subscriptionService.AddPaidDevice(userID); err != nil {
-			errorMsg := "❌ Ошибка добавления устройства."
-			if errors.Is(err, domain.ErrInsufficientFunds) {
-				errorMsg = "❌ Недостаточно средств. Нужно 50₽."
-			} else if errors.Is(err, domain.ErrMaxDevices) {
-				errorMsg = "❌ Достигнут лимит устройств."
-			}
-			log.Printf("Ошибка добавления платного устройства для %s: %v", userID, err)
-			if sendErr := sender.SendMessage(chatID, errorMsg); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке добавления устройства: %w",
-					sendErr,
-				)
-			}
-			return nil
-		}
-
-		profileData, err := buildProfileData(userID)
+		uuid, err := remnawaveClient.GetUUIDByUsername(userID)
 		if err != nil {
-			log.Printf("Ошибка сборки данных профиля после добавления устройства: %v", err)
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Ошибка получения данных профиля",
-			); sendErr != nil {
+			log.Printf("Ошибка получения UUID пользователя %s: %v", userID, err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
 				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сборки профиля: %w",
+					"не удалось отправить сообщение об ошибке получения пользователя: %w",
 					sendErr,
 				)
 			}
 			return nil
 		}
-		return showView(
-			domain.ViewTypeProfile,
-			profileData,
-			"ошибка отображения профиля после добавления устройства",
+
+		userInfo, err := remnawaveClient.GetUserInfo(uuid)
+		if err != nil {
+			log.Printf("Ошибка получения информации о пользователе %s: %v", userID, err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение об ошибке получения данных пользователя: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		if userInfo.Response.HWIDDeviceLimit >= 5 {
+			if sendErr := sender.SendMessage(chatID, "❌ Достигнут лимит устройств."); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение о превышении лимита устройств: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		const addDevicePriceRUB = 50
+		orderID := fmt.Sprintf("tg_add_device_%d_%d", chatID, time.Now().UnixNano())
+		url, id, err := paymentGateway.CreateTransaction(
+			context.Background(),
+			float64(addDevicePriceRUB),
+			orderID,
 		)
+		if err != nil {
+			log.Printf("Ошибка создания транзакции на добавление устройства: %v", err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка создания транзакции"); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение об ошибке создания транзакции: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		paymentPurposeByTransaction.Store(id, paymentPurposeAddDevice)
+
+		if err := sender.ShowView(
+			chatID,
+			messageID,
+			domain.ViewTypeCheckPayment,
+			url+"|"+id,
+		); err != nil {
+			return fmt.Errorf("ошибка отображения ссылки на оплату устройства: %w", err)
+		}
+
+		startAutoPaymentCheck(
+			sender,
+			chatID,
+			messageID,
+			id,
+			paymentGateway,
+			subscriptionService,
+			userRepo,
+		)
+
+		return nil
 
 	case "btn_reset_devices":
 		userID := strconv.FormatInt(chatID, 10)
@@ -441,6 +478,11 @@ func ProcessCallback(sender MessageSender,
 	}
 }
 
+type paymentPurpose string
+
+const paymentPurposeAddDevice paymentPurpose = "add_device"
+
+var paymentPurposeByTransaction sync.Map
 var activePaymentStatusWatchers sync.Map
 
 // startAutoPaymentCheck запускает автоматическую проверку платежа.
@@ -617,6 +659,19 @@ func handleSuccessfulPayment(
 	}
 
 	amount := int(info.GetAmount())
+	if purpose, ok := paymentPurposeByTransaction.Load(transactionID); ok {
+		if purpose == paymentPurposeAddDevice {
+			paymentPurposeByTransaction.Delete(transactionID)
+			return handleSuccessfulAddDevicePayment(
+				sender,
+				chatID,
+				messageID,
+				amount,
+				subscriptionService,
+				userRepo,
+			)
+		}
+	}
 
 	userID := strconv.FormatInt(chatID, 10)
 	user, err := userRepo.GetUserByID(userID)
@@ -680,6 +735,79 @@ func handleSuccessfulPayment(
 			log.Printf("Ошибка автопродления подписки: %v", err)
 		}
 	}()
+
+	return nil
+}
+
+func handleSuccessfulAddDevicePayment(
+	sender MessageSender,
+	chatID int64,
+	messageID int,
+	amount int,
+	subscriptionService domain.SubscriptionService,
+	userRepo *database.UserStorage,
+) error {
+	userID := strconv.FormatInt(chatID, 10)
+	user, err := userRepo.GetUserByID(userID)
+	if err != nil {
+		log.Printf("Ошибка получения пользователя для добавления устройства: %v", err)
+		if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке получения пользователя: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	newBalance := user.Balance + amount
+	if _, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
+		Balance: &newBalance,
+	}); err != nil {
+		log.Printf("Ошибка обновления баланса для оплаты устройства: %v", err)
+		if sendErr := sender.SendMessage(
+			chatID,
+			"Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.",
+		); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке обновления баланса: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	if err := subscriptionService.AddPaidDevice(userID); err != nil {
+		errorMsg := "❌ Ошибка добавления устройства."
+		if errors.Is(err, domain.ErrInsufficientFunds) {
+			errorMsg = "❌ Недостаточно средств. Нужно 50₽."
+		} else if errors.Is(err, domain.ErrMaxDevices) {
+			errorMsg = "❌ Достигнут лимит устройств."
+		}
+		log.Printf("Ошибка добавления платного устройства для %s: %v", userID, err)
+		if sendErr := sender.ShowView(
+			chatID,
+			messageID,
+			domain.ViewTypeSubscriptionResult,
+			errorMsg,
+		); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке добавления устройства: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	successMsg := "✅ Устройство добавлено."
+	if err := sender.ShowView(
+		chatID,
+		messageID,
+		domain.ViewTypeSubscriptionResult,
+		successMsg,
+	); err != nil {
+		return fmt.Errorf("ошибка отображения сообщения об успешном добавлении устройства: %w", err)
+	}
 
 	return nil
 }
