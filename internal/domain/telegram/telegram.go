@@ -118,6 +118,7 @@ func ProcessCallback(sender MessageSender,
 			messageID,
 			id,
 			paymentGateway,
+			subscriptionService,
 			userRepo,
 		)
 
@@ -149,6 +150,7 @@ func ProcessCallback(sender MessageSender,
 				messageID,
 				transactionID,
 				paymentGateway,
+				subscriptionService,
 				userRepo,
 			)
 		case domain.PaymentStatusPending:
@@ -158,6 +160,7 @@ func ProcessCallback(sender MessageSender,
 				messageID,
 				transactionID,
 				paymentGateway,
+				subscriptionService,
 				userRepo,
 			)
 			if started {
@@ -451,6 +454,7 @@ func startAutoPaymentCheck(
 	messageID int,
 	transactionID string,
 	paymentGateway domain.PaymentGateway,
+	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 ) {
 	// Проверяем, не запущена ли уже проверка для этой транзакции
@@ -495,6 +499,7 @@ func startAutoPaymentCheck(
 					messageID,
 					transactionID,
 					paymentGateway,
+					subscriptionService,
 					userRepo,
 				); err != nil {
 					log.Printf("[АВТОПРОВЕРКА] Ошибка обработки успешного платежа %s: %v", transactionID, err)
@@ -524,6 +529,7 @@ func tryStartPaymentStatusWatcher(
 	messageID int,
 	transactionID string,
 	paymentGateway domain.PaymentGateway,
+	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 ) bool {
 	_, loaded := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
@@ -551,6 +557,7 @@ func tryStartPaymentStatusWatcher(
 					messageID,
 					transactionID,
 					paymentGateway,
+					subscriptionService,
 					userRepo,
 				); err != nil {
 					log.Printf("Ошибка обработки успешного платежа (внутри горутины): %v", err)
@@ -593,6 +600,7 @@ func handleSuccessfulPayment(
 	messageID int,
 	transactionID string,
 	paymentGateway domain.PaymentGateway,
+	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 ) error {
 	info, err := paymentGateway.GetTransactionInfo(context.Background(), transactionID)
@@ -654,6 +662,27 @@ func handleSuccessfulPayment(
 	); err != nil {
 		return fmt.Errorf("ошибка отображения сообщения об успешной оплате: %w", err)
 	}
+
+	const pricePerMonthRUB = 100
+	months := amount / pricePerMonthRUB
+	if months <= 0 {
+		return nil
+	}
+
+	go func() {
+		time.Sleep(10 * time.Second)
+
+		if err := handleSubscriptionFromBalance(
+			sender,
+			subscriptionService,
+			chatID,
+			messageID,
+			months,
+		); err != nil {
+			log.Printf("Ошибка автопродления подписки: %v", err)
+		}
+	}()
+
 	return nil
 }
 
