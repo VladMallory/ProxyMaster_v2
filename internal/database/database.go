@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq" // postgres driver
 )
 
@@ -65,7 +66,11 @@ func ensurePostgresRole(db *sqlx.DB, databaseURL string) error {
 		return nil
 	}
 
-	if _, err := db.Exec(`CREATE ROLE postgres WITH LOGIN PASSWORD $1 SUPERUSER`, password); err != nil {
+	createRoleQuery := fmt.Sprintf(
+		"CREATE ROLE postgres WITH LOGIN PASSWORD %s SUPERUSER",
+		pq.QuoteLiteral(password),
+	)
+	if _, err := db.Exec(createRoleQuery); err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			return nil
 		}
