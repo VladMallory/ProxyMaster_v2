@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"ProxyMaster_v2/internal/database"
@@ -189,41 +188,6 @@ func (s *SubscriptionService) processSubscriptionBilling(now time.Time) {
 				logger.Field{Key: "user_id", Value: userID},
 				logger.Field{Key: "err_msg", Value: convErr},
 			)
-			continue
-		}
-
-		uuid, getUUIDErr := s.remna.GetUUIDByUsername(userID)
-		if getUUIDErr != nil {
-			if errors.Is(getUUIDErr, remnawave.ErrNotFound) {
-				if renewErr := s.tryAutoRenewSubscription(telegramID, userID); renewErr != nil {
-					s.logger.Error(
-						"ошибка автопродления подписки для отсутствующего пользователя",
-						logger.Field{Key: "user_id", Value: userID},
-						logger.Field{Key: "err_msg", Value: renewErr},
-					)
-				}
-				continue
-			}
-
-			s.logger.Error(
-				"ошибка получения UUID пользователя",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "err_msg", Value: getUUIDErr},
-			)
-			continue
-		}
-
-		info, infoErr := s.remna.GetUserInfo(uuid)
-		if infoErr != nil {
-			s.logger.Error(
-				"ошибка получения информации пользователя",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "err_msg", Value: infoErr},
-			)
-			continue
-		}
-
-		if strings.EqualFold(info.Response.Status, "ACTIVE") && info.Response.ExpireAt.After(now) {
 			continue
 		}
 
