@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"context"
 	"errors"
 
 	"ProxyMaster_v2/internal/models"
@@ -46,7 +45,6 @@ var (
 
 // RemnawaveClient - то как мы хотим получать информацию
 type RemnawaveClient interface {
-	Login(ctx context.Context, username string, password string) error
 	GetUUIDByUsername(username string) (string, error)
 	CreateUser(username string, days int) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
