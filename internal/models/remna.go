@@ -14,17 +14,20 @@ type UpdateUserRequest struct {
 	// в случае если в структуре при обращении поле не было указано
 	// Например, хотим изменить только Status или TrafficLimitBytes,
 	// передаем их и больше нечего не меняется
-	Username             *string    `json:"username,omitempty"`
-	Uuid                 *string    `json:"uuid,omitempty"`
-	Status               *string    `json:"status,omitempty"`               // ACTIVE, INACTIVE и т.д.
-	TrafficLimitBytes    *uint64    `json:"trafficLimitBytes,omitempty"`    // Лимит трафика в байтах
-	TrafficLimitStrategy *string    `json:"trafficLimitStrategy,omitempty"` // NO_RESET, MONTHLY_RESET и т.д.
-	ExpireAt             *time.Time `json:"expireAt,omitempty"`             // Дата истечения срока действия
-	Description          *string    `json:"description,omitempty"`          // Описание пользователя
-	Tag                  *string    `json:"tag,omitempty"`                  // Метка или категория пользователя
-	TelegramId           *string    `json:"telegramId,omitempty"`           // ID Телеграм-аккаунта
-	Email                *string    `json:"email,omitempty"`                // Email пользователя
-	HwidDeviceLimit      *uint8     `json:"hwidDeviceLimit,omitempty"`      // Ограничение устройств по HWID
+	Username             *string      `json:"username,omitempty"`
+	Uuid                 *string      `json:"uuid,omitempty"`
+	Status               *string      `json:"status,omitempty"`               // ACTIVE, INACTIVE и т.д.
+	TrafficLimitBytes    *uint64      `json:"trafficLimitBytes,omitempty"`    // Лимит трафика в байтах
+	TrafficLimitStrategy *string      `json:"trafficLimitStrategy,omitempty"` // NO_RESET, MONTHLY_RESET и т.д.
+	ExpireAt             *time.Time   `json:"expireAt,omitempty"`             // Дата истечения срока действия
+	LastTrafficResetAt   *time.Time   `json:"lastTrafficResetAt,omitempty"`   // Дата последнего сброса трафика
+	UsedTrafficBytes     *uint64      `json:"usedTrafficBytes,omitempty"`     // Использованный трафик в байтах
+	UserTraffic          *UserTraffic `json:"userTraffic,omitempty"`          // Информация о трафике пользователя
+	Description          *string      `json:"description,omitempty"`          // Описание пользователя
+	Tag                  *string      `json:"tag,omitempty"`                  // Метка или категория пользователя
+	TelegramId           *string      `json:"telegramId,omitempty"`           // ID Телеграм-аккаунта
+	Email                *string      `json:"email,omitempty"`                // Email пользователя
+	HwidDeviceLimit      *uint8       `json:"hwidDeviceLimit,omitempty"`      // Ограничение устройств по HWID
 	// В случае с slice нас перестраховывает omitempty но если бы
 	// его не было, запрос бы содержал пустой slice []string{} и стер бы Squads
 	//
@@ -65,7 +68,7 @@ type user struct {
 	ID          int         `json:"id"`
 	Username    string      `json:"username"`
 	Status      string      `json:"status"`
-	UserTraffic userTraffic `json:"userTraffic"`
+	UserTraffic UserTraffic `json:"UserTraffic"`
 	// Можно добавить остальные поля по необходимости
 }
 
@@ -122,7 +125,7 @@ type ActiveInternalSquad struct {
 }
 
 // UserTraffic Информация о трафике пользователя
-type userTraffic struct {
+type UserTraffic struct {
 	UsedTrafficBytes         uint64    `json:"usedTrafficBytes"`
 	LifetimeUsedTrafficBytes uint64    `json:"lifetimeUsedTrafficBytes"`
 	OnlineAt                 time.Time `json:"onlineAt"`
@@ -159,7 +162,7 @@ type GetUUIDByUsernameResponse struct {
 		UpdatedAt              time.Time             `json:"updatedAt"`
 		SubscriptionURL        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
-		UserTraffic            userTraffic           `json:"userTraffic"`
+		UserTraffic            UserTraffic           `json:"UserTraffic"`
 	} `json:"response"`
 }
 
@@ -192,7 +195,7 @@ type GetUserInfoResponse struct {
 		UpdatedAt              time.Time             `json:"updatedAt"`
 		SubscriptionURL        string                `json:"subscriptionUrl"`
 		ActiveInternalSquads   []ActiveInternalSquad `json:"activeInternalSquads"`
-		UserTraffic            userTraffic           `json:"userTraffic"`
+		UserTraffic            UserTraffic           `json:"UserTraffic"`
 	} `json:"response"`
 }
 
@@ -244,6 +247,6 @@ type EncryptURLResponse struct {
  		OnlineAt                 interface{} `json:"onlineAt"`
  		FirstConnectedAt         interface{} `json:"firstConnectedAt"`
  		LastConnectedNodeUUID    interface{} `json:"lastConnectedNodeUuid"`
- 	} `json:"userTraffic"`
+ 	} `json:"UserTraffic"`
  }
 */

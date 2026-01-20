@@ -314,7 +314,7 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 }
 
 func (c *Client) handleTrafficLimitsView() (string, tgbotapi.InlineKeyboardMarkup) {
-	text := "На сколько GB нужно увеличить лимит трафика?"
+	text := "Сбросить использованный трафик (обнулить намотанные гигабайты)?\n\nСтоимость: 50₽"
 
 	return text, c.trafficLimitsKeyboard()
 }
