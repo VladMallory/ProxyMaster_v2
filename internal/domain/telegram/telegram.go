@@ -130,6 +130,7 @@ func ProcessCallback(sender MessageSender,
 			paymentGateway,
 			subscriptionService,
 			userRepo,
+			remnawaveClient,
 		)
 
 		return nil
@@ -162,6 +163,7 @@ func ProcessCallback(sender MessageSender,
 				paymentGateway,
 				subscriptionService,
 				userRepo,
+				remnawaveClient,
 			)
 		case domain.PaymentStatusPending:
 			started := tryStartPaymentStatusWatcher(
@@ -172,6 +174,7 @@ func ProcessCallback(sender MessageSender,
 				paymentGateway,
 				subscriptionService,
 				userRepo,
+				remnawaveClient,
 			)
 			if started {
 				if err := sender.SendMessage(
@@ -225,8 +228,7 @@ func ProcessCallback(sender MessageSender,
 	case "btn_unlimits":
 		return showView(domain.ViewTypeDeviceLimits, "", "ошибка отображения лимитов устройств")
 	case "btn_traffic_limits":
-		// Вызываем меню лимитов трафика
-		return sender.ShowView(chatID, messageID, domain.ViewTypeTrafficLimits, "")
+		return showView(domain.ViewTypeTrafficLimits, "", "ошибка отображения лимитов трафика")
 	case "btn_add_50gb":
 		userID := strconv.Itoa(int(chatID))
 		if err := remnawaveClient.AddTraffic(userID, 50); err != nil {
@@ -259,7 +261,7 @@ func ProcessCallback(sender MessageSender,
 
 	case "btn_reset_traffic":
 		userID := strconv.Itoa(int(chatID))
-		if err := remnawaveClient.SetTraffic(userID, 200); err != nil {
+		if err := remnawaveClient.ResetTraffic(userID); err != nil {
 			//заменить логгер
 			log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
 			return sender.SendMessage(chatID, "Не удалось сбросить трафик")
@@ -405,6 +407,7 @@ func ProcessCallback(sender MessageSender,
 			paymentGateway,
 			subscriptionService,
 			userRepo,
+			remnawaveClient,
 		)
 
 		return nil
@@ -472,6 +475,66 @@ func ProcessCallback(sender MessageSender,
 			paymentGateway,
 			subscriptionService,
 			userRepo,
+			remnawaveClient,
+		)
+
+		return nil
+
+	case "btn_reset_traffic_payment":
+		userID := strconv.FormatInt(chatID, 10)
+		_, err := remnawaveClient.GetUUIDByUsername(userID)
+		if err != nil {
+			log.Printf("Ошибка получения UUID пользователя %s: %v", userID, err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение об ошибке получения пользователя: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		const resetTrafficPriceRUB = 50
+		orderID := fmt.Sprintf("tg_reset_traffic_%d_%d", chatID, time.Now().UnixNano())
+		url, id, err := paymentGateway.CreateTransaction(
+			context.Background(),
+			float64(resetTrafficPriceRUB),
+			orderID,
+		)
+		if err != nil {
+			log.Printf("Ошибка создания транзакции на сброс трафика: %v", err)
+			if sendErr := sender.SendMessage(chatID, "Ошибка создания транзакции"); sendErr != nil {
+				return fmt.Errorf(
+					"не удалось отправить сообщение об ошибке создания транзакции: %w",
+					sendErr,
+				)
+			}
+			return nil
+		}
+
+		paymentPurposeByTransaction.Store(id, paymentPurposeData{
+			purpose: paymentPurposeResetTraffic,
+			amount:  resetTrafficPriceRUB,
+		})
+
+		if err := sender.ShowView(
+			chatID,
+			messageID,
+			domain.ViewTypeCheckPayment,
+			url+"|"+id,
+		); err != nil {
+			return fmt.Errorf("ошибка отображения ссылки на оплату сброса трафика: %w", err)
+		}
+
+		startAutoPaymentCheck(
+			sender,
+			chatID,
+			messageID,
+			id,
+			paymentGateway,
+			subscriptionService,
+			userRepo,
+			remnawaveClient,
 		)
 
 		return nil
@@ -563,6 +626,7 @@ type paymentPurpose string
 const (
 	paymentPurposeAddDevice     paymentPurpose = "add_device"
 	paymentPurposePrepayDevices paymentPurpose = "prepay_devices"
+	paymentPurposeResetTraffic  paymentPurpose = "reset_traffic"
 )
 
 type paymentPurposeData struct {
@@ -584,6 +648,7 @@ func startAutoPaymentCheck(
 	paymentGateway domain.PaymentGateway,
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
+	remnawaveClient domain.RemnawaveClient,
 ) {
 	// Проверяем, не запущена ли уже проверка для этой транзакции
 	_, alreadyRunning := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
@@ -629,6 +694,7 @@ func startAutoPaymentCheck(
 					paymentGateway,
 					subscriptionService,
 					userRepo,
+					remnawaveClient,
 				); err != nil {
 					log.Printf("[АВТОПРОВЕРКА] Ошибка обработки успешного платежа %s: %v", transactionID, err)
 				} else {
@@ -659,6 +725,7 @@ func tryStartPaymentStatusWatcher(
 	paymentGateway domain.PaymentGateway,
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
+	remnawaveClient domain.RemnawaveClient,
 ) bool {
 	_, loaded := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
 	if loaded {
@@ -687,6 +754,7 @@ func tryStartPaymentStatusWatcher(
 					paymentGateway,
 					subscriptionService,
 					userRepo,
+					remnawaveClient,
 				); err != nil {
 					log.Printf("Ошибка обработки успешного платежа (внутри горутины): %v", err)
 				}
@@ -730,6 +798,7 @@ func handleSuccessfulPayment(
 	paymentGateway domain.PaymentGateway,
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
+	remnawaveClient domain.RemnawaveClient,
 ) error {
 	info, err := paymentGateway.GetTransactionInfo(context.Background(), transactionID)
 	if err != nil {
@@ -767,6 +836,15 @@ func handleSuccessfulPayment(
 					messageID,
 					amount,
 					subscriptionService,
+					userRepo,
+				)
+			case paymentPurposeResetTraffic:
+				return handleSuccessfulResetTrafficPayment(
+					sender,
+					chatID,
+					messageID,
+					amount,
+					remnawaveClient,
 					userRepo,
 				)
 			}
@@ -981,6 +1059,40 @@ func handleSuccessfulPrepayDevicesPayment(
 		successMsg,
 	); err != nil {
 		return fmt.Errorf("ошибка отображения сообщения о продлении устройств: %w", err)
+	}
+
+	return nil
+}
+
+func handleSuccessfulResetTrafficPayment(
+	sender MessageSender,
+	chatID int64,
+	messageID int,
+	amount int,
+	remnawaveClient domain.RemnawaveClient,
+	userRepo *database.UserStorage,
+) error {
+	userID := strconv.FormatInt(chatID, 10)
+
+	if err := remnawaveClient.ResetTraffic(userID); err != nil {
+		log.Printf("Ошибка сброса трафика у пользователя %s: %v", userID, err)
+		if sendErr := sender.SendMessage(chatID, "Не удалось сбросить трафик"); sendErr != nil {
+			return fmt.Errorf(
+				"не удалось отправить сообщение об ошибке сброса трафика: %w",
+				sendErr,
+			)
+		}
+		return nil
+	}
+
+	successMsg := "✅ Трафик успешно сброшен."
+	if err := sender.ShowView(
+		chatID,
+		messageID,
+		domain.ViewTypeSubscriptionResult,
+		successMsg,
+	); err != nil {
+		return fmt.Errorf("ошибка отображения сообщения об успешном сбросе трафика: %w", err)
 	}
 
 	return nil

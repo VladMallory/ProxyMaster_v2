@@ -20,6 +20,7 @@ type Config struct {
 	RemnaPass           string // пароль
 	RemnaKey            string // Ключ для разработчика.
 	RemnaSquadUUID      string // ID squad.
+	RemnaDefaultGb      string
 
 	// telegram
 	TelegramToken   string
@@ -59,6 +60,7 @@ func New() (*Config, error) {
 		RemnaPass:           os.Getenv("REMNA_PASS"),
 		RemnaKey:            os.Getenv("REMNA_TOKEN"),
 		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
+		RemnaDefaultGb:      os.Getenv("REMNA_DEFOULT_GB"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
 		DatabaseURL:         databaseURL,
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),

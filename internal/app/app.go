@@ -11,8 +11,10 @@ import (
 	"ProxyMaster_v2/internal/payments/youkassa"
 	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
+	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 )
 
 // Application главный интерфейс приложения
@@ -85,6 +87,8 @@ func New() (Application, error) {
 	handler := restapi.NewHandler(remnawaveClient)
 	restAPI := restapi.New(handler, restAPILogger)
 
+	go chechTest(remnawaveClient)
+
 	return &app{
 		remnawaveClient:     remnawaveClient,
 		paymentGateway:      youkassaClient,
@@ -93,6 +97,22 @@ func New() (Application, error) {
 		userRepo:            userRepo,
 		restAPI:             restAPI,
 	}, nil
+}
+
+func chechTest(remnawaveClient domain.RemnawaveClient) {
+	time.Sleep(time.Second * 15)
+	fmt.Println("___________________")
+	err := remnawaveClient.ResetTraffic("873925520")
+	fmt.Printf("ResetTraffic error: %v\n", err)
+
+	userInfo, err := remnawaveClient.GetUserInfo("6957ed3b-04be-44e1-8d2d-fe278e40a04e")
+	if err != nil {
+		fmt.Printf("GetUserInfo error: %v\n", err)
+	} else {
+		data, _ := json.MarshalIndent(userInfo, "", "  ")
+		fmt.Printf("GetUserInfo result:\n%s\n", string(data))
+	}
+
 }
 
 // Run запуск приложения

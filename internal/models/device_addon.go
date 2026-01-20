@@ -20,4 +20,3 @@ type DeviceAddon struct {
 	// CreatedAt дата создания записи.
 	CreatedAt time.Time `db:"created_at"`
 }
-

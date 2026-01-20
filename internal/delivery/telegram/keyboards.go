@@ -150,16 +150,10 @@ func (c *Client) deviceLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
 func (c *Client) trafficLimitsKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Добавить 50 гигабайт (+...₽/мес)", "btn_add_50gb"),
+			tgbotapi.NewInlineKeyboardButtonData("✅ Да, сбросить трафик за 50₽", "btn_reset_traffic_payment"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Добавить 100 гигабайт (+...₽/мес)", "btn_add_100gb"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Сбросить доп. трафик", "btn_reset_traffic"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_unlimits"),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Нет, вернуться назад", "btn_unlimits"),
 		),
 	)
 }
