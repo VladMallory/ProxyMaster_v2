@@ -111,3 +111,13 @@ func ensureSchema(db *sqlx.DB) error {
 
 	return nil
 }
+
+// func Connect(databaseURL string) (*sqlx.DB, error) {
+// 	db, err := sqlx.Connect("postgres", databaseURL)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	db.SetMaxOpenConns(15)
+// 	db.SetMaxIdleConns(5)
+// 	return db, nil
+// }
