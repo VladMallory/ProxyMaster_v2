@@ -10,12 +10,12 @@ services:
       POSTGRES_PASSWORD: userspass
       TZ: Asia/Vladivostok
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d usersdb" ]
+      test: ['CMD-SHELL', 'pg_isready -U user -d usersdb']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +26,7 @@ services:
     environment:
       - TZ=Asia/Vladivostok
     ports:
-      - "3100:3100"
+      - '3100:3100'
     command: -config.file=/etc/loki/local-config.yaml -log.level=error
     volumes:
       - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
@@ -51,7 +51,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "13000:3000"
+      - '13000:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
