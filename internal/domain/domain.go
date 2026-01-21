@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"errors"
 
 	"ProxyMaster_v2/internal/models"
@@ -54,7 +55,7 @@ type RemnawaveClient interface {
 	SetDevices(username string, devices *uint8) error
 	SetTraffic(username string, gb uint64) error
 	AddTraffic(username string, gb uint64) error
-	ResetTraffic(username string) error
+	BetterResetTraffic(ctx context.Context, username string) error
 }
 
 type UserRepository interface {
