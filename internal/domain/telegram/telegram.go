@@ -261,7 +261,7 @@ func ProcessCallback(sender MessageSender,
 
 	case "btn_reset_traffic":
 		userID := strconv.Itoa(int(chatID))
-		if err := remnawaveClient.ResetTraffic(userID); err != nil {
+		if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
 			//заменить логгер
 			log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
 			return sender.SendMessage(chatID, "Не удалось сбросить трафик")
@@ -1074,7 +1074,7 @@ func handleSuccessfulResetTrafficPayment(
 ) error {
 	userID := strconv.FormatInt(chatID, 10)
 
-	if err := remnawaveClient.ResetTraffic(userID); err != nil {
+	if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
 		log.Printf("Ошибка сброса трафика у пользователя %s: %v", userID, err)
 		if sendErr := sender.SendMessage(chatID, "Не удалось сбросить трафик"); sendErr != nil {
 			return fmt.Errorf(

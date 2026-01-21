@@ -11,6 +11,7 @@ import (
 	"ProxyMaster_v2/internal/payments/youkassa"
 	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -102,7 +103,8 @@ func New() (Application, error) {
 func chechTest(remnawaveClient domain.RemnawaveClient) {
 	time.Sleep(time.Second * 15)
 	fmt.Println("___________________")
-	err := remnawaveClient.ResetTraffic("873925520")
+
+	err := remnawaveClient.BetterResetTraffic(context.Background(), "873925520")
 	fmt.Printf("ResetTraffic error: %v\n", err)
 
 	userInfo, err := remnawaveClient.GetUserInfo("6957ed3b-04be-44e1-8d2d-fe278e40a04e")
@@ -112,7 +114,6 @@ func chechTest(remnawaveClient domain.RemnawaveClient) {
 		data, _ := json.MarshalIndent(userInfo, "", "  ")
 		fmt.Printf("GetUserInfo result:\n%s\n", string(data))
 	}
-
 }
 
 // Run запуск приложения

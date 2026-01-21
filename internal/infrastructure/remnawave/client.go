@@ -375,10 +375,14 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 		)
 	}
 
-	url := fmt.Sprintf("%s/api/users/%s/actions/reset-traffic?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf(
+		"%s/api/users/%s/actions/reset-traffic?%s",
+		c.cfg.RemnaPanelURL,
+		uuid,
+		c.cfg.RemnaSecretURLToken,
+	)
 
 	request, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
-
 	if err != nil {
 		return ErrFailedToMakeRequest
 	}
@@ -387,7 +391,6 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
 	response, err := c.httpClient.Do(request)
-
 	if err != nil {
 		return ErrFailedToDoRequest
 	}
@@ -450,188 +453,6 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 		)
 
 		return ErrUndefined
-	}
-}
-
-func (c *RemnaClient) ResetTraffic(username string) error {
-	defer c.logDuration("ResetTraffic")()
-
-	c.logger.Info(
-		"starting traffic reset",
-		logger.Field{Key: "username", Value: username},
-	)
-
-	// Сначала попробуем использовать action reset-traffic через UUID
-	uuid, err := c.GetUUIDByUsername(username)
-	if err != nil {
-		c.logger.Error(
-			"failed to get UUID for username",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-		return fmt.Errorf("failed to get UUID: %w", err)
-	}
-
-	c.logger.Info(
-		"got UUID for user",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "uuid", Value: uuid},
-	)
-
-	// Пробуем различные actions для сброса трафика
-	possibleActions := []string{
-		"reset-traffic",
-		"reset-traffic-counter",
-		"clear-traffic",
-		"reset-usage",
-		"reset-traffic-usage",
-	}
-
-	c.logger.Info(
-		"trying actions for traffic reset",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "actions", Value: strings.Join(possibleActions, ", ")},
-	)
-
-	for _, action := range possibleActions {
-		c.logger.Info(
-			"trying action",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "username", Value: username},
-		)
-		actionErr := c.changeUserState(uuid, action)
-		if actionErr == nil {
-			c.logger.Info(
-				"traffic reset via action successfully",
-				logger.Field{Key: "username", Value: username},
-				logger.Field{Key: "uuid", Value: uuid},
-				logger.Field{Key: "action", Value: action},
-			)
-			return nil
-		}
-		c.logger.Warn(
-			"action failed",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "err_msg", Value: actionErr},
-			logger.Field{Key: "username", Value: username},
-		)
-	}
-
-	// Если ни один action не сработал, пробуем старый метод PATCH
-	c.logger.Info(
-		"all traffic reset actions failed, trying PATCH method",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "uuid", Value: uuid},
-	)
-
-	now := time.Now().UTC()
-	zeroTraffic := uint64(0)
-
-	// Пробуем два варианта: через userTraffic объект и через корневое поле
-	userData := map[string]interface{}{
-		"username":           username,
-		"usedTrafficBytes":   zeroTraffic,
-		"lastTrafficResetAt": now,
-		"userTraffic": map[string]interface{}{
-			"usedTrafficBytes":         zeroTraffic,
-			"lifetimeUsedTrafficBytes": zeroTraffic,
-		},
-	}
-
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
-
-	jsonData, err := json.Marshal(userData)
-	if err != nil {
-		c.logger.Error(
-			"failed to marshal request",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
-	}
-
-	c.logger.Info(
-		"sending reset traffic request",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "request_body", Value: string(jsonData)},
-	)
-
-	request, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodPatch,
-		url,
-		bytes.NewBuffer(jsonData),
-	)
-	if err != nil {
-		c.logger.Error(
-			"failed to make request",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
-	}
-
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.logger.Error(
-			"failed to get response",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
-	}
-
-	defer func() {
-		if response != nil {
-			if err := response.Body.Close(); err != nil {
-				c.logger.Error(
-					"failed to close response body",
-					logger.Field{Key: "err_msg", Value: err},
-				)
-			}
-		}
-	}()
-
-	// Читаем тело ответа для логирования
-	var responseBody []byte
-	if response.Body != nil {
-		responseBody, _ = io.ReadAll(response.Body)
-	}
-
-	switch response.StatusCode {
-	case http.StatusOK, http.StatusNoContent:
-		c.logger.Info(
-			"traffic reset via PATCH successfully",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-		)
-
-		if len(responseBody) > 0 {
-			c.logger.Debug(
-				"response body",
-				logger.Field{Key: "response_body", Value: string(responseBody)},
-			)
-		}
-
-		return nil
-
-	case http.StatusNotFound:
-		return ErrNotFound
-	case http.StatusInternalServerError:
-		return ErrInternalServerError
-	case http.StatusBadRequest:
-		c.logger.Error(
-			"bad request while resetting traffic",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: string(responseBody)},
-		)
-
-		return fmt.Errorf("%w: %s", ErrBadRequest, string(responseBody))
-	default:
-		return fmt.Errorf("%w %d: %s", ErrUndefined, response.StatusCode, string(responseBody))
 	}
 }
 
