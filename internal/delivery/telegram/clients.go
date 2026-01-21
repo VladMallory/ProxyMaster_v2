@@ -106,7 +106,8 @@ func (c *Client) Start(
 				update.Message.Text,
 				firstName,
 				remnawaveClient,
-				userRepo)
+				userRepo,
+				c.logger)
 			if err != nil {
 				c.logger.Error("Ошибка обработки команды", logger.Field{Key: "error", Value: err})
 			}
