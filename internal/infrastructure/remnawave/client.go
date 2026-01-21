@@ -349,6 +349,110 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	}
 }
 
+func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) error {
+	defer c.logDuration("BetterResetTraffic")()
+
+	uuid, err := c.GetUUIDByUsername(username)
+
+	switch err {
+	case nil:
+		c.logger.Info(
+			"uuid получен успешно",
+		)
+	case ErrNotFound:
+		c.logger.Error(
+			"User not found",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return ErrNotFound
+	case ErrInternalServerError:
+		c.logger.Error(
+			"Internal server error",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+	}
+
+	url := fmt.Sprintf("%s/api/users/%s/actions/reset-traffic?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
+
+	request, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
+
+	if err != nil {
+		return ErrFailedToMakeRequest
+	}
+
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+
+	response, err := c.httpClient.Do(request)
+
+	if err != nil {
+		return ErrFailedToDoRequest
+	}
+
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			c.logger.Error(
+				"Failed to close response body",
+				logger.Field{Key: "username", Value: username},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+		}
+	}()
+
+	switch response.StatusCode {
+	case http.StatusOK:
+		c.logger.Info(
+			"Traffic reset successfully",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "status code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: response.Body},
+		)
+
+		return nil
+	case http.StatusNotFound:
+		c.logger.Error(
+			"User not found",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "status code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: response.Body},
+		)
+
+		return ErrNotFound
+
+	case http.StatusBadRequest:
+		c.logger.Error(
+			"Bad request",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "status code", Value: response.StatusCode},
+		)
+
+		return ErrBadRequest
+
+	case http.StatusInternalServerError:
+		c.logger.Error(
+			"Internal server error",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "status code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: response.Body},
+		)
+
+		return ErrInternalServerError
+
+	default:
+		c.logger.Error(
+			"Unexpected status code",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "status code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: response.Body},
+		)
+
+		return ErrUndefined
+	}
+}
+
 func (c *RemnaClient) ResetTraffic(username string) error {
 	defer c.logDuration("ResetTraffic")()
 
