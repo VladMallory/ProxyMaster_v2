@@ -47,6 +47,99 @@ func NewRemnaClient(cfg *config.Config, l logger.Logger) *RemnaClient {
 	}
 }
 
+func (c *RemnaClient) AddInternalSquad(ctx context.Context, username string, squadTitles []string) error {
+	c.logDuration("AddInternalSquad")()
+	url := fmt.Sprintf("%s/api/users/?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+
+	data := &models.UpdateUserRequest{
+		Username:             &username,
+		ActiveInternalSquads: squadTitles,
+	}
+
+	jsonData, err := json.Marshal(data)
+
+	if err != nil {
+		c.logger.Error(
+			"failed to marshal json",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return ErrFailedToMarshal
+	}
+
+	request, err := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(jsonData))
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+
+	if err != nil {
+		c.logger.Error(
+			"failed to make request",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return ErrFailedToMakeRequest
+	}
+
+	response, err := c.httpClient.Do(request)
+
+	if err != nil {
+		c.logger.Error(
+			"failed to do request",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return ErrFailedToDoRequest
+	}
+
+	body, err := io.ReadAll(response.Body)
+
+	if err != nil {
+		c.logger.Error("failed to read body")
+
+		return ErrFailedToMakeResponse
+	}
+
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			c.logger.Error(
+				"failed to close the body",
+				logger.Field{Key: "err_msg", Value: err},
+			)
+		}
+	}()
+
+	switch response.StatusCode {
+	case http.StatusOK:
+		c.logger.Info(
+			"added internal squad successfully",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "squads added", Value: squadTitles},
+		)
+
+		return nil
+
+	case http.StatusBadRequest:
+		c.logger.Error(
+			"failed to add internal squad",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "response_body", Value: string(body)},
+		)
+
+		return ErrBadRequest
+
+	case http.StatusInternalServerError:
+		c.logger.Error(
+			"failed to add internal squad",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "response_body", Value: string(body)},
+		)
+
+		return ErrInternalServerError
+	}
+
+	return ErrUndefined
+}
+
 // EncryptURL метод, который шифрует URL
 func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	defer c.logDuration("EncryptURL")()
