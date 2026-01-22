@@ -10,6 +10,7 @@ import (
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/models"
 	"ProxyMaster_v2/internal/service"
+	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"errors"
 	"fmt"
@@ -1144,82 +1145,21 @@ func ProcessCommand(
 	firstName string,
 	remnawaveClient domain.RemnawaveClient,
 	userRepo *database.UserStorage,
+	logger logger.Logger,
 ) error {
-	// ID администратора, который может делать рассылку.
-	// В целях безопасности ID администратора жестко задан в коде.
-	const adminID = 873925520 // Замените на реальный ID администратора
 
-	// Обработка команды для рассылки сообщений.
-	// Команда должна начинаться с /distribution.
-	if strings.HasPrefix(command, "/distribution") {
-		// Проверяем, является ли отправитель администратором.
-		// Это самая простая проверка прав. В реальном проекте
-		// стоит использовать более надежную систему ролей.
-		if chatID != adminID {
-			if err := sender.SendMessage(chatID, "У вас нет прав для этой команды."); err != nil {
-				return fmt.Errorf("ошибка отправки сообщения о нехватке прав: %w", err)
-			}
-			return nil
-		}
+	//проверка на админа
+	isAdmin, err := isAdmin(sender, chatID, command, firstName, remnawaveClient, userRepo, logger)
 
-		// Извлекаем текст сообщения для рассылки.
-		// TrimSpace используется для удаления лишних пробелов.
-		message := strings.TrimSpace(strings.TrimPrefix(command, "/distribution"))
-		if message == "" {
-			if err := sender.SendMessage(
-				chatID,
-				"Пожалуйста, введите сообщение для рассылки.",
-			); err != nil {
-				return fmt.Errorf("ошибка отправки сообщения с просьбой ввести текст: %w", err)
-			}
-			return nil
-		}
-
-		// Получаем ID всех активных пользователей из базы данных.
-		userIDs, err := userRepo.GetActiveUserIDs()
-		if err != nil {
-			log.Printf("Ошибка получения ID пользователей для рассылки: %v", err)
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Не удалось получить список пользователей для рассылки.",
-			); sendErr != nil {
-				return fmt.Errorf(
-					"ошибка отправки сообщения о неудаче получения списка пользователей: %w",
-					sendErr,
-				)
-			}
-			return nil
-		}
-
-		// Запускаем рассылку в отдельной горутине, чтобы не блокировать основной поток.
-		// Это важно для асинхронной обработки и позволяет боту оставаться отзывчивым.
-		go func() {
-			for _, userIDStr := range userIDs {
-				userID, err := strconv.ParseInt(userIDStr, 10, 64)
-				if err != nil {
-					log.Printf("Ошибка конвертации ID пользователя %s: %v", userIDStr, err)
-					continue
-				}
-				// Отправляем сообщение каждому пользователю.
-				if err := sender.SendMessage(userID, message); err != nil {
-					log.Printf("Ошибка отправки сообщения пользователю %d: %v", userID, err)
-				}
-				// Добавляем небольшую задержку между отправками, чтобы не превысить
-				// лимиты Telegram API и избежать блокировки бота.
-				time.Sleep(100 * time.Millisecond)
-			}
-		}()
-
-		// Сообщаем администратору, что рассылка успешно запущена.
-		if err := sender.SendMessage(
-			chatID,
-			fmt.Sprintf("✅ Рассылка запущена для %d пользователей.", len(userIDs)),
-		); err != nil {
-			return fmt.Errorf("ошибка отправки подтверждения о запуске рассылки: %w", err)
-		}
-
+	if err != nil {
+		logger.Error("Ошибка проверка на администратора")
 		return nil
 	}
+	//если админская команда, пропускаем дальнейшую обработку
+	if isAdmin {
+		return nil
+	}
+
 	switch command {
 	case "/start":
 		userID := strconv.FormatInt(chatID, 10)
