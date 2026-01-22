@@ -3,6 +3,7 @@
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS device_addons;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS squads;
 
 CREATE TABLE users (
     id VARCHAR(20) PRIMARY KEY, -- ID телеграмма 8-10 символов, но берем про запас
@@ -47,6 +48,21 @@ CREATE TABLE transactions (
         REFERENCES users(id)
 
         --при удалении пользователя удалить все его транзакции
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE squads (
+    title VARCHAR(100) NOT NULL,
+    user_id VARCHAR(20) NOT  NULL,
+    uuid VARCHAR(36) NOT NULL,
+    expires_at TIMESTAMP,
+
+    CONSTRAINT fk_squads_user
+
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
