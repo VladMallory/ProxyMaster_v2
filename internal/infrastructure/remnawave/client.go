@@ -140,7 +140,7 @@ func (c *RemnaClient) AddInternalSquad(ctx context.Context, username string, squ
 	return ErrUndefined
 }
 
-// EncryptURL метод, который шифрует URL
+// EncryptURL метод, который шифрует URL.
 func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	defer c.logDuration("EncryptURL")()
 
@@ -341,7 +341,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	return userData.Response.UUID, nil
 }
 
-// SetDevices устанавилвает кол-во устройств пользователя
+// SetDevices устанавилвает кол-во устройств пользователя.
 func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	if devices == nil {
 		return ErrDevicesNotSet
@@ -549,7 +549,7 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 	}
 }
 
-// SetTraffic устанавливает новое значение трафика
+// SetTraffic устанавливает новое значение трафика.
 func (c *RemnaClient) SetTraffic(username string, gb uint64) error {
 	defer c.logDuration("SetTraffic")()
 
@@ -847,7 +847,7 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	return nil
 }
 
-// AddTraffic добавляет траффик к текущему
+// AddTraffic добавляет траффик к текущему.
 func (c *RemnaClient) AddTraffic(username string, gb uint64) error {
 	defer c.logDuration("AddTraffic")()
 
@@ -949,7 +949,7 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 	return userInfo, nil
 }
 
-// GetUserStatus возвращает статус пользователя по его UUID
+// GetUserStatus возвращает статус пользователя по его UUID.
 func (c *RemnaClient) GetUserStatus(uuid string) (string, error) {
 	defer c.logDuration("GetUserStatus")()
 
@@ -988,6 +988,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
 	}
 
@@ -1000,6 +1001,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
 	}
 
@@ -1026,6 +1028,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "userUUID", Value: userUUID},
 		)
+
 		return nil
 	case http.StatusNotFound:
 		c.logger.Warn(
@@ -1033,6 +1036,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "userUUID", Value: userUUID},
 		)
+
 		return ErrNotFound
 	case http.StatusInternalServerError:
 		c.logger.Error(
@@ -1040,6 +1044,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "userUUID", Value: userUUID},
 		)
+
 		return ErrInternalServerError
 	case http.StatusBadRequest:
 		c.logger.Warn(
@@ -1048,6 +1053,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "userUUID", Value: userUUID},
 			logger.Field{Key: "response_body", Value: string(body)},
 		)
+
 		return ErrBadRequestUUID
 	default:
 		c.logger.Warn(
@@ -1057,6 +1063,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(body)},
 		)
+
 		return fmt.Errorf("unexpected status code %d for action %s", resp.StatusCode, action)
 	}
 }
