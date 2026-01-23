@@ -1118,8 +1118,8 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		logger.Field{Key: "uuid", Value: uuid},
 	)
 
-	// Формируем URL для удаления пользователя
-	url := c.cfg.RemnaPanelURL + "/api/users/" + uuid
+	// Формируем URL для удаления пользователя (не забываем добавить секретный токен)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
 
 	// Создаём HTTP-запрос
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, url, nil)
@@ -1151,6 +1151,9 @@ func (c *RemnaClient) DeleteUser(username string) error {
 	}
 	defer resp.Body.Close()
 
+	// Читаем тело ответа для более подробного логирования ошибок
+	respBody, _ := io.ReadAll(resp.Body)
+
 	// Обрабатываем ответ
 	switch resp.StatusCode {
 	case http.StatusNoContent, http.StatusOK:
@@ -1168,6 +1171,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "uuid", Value: uuid},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
 		return fmt.Errorf("user not found: %s", username)
 
@@ -1177,6 +1181,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "uuid", Value: uuid},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
 		return fmt.Errorf("authorization error - check authentication token")
 
@@ -1186,6 +1191,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "uuid", Value: uuid},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
