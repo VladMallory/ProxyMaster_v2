@@ -1089,3 +1089,117 @@ func (c *RemnaClient) logDuration(method string) func() {
 		)
 	}
 }
+
+func (c *RemnaClient) DeleteUser(username string) error {
+	defer c.logDuration("DeleteUser")()
+
+	if username == "" {
+		err := fmt.Errorf("username cannot be empty")
+		c.logger.Error(
+			"invalid input for delete user",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return err
+	}
+
+	c.logger.Info(
+		"starting user deletion",
+		logger.Field{Key: "username", Value: username},
+	)
+
+	// Получаем UUID пользователя по username
+	uuid, err := c.GetUUIDByUsername(username)
+	if err != nil {
+		c.logger.Error(
+			"failed to get UUID for user deletion",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return fmt.Errorf("failed to get UUID: %w", err)
+	}
+
+	c.logger.Debug(
+		"UUID obtained for deletion",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "uuid", Value: uuid},
+	)
+
+	// Формируем URL для удаления пользователя (не забываем добавить секретный токен)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
+
+	// Создаём HTTP-запрос
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, url, nil)
+	if err != nil {
+		c.logger.Error(
+			"failed to create delete request",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "url", Value: url},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Добавляем необходимые заголовки
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+
+	// Выполняем запрос
+	resp, err := c.httpClient.Do(request)
+	if err != nil {
+		c.logger.Error(
+			"failed to execute delete request",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Читаем тело ответа для более подробного логирования ошибок
+	respBody, _ := io.ReadAll(resp.Body)
+
+	// Обрабатываем ответ
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		c.logger.Info(
+			"user successfully deleted",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+		)
+		return nil
+
+	case http.StatusNotFound:
+		c.logger.Warn(
+			"user not found during deletion",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response_body", Value: string(respBody)},
+		)
+		return fmt.Errorf("user not found: %s", username)
+
+	case http.StatusUnauthorized:
+		c.logger.Error(
+			"authorization failed during user deletion",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response_body", Value: string(respBody)},
+		)
+		return fmt.Errorf("authorization error - check authentication token")
+
+	default:
+		c.logger.Error(
+			"unexpected status code during user deletion",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response_body", Value: string(respBody)},
+		)
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+}
