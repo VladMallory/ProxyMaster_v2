@@ -1094,12 +1094,13 @@ func (c *RemnaClient) DeleteUser(username string) error {
 	defer c.logDuration("DeleteUser")()
 
 	if username == "" {
-		err := fmt.Errorf("username cannot be empty")
+		err := fmt.Errorf("указан пустой username для удаления пользователя")
 		c.logger.Error(
-			"invalid input for delete user",
+			"указан пустой username для удаления пользователя",
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return err
 	}
 
@@ -1109,24 +1110,25 @@ func (c *RemnaClient) DeleteUser(username string) error {
 	)
 
 	// Получаем UUID пользователя по username
-	uuid, err := c.GetUUIDByUsername(username)
+	UUID, err := c.GetUUIDByUsername(username)
 	if err != nil {
 		c.logger.Error(
 			"failed to get UUID for user deletion",
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return fmt.Errorf("failed to get UUID: %w", err)
 	}
 
 	c.logger.Debug(
 		"UUID obtained for deletion",
 		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "uuid", Value: uuid},
+		logger.Field{Key: "UUID", Value: UUID},
 	)
 
 	// Формируем URL для удаления пользователя (не забываем добавить секретный токен)
-	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, UUID, c.cfg.RemnaSecretURLToken)
 
 	// Создаём HTTP-запрос
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, url, nil)
@@ -1134,10 +1136,11 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		c.logger.Error(
 			"failed to create delete request",
 			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "url", Value: url},
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -1151,12 +1154,18 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		c.logger.Error(
 			"failed to execute delete request",
 			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			return
+		}
+	}(resp.Body)
 
 	// Читаем тело ответа для более подробного логирования ошибок
 	respBody, _ := io.ReadAll(resp.Body)
@@ -1167,7 +1176,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		c.logger.Info(
 			"user successfully deleted",
 			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 		)
 		return nil
@@ -1176,7 +1185,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		c.logger.Warn(
 			"user not found during deletion",
 			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
@@ -1186,7 +1195,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		c.logger.Error(
 			"authorization failed during user deletion",
 			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
@@ -1196,7 +1205,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 		c.logger.Error(
 			"unexpected status code during user deletion",
 			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "uuid", Value: uuid},
+			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
