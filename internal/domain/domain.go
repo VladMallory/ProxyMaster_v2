@@ -48,6 +48,7 @@ var (
 type RemnawaveClient interface {
 	GetUUIDByUsername(username string) (string, error)
 	CreateUser(username string, days int) error
+	DeleteUser(username string) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
 	EnableClient(userUUID string) error
 	DisableClient(userUUID string) error
