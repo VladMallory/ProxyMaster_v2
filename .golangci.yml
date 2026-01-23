@@ -1,22 +1,82 @@
 # Defines the configuration version.
 # The only possible value is "2".
-version: "2"
+version: '2'
 linters:
-  default: all
-  disable:
-    - gocyclo
-    - depguard
-    - exhaustruct
-    - gocognit
+  enable:
+    - misspell
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - contextcheck
+    - copyloopvar
     - cyclop
+    - decorder
+    - durationcheck
+    - errchkjson
+    - errorlint
+    - fatcontext
+    - forbidigo
     - funlen
-    - noinlineerr
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - godot
+    - goheader
+    - gomodguard
+    - goprintffuncname
+    - gosmopolitan
+    - grouper
+    - iface
+    - importas
+    - inamedparam
+    - interfacebloat
+    - intrange
+    - lll
+    - loggercheck
+    - makezero
+    - mirror
+    - musttag
+    - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
+    - paralleltest
+    - perfsprint
+    - wsl
+  disable:
+    - errcheck
+    - containedctx
+    - depguard
+    - dogsled
+    - dupl
+    - dupword
+    - err113
+    - errname
+    - exhaustive
+    - exhaustruct
+    - forcetypeassert
+    - gochecknoglobals
+    - gochecknoinits
+    - godox
+    - gocognit
+    - gocyclo
     - goconst
-    - godot
-    - godot
-    - varnamelen
+    - gosec
+    - ireturn
+    - maintidx
     - mnd
+    - noctx
     - nolintlint
+    - nosprintfhostport
+    - nonamedreturns
+    - gomoddirectives
 
 formatters:
   # Enable specific formatter.
