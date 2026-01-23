@@ -12,8 +12,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -266,7 +264,11 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		http.NoBody,
 	)
 	if err != nil {
-		slog.Error(err.Error())
+		c.logger.Error(
+			"ошибка создания запроса для получения UUID по username",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "err_msg", Value: err},
+		)
 
 		return "", fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
 	}
@@ -309,17 +311,30 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 
 	switch response.StatusCode {
 	case http.StatusBadRequest:
-		c.logger.Error(fmt.Sprintf("%s\n%s", ErrBadRequestUsername.Error(), string(body)))
+		c.logger.Error(
+			"некорректный запрос при получении UUID по username",
+			logger.Field{Key: "error", Value: ErrBadRequestUsername.Error()},
+			logger.Field{Key: "response_body", Value: string(body)},
+			logger.Field{Key: "username", Value: username},
+		)
 
 		return "", ErrBadRequestUsername
 
 	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
+		c.logger.Error(
+			"внутренняя ошибка сервера при получении UUID по username",
+			logger.Field{Key: "error", Value: ErrInternalServerError.Error()},
+			logger.Field{Key: "username", Value: username},
+		)
 
 		return "", ErrInternalServerError
 
 	case http.StatusNotFound:
-		c.logger.Error(ErrNotFound.Error())
+		c.logger.Error(
+			"пользователь не найден",
+			logger.Field{Key: "error", Value: ErrNotFound.Error()},
+			logger.Field{Key: "username", Value: username},
+		)
 
 		return "", ErrNotFound
 	}
@@ -714,30 +729,46 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 	case http.StatusBadRequest:
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			slog.Warn("не удалось преобразовать тело ответа")
+			c.logger.Warn(
+				"не удалось преобразовать тело ответа",
+				logger.Field{Key: "username", Value: username},
+				logger.Field{Key: "err_msg", Value: err},
+			)
 		}
 
 		// Проверяем, является ли ошибка "User username already exists"
 		if strings.Contains(string(body), "User username already exists") {
-			slog.Info("Пользователь уже существует, пропускаем создание", "username", username)
+			c.logger.Info(
+				"Пользователь уже существует, пропускаем создание",
+				logger.Field{Key: "username", Value: username},
+			)
 
 			return nil
 		}
 
-		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestCreate.Error(), string(body)))
+		c.logger.Error(
+			"ошибка при создании пользователя",
+			logger.Field{Key: "error", Value: ErrBadRequestCreate.Error()},
+			logger.Field{Key: "response_body", Value: string(body)},
+			logger.Field{Key: "username", Value: username},
+		)
 
 		return ErrBadRequestCreate
 	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
+		c.logger.Error(
+			"внутренняя ошибка сервера при создании пользователя",
+			logger.Field{Key: "error", Value: ErrInternalServerError.Error()},
+			logger.Field{Key: "username", Value: username},
+		)
 
 		return ErrInternalServerError
 	}
 
-	slog.Info(
-		"User created",
-		"time taken", time.Since(start),
-		"status code", http.StatusCreated,
-		"username", userData.Username,
+	c.logger.Info(
+		"пользователь успешно создан",
+		logger.Field{Key: "username", Value: userData.Username},
+		logger.Field{Key: "time_taken", Value: time.Since(start)},
+		logger.Field{Key: "status_code", Value: http.StatusCreated},
 	)
 
 	return nil
@@ -795,26 +826,31 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days i
 
 	// Если соединение прошло, то все отлично.
 	if response.StatusCode == http.StatusOK {
-		log.Printf(
-			"remnawave: период подписки клиента: %s. UUID: %s увеличен на %d дней.\n",
-			username,
-			userUUID,
-			days,
+		c.logger.Info(
+			"период подписки клиента увеличен",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "userUUID", Value: userUUID},
+			logger.Field{Key: "days", Value: days},
 		)
 	} else {
 		// Если соединения нету.
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
-			log.Println("remnawave: не удалось преобразовать тело ответа")
+			c.logger.Error(
+				"не удалось преобразовать тело ответа",
+				logger.Field{Key: "username", Value: username},
+				logger.Field{Key: "userUUID", Value: userUUID},
+				logger.Field{Key: "err_msg", Value: err},
+			)
 
 			return ErrFailedToReadBody
 		}
 
-		log.Printf(
-			"remnawave: не удалось увеличить период подписки клиента: %s. UUID: %s. Тело ошибки: %s.\n",
-			username,
-			userUUID,
-			string(body),
+		c.logger.Error(
+			"не удалось увеличить период подписки клиента",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "userUUID", Value: userUUID},
+			logger.Field{Key: "response_body", Value: string(body)},
 		)
 
 		return ErrFailedToIncreaseSubscriptionPeriod
@@ -831,7 +867,10 @@ func (c *RemnaClient) EnableClient(userUUID string) error {
 		return err
 	}
 
-	slog.Info("Пользователь успешно включен")
+	c.logger.Info(
+		"пользователь успешно включен",
+		logger.Field{Key: "userUUID", Value: userUUID},
+	)
 
 	return nil
 }
@@ -842,7 +881,10 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 		return err
 	}
 
-	slog.Info("Пользователь успешно выключен")
+	c.logger.Info(
+		"пользователь успешно выключен",
+		logger.Field{Key: "userUUID", Value: userUUID},
+	)
 
 	return nil
 }
@@ -918,17 +960,29 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		slog.Error(ErrNotFound.Error())
+		c.logger.Error(
+			"пользователь не найден",
+			logger.Field{Key: "error", Value: ErrNotFound.Error()},
+			logger.Field{Key: "uuid", Value: uuid},
+		)
 
 		return models.GetUserInfoResponse{}, ErrNotFound
 
 	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
+		c.logger.Error(
+			"внутренняя ошибка сервера при получении информации о пользователе",
+			logger.Field{Key: "error", Value: ErrInternalServerError.Error()},
+			logger.Field{Key: "uuid", Value: uuid},
+		)
 
 		return models.GetUserInfoResponse{}, ErrInternalServerError
 
 	case http.StatusBadRequest:
-		slog.Error(ErrBadRequestUUID.Error())
+		c.logger.Error(
+			"некорректный запрос при получении информации о пользователе",
+			logger.Field{Key: "error", Value: ErrBadRequestUUID.Error()},
+			logger.Field{Key: "uuid", Value: uuid},
+		)
 
 		return models.GetUserInfoResponse{}, ErrBadRequestUUID
 	}
