@@ -80,6 +80,9 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
 
+	err = remnawaveClient.DeleteUser("")
+	fmt.Println(err)
+
 	// ===restAPI===
 
 	handler := restapi.NewHandler(remnawaveClient)

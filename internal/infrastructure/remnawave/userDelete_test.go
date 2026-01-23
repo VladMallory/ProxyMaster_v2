@@ -1,3 +1,4 @@
+//nolint:cyclop
 package remnawave
 
 import (
@@ -10,6 +11,7 @@ import (
 	"testing"
 )
 
+//nolint:funlen
 func TestDeleteUser(t *testing.T) {
 	// Prepare a fake UUID that GetUUIDByUsername will return
 	fakeUUID := "11111111-2222-3333-4444-555555555555"
@@ -28,8 +30,8 @@ func TestDeleteUser(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+		tcc := tc
+		t.Run(tcc.name, func(t *testing.T) {
 			// Server handles two endpoints: by-username and delete
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// логика роутинга для тестового сервера
@@ -38,11 +40,13 @@ func TestDeleteUser(t *testing.T) {
 					resp := map[string]any{"response": map[string]any{"uuid": fakeUUID, "username": "alice"}}
 					w.Header().Set("Content-Type", "application/json")
 					_ = json.NewEncoder(w).Encode(resp)
+
 					return
 				}
 
 				if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/users/") {
-					w.WriteHeader(tc.deleteHTTPCode)
+					w.WriteHeader(tcc.deleteHTTPCode)
+
 					return
 				}
 
@@ -63,13 +67,14 @@ func TestDeleteUser(t *testing.T) {
 			// Execute
 			err := client.DeleteUser("alice")
 
-			if tc.wantErr {
+			if tcc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error but got nil")
 				}
-				if tc.wantErrContains != "" {
-					if err != nil && !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tc.wantErrContains)) {
-						t.Fatalf("error message %q does not contain %q", err.Error(), tc.wantErrContains)
+
+				if tcc.wantErrContains != "" {
+					if err != nil && !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tcc.wantErrContains)) {
+						t.Fatalf("error message %q does not contain %q", err.Error(), tcc.wantErrContains)
 					}
 				}
 			} else {
