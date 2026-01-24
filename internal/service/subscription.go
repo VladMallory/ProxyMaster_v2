@@ -2,6 +2,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -18,6 +19,10 @@ const (
 	baseDevicesLimit    = 1
 	maxDevicesLimit     = 5
 	extraDevicePriceRUB = 50
+
+	yandexServerSquadUUID = "0c6b9967-d3bc-40bc-b0dd-0fcabaf597ee"
+	noBsSquadUUID         = "39a5d513-8b40-46c6-952e-b0b00a19889a"
+	bsSquadUUID           = "0a338953-a32d-485e-b18f-0748fda69c60"
 )
 
 // SubscriptionService представляет собой сервис для управления подписками клиентов с помощью remnawave.
@@ -65,6 +70,80 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 	s.logger.Error(msg, allFields...)
 
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+func (s *SubscriptionService) processSquads(now time.Time) error {
+	expiredSquads, err := s.dbRepo.GetAllExpiredSquads(now)
+
+	if err != nil {
+		s.logger.Error(
+			"failed to get expired squads and delete them from наша database",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return err
+	}
+
+	if len(expiredSquads) == 0 {
+		s.logger.Info("no expired squads")
+		return fmt.Errorf("no expired squads")
+	}
+
+	ctx := context.Background()
+	for _, squads := range expiredSquads {
+		if err := s.remna.AddInternalSquad(ctx, squads.UserID, []string{bsSquadUUID}); err != nil {
+			s.logger.Error(
+				"ошибка установки базового сквада",
+				logger.Field{Key: "username", Value: squads.UUID},
+				logger.Field{Key: "UUID title", Value: squads.Title},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+		}
+	}
+
+	return nil
+}
+
+func (s *SubscriptionService) AddInternalSquad(username string, squadTitle string) error {
+	defer s.logDuration("AddInternalSquad")()
+
+	var squadUUID string
+
+	switch squadTitle {
+	case "yandexServer":
+		squadUUID = yandexServerSquadUUID
+	case "no_bs":
+		squadUUID = noBsSquadUUID
+	default:
+		return fmt.Errorf("squad с таким названием нет")
+	}
+
+	err := s.remna.AddInternalSquad(context.Background(), username, []string{squadUUID})
+
+	if err != nil {
+		return err
+	}
+
+	expiresAt := time.Now().Add(time.Hour * 24 * 30)
+
+	squadData := models.Squad{
+		Title:     squadTitle,
+		UserID:    username,
+		UUID:      squadUUID,
+		ExpiresAt: expiresAt,
+	}
+
+	if err = s.dbRepo.AddSquad(squadData); err != nil {
+		s.logger.Error(
+			"не удалось добавить squad в бд",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "squad_title", Value: squadTitle},
+		)
+
+		return err
+	}
+
+	return nil
 }
 
 // AddPaidDevice покупает пользователю 1 доп. устройство за 50₽/мес.

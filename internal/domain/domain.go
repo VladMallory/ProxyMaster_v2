@@ -55,6 +55,7 @@ type RemnawaveClient interface {
 	SetDevices(username string, devices *uint8) error
 	SetTraffic(username string, gb uint64) error
 	AddTraffic(username string, gb uint64) error
+	AddInternalSquad(ctx context.Context, username string, squadTitles []string) error
 	BetterResetTraffic(ctx context.Context, username string) error
 }
 

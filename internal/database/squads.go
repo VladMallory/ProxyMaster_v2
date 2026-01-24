@@ -61,7 +61,7 @@ func (s *UserStorage) RemoveSquad(userID string) error {
 	return nil
 }
 
-func (s *UserStorage) GetAllExpiredSquads() ([]models.Squad, error) {
+func (s *UserStorage) GetAllExpiredSquads(now time.Time) ([]models.Squad, error) {
 	query := `
 		SELECT (user_id, uuid)
 		FROM squads
@@ -70,8 +70,7 @@ func (s *UserStorage) GetAllExpiredSquads() ([]models.Squad, error) {
 
 	var expiredSquads []models.Squad
 
-	currentTime := time.Now()
-	formatedTime := currentTime.Format("2006-01-02 15:04:05")
+	formatedTime := now.Format("2006-01-02 15:04:05")
 
 	if err := s.db.Select(&expiredSquads, query, formatedTime); err != nil {
 		s.logger.Error(
