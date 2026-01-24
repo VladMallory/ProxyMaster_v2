@@ -48,6 +48,7 @@ func NewSubscriptionService(
 
 	go svc.runExtraDevicesBillingLoop()
 	go svc.runSubscriptionBillingLoop()
+	go svc.runProcessSquads()
 
 	return svc
 }
@@ -72,7 +73,13 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-func (s *SubscriptionService) processSquads(now time.Time) error {
+func (s *SubscriptionService) runProcessSquads() {
+	now := time.Now()
+	s.logger.Info("running squads check")
+	s.processSquads(now)
+}
+
+func (s *SubscriptionService) processSquads(now time.Time) {
 	expiredSquads, err := s.dbRepo.GetAllExpiredSquads(now)
 
 	if err != nil {
@@ -81,12 +88,12 @@ func (s *SubscriptionService) processSquads(now time.Time) error {
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return err
+		return
 	}
 
 	if len(expiredSquads) == 0 {
 		s.logger.Info("no expired squads")
-		return fmt.Errorf("no expired squads")
+		return
 	}
 
 	ctx := context.Background()
@@ -100,8 +107,6 @@ func (s *SubscriptionService) processSquads(now time.Time) error {
 			)
 		}
 	}
-
-	return nil
 }
 
 func (s *SubscriptionService) AddInternalSquad(username string, squadTitle string) error {
