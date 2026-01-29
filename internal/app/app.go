@@ -15,12 +15,12 @@ import (
 	"log"
 )
 
-// Application главный интерфейс приложения
+// Application главный интерфейс приложения.
 type Application interface {
 	Run()
 }
 
-// App зависимости приложения
+// App зависимости приложения.
 type app struct {
 	remnawaveClient     domain.RemnawaveClient
 	paymentGateway      domain.PaymentGateway
@@ -30,7 +30,7 @@ type app struct {
 	restAPI             domain.ServerAPI
 }
 
-// New собирает приложение
+// New собирает приложение.
 func New() (Application, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
@@ -80,9 +80,6 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
 
-	err = remnawaveClient.DeleteUser("")
-	fmt.Println(err)
-
 	// ===restAPI===
 
 	handler := restapi.NewHandler(remnawaveClient)
@@ -98,7 +95,7 @@ func New() (Application, error) {
 	}, nil
 }
 
-// Run запуск приложения
+// Run запуск приложения.
 func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
 	go a.telegramClient.Start(
