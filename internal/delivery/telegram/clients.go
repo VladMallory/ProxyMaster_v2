@@ -292,6 +292,7 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 	if len(parts) > 2 {
 		extraDevices = parts[2]
 	}
+
 	if len(parts) > 3 && parts[3] != "" {
 		nextPayment = parts[3]
 	}
