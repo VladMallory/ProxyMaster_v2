@@ -132,12 +132,16 @@ func ProcessCallback(sender MessageSender,
 			subscriptionService,
 			userRepo,
 			remnawaveClient,
+			firstName,
 		)
 
 		return nil
 	}
 
 	if transactionID, ok := strings.CutPrefix(data, "btn_check_payment_"); ok {
+		// Останавливаем таймер сообщения при ручной проверке платежа
+		stopMessageTimer(chatID, messageID)
+
 		status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
 		if err != nil {
 			log.Printf("Ошибка проверки статуса транзакции: %v", err)
@@ -196,6 +200,9 @@ func ProcessCallback(sender MessageSender,
 				}
 			}
 		default:
+			// Останавливаем таймер сообщения при неудачной оплате
+			stopMessageTimer(chatID, messageID)
+
 			if err := sender.SendMessage(chatID, "❌ Оплата не прошла или отменена."); err != nil {
 				return fmt.Errorf("ошибка отправки сообщения о неудачной оплате: %w", err)
 			}
@@ -409,6 +416,7 @@ func ProcessCallback(sender MessageSender,
 			subscriptionService,
 			userRepo,
 			remnawaveClient,
+			firstName,
 		)
 
 		return nil
@@ -477,6 +485,7 @@ func ProcessCallback(sender MessageSender,
 			subscriptionService,
 			userRepo,
 			remnawaveClient,
+			firstName,
 		)
 
 		return nil
@@ -536,6 +545,7 @@ func ProcessCallback(sender MessageSender,
 			subscriptionService,
 			userRepo,
 			remnawaveClient,
+			firstName,
 		)
 
 		return nil
@@ -637,10 +647,70 @@ type paymentPurposeData struct {
 
 var paymentPurposeByTransaction sync.Map
 var activePaymentStatusWatchers sync.Map
+var messageTimers sync.Map // chatID|messageID -> *time.Timer
+
+// startMessageTimer запускает таймер для сообщения об оплате.
+// Через указанное время сообщение автоматически меняется на главное меню.
+// Это защита от ситуации, когда пользователь не оплатил в течение разумного времени.
+func startMessageTimer(
+	sender MessageSender,
+	chatID int64,
+	messageID int,
+	duration time.Duration,
+	firstName string,
+	remnawaveClient domain.RemnawaveClient,
+	userRepo *database.UserStorage,
+) {
+	key := fmt.Sprintf("%d|%d", chatID, messageID)
+
+	// Проверяем, не запущен ли уже таймер для этого сообщения
+	if _, exists := messageTimers.Load(key); exists {
+		log.Printf("[ТАЙМЕР] Таймер для сообщения %d в чате %d уже запущен", messageID, chatID)
+		return
+	}
+
+	log.Printf("[ТАЙМЕР] Запускаем таймер на %v для сообщения %d в чате %d", duration, messageID, chatID)
+
+	timer := time.AfterFunc(duration, func() {
+		log.Printf("[ТАЙМЕР] Таймер истек для сообщения %d в чате %d, показываем главное меню", messageID, chatID)
+
+		// Собираем текст для главного меню
+		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
+
+		// Показываем главное меню
+		if err := sender.ShowView(chatID, messageID, domain.ViewTypeMain, text); err != nil {
+			log.Printf("[ТАЙМЕР] Ошибка показа главного меню: %v", err)
+		}
+
+		// Удаляем таймер из мапы
+		messageTimers.Delete(key)
+	})
+
+	// Сохраняем таймер в мапе
+	messageTimers.Store(key, timer)
+}
+
+// stopMessageTimer останавливает таймер для сообщения об оплате.
+// Вызывается при успешной оплате или когда пользователь вручную проверяет платеж.
+func stopMessageTimer(chatID int64, messageID int) {
+	key := fmt.Sprintf("%d|%d", chatID, messageID)
+
+	if timer, exists := messageTimers.Load(key); exists {
+		log.Printf("[ТАЙМЕР] Останавливаем таймер для сообщения %d в чате %d", messageID, chatID)
+
+		if t, ok := timer.(*time.Timer); ok {
+			t.Stop()
+		}
+
+		// Удаляем таймер из мапы
+		messageTimers.Delete(key)
+	}
+}
 
 // startAutoPaymentCheck запускает автоматическую проверку платежа.
-// Начинает проверку через 15 секунд после создания, затем проверяет каждые 5 секунд в течение 2 минут.
+// Начинает проверку через 15 секунд после создания, затем проверяет каждые 5 секунд в течение 20 минут.
 // Эта функция нужна для того, чтобы клиентам не приходилось вручную нажимать "Проверить платеж".
+// Также запускает таймер на 18 минут для автоматического возврата в главное меню.
 func startAutoPaymentCheck(
 	sender MessageSender,
 	chatID int64,
@@ -650,8 +720,13 @@ func startAutoPaymentCheck(
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
+	firstName string,
 ) {
-	// Проверяем, не запущена ли уже проверка для этой транзакции
+	// 1. Запускаем таймер сообщения на 18 минут
+	// Если пользователь не оплатит за это время, сообщение автоматически сменится на главное меню
+	startMessageTimer(sender, chatID, messageID, 18*time.Minute, firstName, remnawaveClient, userRepo)
+
+	// 2. Проверяем, не запущена ли уже проверка для этой транзакции
 	_, alreadyRunning := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
 	if alreadyRunning {
 		log.Printf("[АВТОПРОВЕРКА] Проверка для транзакции %s уже запущена, пропускаем", transactionID)
@@ -667,7 +742,7 @@ func startAutoPaymentCheck(
 		// Ждем 15 секунд перед первой проверкой (даем время на оплату)
 		time.Sleep(15 * time.Second)
 
-		// Проверяем каждые 5 секунд в течение 2 минут
+		// Проверяем каждые 5 секунд в течение 20 минут
 		deadline := time.Now().Add(20 * time.Minute)
 		checkInterval := 5 * time.Second
 
@@ -801,6 +876,9 @@ func handleSuccessfulPayment(
 	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
 ) error {
+	// Останавливаем таймер сообщения, так как оплата прошла успешно
+	stopMessageTimer(chatID, messageID)
+
 	info, err := paymentGateway.GetTransactionInfo(context.Background(), transactionID)
 	if err != nil {
 		log.Printf("Ошибка получения информации о транзакции: %v", err)

@@ -68,14 +68,12 @@ func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
 func (c *Client) topUpKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 100₽", "btn_topUp_100"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 200₽", "btn_topUp_200"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 300₽", "btn_topUp_300"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 100₽ - 1 месяц", "btn_topUp_100"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 200₽ - 2 месяца", "btn_topUp_200"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 500₽", "btn_topUp_500"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 700₽", "btn_topUp_700"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 1000₽", "btn_topUp_1000"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 300₽ - 3 месяца", "btn_topUp_300"),
+			tgbotapi.NewInlineKeyboardButtonData("💰 500₽ - 5 месяцев", "btn_topUp_500"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),

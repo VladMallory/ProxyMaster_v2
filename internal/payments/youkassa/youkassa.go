@@ -118,6 +118,7 @@ func (c *Client) CreateTransaction(ctx context.Context, amount float64, orderID 
 	if err != nil {
 		return "", "", fmt.Errorf("youkassa.CreateTransaction: ошибка выполнения HTTP запроса: %w", err)
 	}
+
 	defer func() {
 		if closeErr := httpResp.Body.Close(); closeErr != nil {
 			c.logger.Error(
@@ -189,6 +190,7 @@ func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (
 	}
 
 	url := strings.TrimRight(c.baseURL, "/") + "/v3/payments/" + transactionID
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("youkassa.GetTransactionInfo: ошибка создания HTTP запроса: %w", err)
@@ -201,7 +203,12 @@ func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (
 	if err != nil {
 		return nil, fmt.Errorf("youkassa.GetTransactionInfo: ошибка выполнения HTTP запроса: %w", err)
 	}
-	defer httpResp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			return
+		}
+	}(httpResp.Body)
 
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {
@@ -241,9 +248,11 @@ func (c *Client) resolveCredentials() (shopID, secretKey, returnURL string, err 
 	if shopID == "" {
 		return "", "", "", fmt.Errorf("youkassa: не задан shopID (YOOKASSA_SHOP_ID)")
 	}
+
 	if secretKey == "" {
 		return "", "", "", fmt.Errorf("youkassa: не задан secretKey (YOOKASSA_SECRET_KEY)")
 	}
+
 	if returnURL == "" {
 		return "", "", "", fmt.Errorf("youkassa: не задан returnURL (YOOKASSA_RETURN_URL)")
 	}
@@ -254,6 +263,7 @@ func (c *Client) resolveCredentials() (shopID, secretKey, returnURL string, err 
 // logDuration логирует длительность выполнения метода.
 func (c *Client) logDuration(method string) func() {
 	start := time.Now()
+
 	return func() {
 		c.logger.Info(
 			"вызов метода завершен",
@@ -272,6 +282,7 @@ func newIdempotenceKey(orderID string) (string, error) {
 	}
 
 	rndHex := hex.EncodeToString(rnd)
+
 	orderID = strings.TrimSpace(orderID)
 	if orderID == "" {
 		// rndHex длиной 32 символа — заведомо укладывается в лимит
