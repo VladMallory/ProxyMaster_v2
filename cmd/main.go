@@ -4,6 +4,7 @@ import (
 	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/pkg/logger"
+	"context"
 	"fmt"
 	"log"
 
@@ -27,16 +28,20 @@ func main() {
 
 	remnaClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
-	//получене uuid юзера
-	uuid, err := remnaClient.GetUUIDByUsername("admin")
+	// получене uuid юзера
+	uuid, err := remnaClient.GetUUIDByUsername("test")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//получение инфы о юзере//
+	// получение инфы о юзере
 	_, err = remnaClient.GetUserInfo(uuid)
-	//получение статуса юзера
+	// получение статуса юзера
 	status, err := remnaClient.GetUserStatus(uuid)
 
+	slice := []string{"4c5af958-a8b6-47fe-8764-f79b408459c5"}
+	result := remnaClient.AddInternalSquad(context.Background(), "test", slice)
+
 	fmt.Println(status)
+	fmt.Println(result)
 }
