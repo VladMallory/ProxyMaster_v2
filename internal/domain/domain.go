@@ -1,10 +1,9 @@
 package domain
 
 import (
+	"ProxyMaster_v2/internal/models"
 	"context"
 	"errors"
-
-	"ProxyMaster_v2/internal/models"
 )
 
 var (
@@ -38,13 +37,13 @@ const (
 	ViewTypeError              ViewType = "unknown view type"
 )
 
-// Ошибка приложения
+// Ошибка приложения.
 var (
 	ErrDuplicateKey       = errors.New("duplicate key")
 	ErrDatabaseConnection = errors.New("database connection error")
 )
 
-// RemnawaveClient - то как мы хотим получать информацию
+// RemnawaveClient то как мы хотим получать информацию.
 type RemnawaveClient interface {
 	GetUUIDByUsername(username string) (string, error)
 	CreateUser(username string, days int) error
@@ -84,14 +83,16 @@ type SubscriptionService interface {
 	ResetPaidDevices(username string) error
 
 	PrepayPaidDevices(username string) (int, error)
+
+	GetURLSubscription(username string) (string, error)
 }
 
-// TrialService - бизнес логика пробного периода
+// TrialService бизнес логика пробного периода.
 type TrialService interface {
 	ActivateTrial(telegramID int64) (string, error)
 }
 
-// ServerAPI - интерфейс для работы с сервером
+// ServerAPI интерфейс для работы с сервером.
 type ServerAPI interface {
 	Serve(string) error
 }

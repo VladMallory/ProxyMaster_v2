@@ -9,7 +9,6 @@ import (
 	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/internal/service"
 	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"errors"
@@ -586,11 +585,14 @@ func ProcessCallback(sender MessageSender,
 
 	case "btn_connect":
 		username := strconv.FormatInt(chatID, 10)
-		url, err := service.GetURLSubscription(remnawaveClient, username)
+		url, err := subscriptionService.GetURLSubscription(username)
 		if err != nil {
-			// qury53: добавь пж обработку ошибки здесь
-			// qury53: я просто хз нужно что-то пользователю отправлять
 			log.Printf("Ошибка получения URL подписки для %s: %v", username, err)
+			return showView(
+				domain.ViewTypeConnect,
+				"Ошибка получения ссылки. Убедитесь, что подписка активна, или обратитесь в поддержку.",
+				"ошибка отображения сообщения об ошибке подключения",
+			)
 		}
 
 		if url == "" {
@@ -602,6 +604,13 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		return showView(domain.ViewTypeConnect, url, "ошибка отображения ссылки на подключение")
+
+	case "btn_connect_error":
+		return showView(
+			domain.ViewTypeConnect,
+			"Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.",
+			"ошибка отображения сообщения о пустой ссылке",
+		)
 
 	case "btn_info":
 		return showView(domain.ViewTypeServiceInfo, "", "ошибка отображения информации о сервисе")

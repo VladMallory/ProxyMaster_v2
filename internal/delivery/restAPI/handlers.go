@@ -3,24 +3,29 @@
 package restapi
 
 import (
+	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/internal/service"
 	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
-// Hadnler структура отвечает за хэндлеры
+// Handler структура отвечает за хэндлеры.
 type Handler struct {
-	remnawaveClient *remnawave.RemnaClient
+	remnawaveClient     *remnawave.RemnaClient
+	subscriptionService domain.SubscriptionService
 }
 
 // NewHandler конструктор Handler
-func NewHandler(remnawaveClient *remnawave.RemnaClient) *Handler {
+func NewHandler(
+	remnawaveClient *remnawave.RemnaClient,
+	subscriptionService domain.SubscriptionService,
+) *Handler {
 	return &Handler{
-		remnawaveClient: remnawaveClient,
+		remnawaveClient:     remnawaveClient,
+		subscriptionService: subscriptionService,
 	}
 }
 
@@ -30,7 +35,10 @@ func (h *Handler) responseWithJSON(w http.ResponseWriter, payload any, statusCod
 
 	w.WriteHeader(statusCode)
 
-	json.NewEncoder(w).Encode(payload)
+	err := json.NewEncoder(w).Encode(payload)
+	if err != nil {
+		return
+	}
 }
 
 // respondError - тоже самое что и respondWithJSON, но название другое для удобства
@@ -40,7 +48,10 @@ func (h *Handler) respondError(w http.ResponseWriter, payload any, statusCode in
 
 	w.WriteHeader(statusCode)
 
-	json.NewEncoder(w).Encode(payload)
+	err := json.NewEncoder(w).Encode(payload)
+	if err != nil {
+		return
+	}
 }
 
 // newPayload конструктор тела ответа
@@ -61,14 +72,18 @@ func (h *Handler) GetSubscriptionURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := service.GetURLSubscription(h.remnawaveClient, username)
+	url, err := h.subscriptionService.GetURLSubscription(username)
 
 	switch err {
 	case remnawave.ErrBadRequestUsername:
 		h.respondError(w, h.newPayload(http.StatusBadRequest, "bad request"), http.StatusBadRequest)
 		return
 	case remnawave.ErrInternalServerError:
-		h.respondError(w, h.newPayload(http.StatusInternalServerError, "internal server error"), http.StatusInternalServerError)
+		h.respondError(
+			w,
+			h.newPayload(http.StatusInternalServerError, "internal server error"),
+			http.StatusInternalServerError,
+		)
 		return
 	case remnawave.ErrNotFound:
 		h.respondError(w, h.newPayload(http.StatusNotFound, "user not found"), http.StatusNotFound)
