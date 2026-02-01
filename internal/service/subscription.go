@@ -141,9 +141,8 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 
 	// Обнуляем счетчик для отображения.
 	zero := 0
-	_, err := s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
-		ExtraDevicesCount: &zero,
-	})
+
+	_, err := s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{ExtraDevicesCount: &zero})
 	if err != nil {
 		return s.logError(
 			"ошибка обновления счетчика доп. устройств",
@@ -180,8 +179,10 @@ func (s *SubscriptionService) PrepayPaidDevices(username string) (int, error) {
 				logger.Field{Key: "user_id", Value: username},
 				logger.Field{Key: "error", Value: err},
 			)
+
 			return 0, fmt.Errorf("ошибка предоплаты доп устройств: %w", err)
 		}
+
 		return 0, s.logError(
 			"ошибка предоплаты доп. устройств",
 			err,
@@ -230,23 +231,24 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 }
 
 func (s *SubscriptionService) runSubscriptionBillingLoop() {
-	s.processSubscriptionBilling(time.Now())
+	s.processSubscriptionBilling()
 
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		s.processSubscriptionBilling(time.Now())
+		s.processSubscriptionBilling()
 	}
 }
 
-func (s *SubscriptionService) processSubscriptionBilling(now time.Time) {
+func (s *SubscriptionService) processSubscriptionBilling() {
 	userIDs, err := s.dbRepo.GetActiveUserIDs()
 	if err != nil {
 		s.logger.Error(
 			"ошибка получения пользователей для автопродления",
 			logger.Field{Key: "err_msg", Value: err},
 		)
+
 		return
 	}
 
@@ -258,6 +260,7 @@ func (s *SubscriptionService) processSubscriptionBilling(now time.Time) {
 				logger.Field{Key: "user_id", Value: userID},
 				logger.Field{Key: "err_msg", Value: convErr},
 			)
+
 			continue
 		}
 
@@ -279,6 +282,7 @@ func (s *SubscriptionService) tryAutoRenewSubscription(telegramID int64, userID 
 				"недостаточно средств для автопродления",
 				logger.Field{Key: "user_id", Value: userID},
 			)
+
 			return nil
 		}
 
@@ -290,6 +294,7 @@ func (s *SubscriptionService) tryAutoRenewSubscription(telegramID int64, userID 
 
 // ActivateSubscription активирует подписку клиенту telegram на указанное количество месяцев.
 // Если имеется подписка - продлить. Если подписки нет - создать.
+// nolint:funlen
 func (s *SubscriptionService) ActivateSubscription(
 	telegramID int64,
 	months int,
@@ -339,6 +344,7 @@ func (s *SubscriptionService) ActivateSubscription(
 
 	// Вычисляем на сколько дней клиенту нужна подписка
 	totalDays := months * 30
+
 	const pricePerMonth = 100
 
 	// Вычисляем стоимость подписки за указанное количество месяцев
@@ -363,6 +369,7 @@ func (s *SubscriptionService) ActivateSubscription(
 
 	// Списываем средства
 	newBalance := user.Balance - totalCost
+
 	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
 		Balance: &newBalance,
 	})
@@ -383,6 +390,7 @@ func (s *SubscriptionService) ActivateSubscription(
 				"пользователь не найден, создаем нового",
 				logger.Field{Key: "username", Value: username},
 			)
+
 			err = s.remna.CreateUser(username, totalDays)
 			if err != nil {
 				return "", s.logError(
@@ -423,7 +431,7 @@ func (s *SubscriptionService) ActivateSubscription(
 	) + " дней", nil
 }
 
-// AddDevice добавляет 1 устройство пользователю
+// AddDevice добавляет 1 устройство пользователю.
 func (s *SubscriptionService) AddDevice(username string) error {
 	defer s.logDuration("AddDevice")()
 
