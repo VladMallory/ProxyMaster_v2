@@ -2,16 +2,15 @@
 package service
 
 import (
-	"errors"
-	"fmt"
-	"strconv"
-	"time"
-
 	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/models"
 	"ProxyMaster_v2/pkg/logger"
+	"errors"
+	"fmt"
+	"strconv"
+	"time"
 )
 
 const (
@@ -45,6 +44,23 @@ func NewSubscriptionService(
 	go svc.runSubscriptionBillingLoop()
 
 	return svc
+}
+
+// GetURLSubscription получает url подписки пользователя через username (Telegram ID).
+func (s *SubscriptionService) GetURLSubscription(username string) (string, error) {
+	// Получаем UUID пользователя по username (Telegram ID)
+	uuid, err := s.remna.GetUUIDByUsername(username)
+	if err != nil {
+		return "", fmt.Errorf("не удалось получить UUID пользователя: %w", err)
+	}
+
+	// Получаем информацию о пользователе по UUID
+	userInfo, err := s.remna.GetUserInfo(uuid)
+	if err != nil {
+		return "", fmt.Errorf("не удалось получить информацию о пользователе: %w", err)
+	}
+
+	return userInfo.Response.SubscriptionURL, nil
 }
 
 func (s *SubscriptionService) logDuration(method string) func() {
@@ -90,13 +106,21 @@ func (s *SubscriptionService) AddPaidDevice(username string) error {
 			return fmt.Errorf("ошибка добавления доп устройст: %w", err)
 		}
 
-		return s.logError("ошибка добавления доп. устройства", err, logger.Field{Key: "user_id", Value: username})
+		return s.logError(
+			"ошибка добавления доп. устройства",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	// Проставляем лимит устройств в RemnaWave: базовое + купленные.
 	devices := uint8(baseDevicesLimit + newCount)
 	if err := s.remna.SetDevices(username, &devices); err != nil {
-		return s.logError("ошибка установки устройств в remnawave", err, logger.Field{Key: "user_id", Value: username})
+		return s.logError(
+			"ошибка установки устройств в remnawave",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	return nil
@@ -108,23 +132,33 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 
 	// Отключаем все купленные услуги.
 	if err := s.dbRepo.DeactivateAllDeviceAddons(username); err != nil {
-		return s.logError("ошибка сброса услуг доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+		return s.logError(
+			"ошибка сброса услуг доп. устройств",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	// Обнуляем счетчик для отображения.
 	zero := 0
-	_, err := s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
-		ExtraDevicesCount: &zero,
-	})
 
+	_, err := s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{ExtraDevicesCount: &zero})
 	if err != nil {
-		return s.logError("ошибка обновления счетчика доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+		return s.logError(
+			"ошибка обновления счетчика доп. устройств",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	// Ставим всегда 1 устройство, как ты просил.
 	devices := uint8(baseDevicesLimit)
 	if err := s.remna.SetDevices(username, &devices); err != nil {
-		return s.logError("ошибка установки устройств в remnawave", err, logger.Field{Key: "user_id", Value: username})
+		return s.logError(
+			"ошибка установки устройств в remnawave",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	return nil
@@ -139,14 +173,21 @@ func (s *SubscriptionService) PrepayPaidDevices(username string) (int, error) {
 		30*24*time.Hour,
 	)
 	if err != nil {
-		if errors.Is(err, domain.ErrInsufficientFunds) || errors.Is(err, domain.ErrNoActiveDeviceAddons) {
+		if errors.Is(err, domain.ErrInsufficientFunds) ||
+			errors.Is(err, domain.ErrNoActiveDeviceAddons) {
 			s.logger.Error("ошибка предоплаты доп. устройств",
 				logger.Field{Key: "user_id", Value: username},
 				logger.Field{Key: "error", Value: err},
 			)
+
 			return 0, fmt.Errorf("ошибка предоплаты доп устройств: %w", err)
 		}
-		return 0, s.logError("ошибка предоплаты доп. устройств", err, logger.Field{Key: "user_id", Value: username})
+
+		return 0, s.logError(
+			"ошибка предоплаты доп. устройств",
+			err,
+			logger.Field{Key: "user_id", Value: username},
+		)
 	}
 
 	return count, nil
@@ -165,7 +206,12 @@ func (s *SubscriptionService) runExtraDevicesBillingLoop() {
 }
 
 func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
-	usersToReset, err := s.dbRepo.ProcessDueDeviceAddonsBilling(now, 200, extraDevicePriceRUB, 30*24*time.Hour)
+	usersToReset, err := s.dbRepo.ProcessDueDeviceAddonsBilling(
+		now,
+		200,
+		extraDevicePriceRUB,
+		30*24*time.Hour,
+	)
 	if err != nil {
 		s.logger.Error("ошибка биллинга доп. устройств", logger.Field{Key: "err_msg", Value: err})
 
@@ -185,20 +231,24 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 }
 
 func (s *SubscriptionService) runSubscriptionBillingLoop() {
-	s.processSubscriptionBilling(time.Now())
+	s.processSubscriptionBilling()
 
 	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		s.processSubscriptionBilling(time.Now())
+		s.processSubscriptionBilling()
 	}
 }
 
-func (s *SubscriptionService) processSubscriptionBilling(now time.Time) {
+func (s *SubscriptionService) processSubscriptionBilling() {
 	userIDs, err := s.dbRepo.GetActiveUserIDs()
 	if err != nil {
-		s.logger.Error("ошибка получения пользователей для автопродления", logger.Field{Key: "err_msg", Value: err})
+		s.logger.Error(
+			"ошибка получения пользователей для автопродления",
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
 		return
 	}
 
@@ -210,6 +260,7 @@ func (s *SubscriptionService) processSubscriptionBilling(now time.Time) {
 				logger.Field{Key: "user_id", Value: userID},
 				logger.Field{Key: "err_msg", Value: convErr},
 			)
+
 			continue
 		}
 
@@ -231,6 +282,7 @@ func (s *SubscriptionService) tryAutoRenewSubscription(telegramID int64, userID 
 				"недостаточно средств для автопродления",
 				logger.Field{Key: "user_id", Value: userID},
 			)
+
 			return nil
 		}
 
@@ -242,6 +294,7 @@ func (s *SubscriptionService) tryAutoRenewSubscription(telegramID int64, userID 
 
 // ActivateSubscription активирует подписку клиенту telegram на указанное количество месяцев.
 // Если имеется подписка - продлить. Если подписки нет - создать.
+// nolint:funlen
 func (s *SubscriptionService) ActivateSubscription(
 	telegramID int64,
 	months int,
@@ -253,11 +306,13 @@ func (s *SubscriptionService) ActivateSubscription(
 
 	// Проверяем наличия пользователя в базе данных и создаем если его нет
 	user, err := s.dbRepo.GetUserByID(username)
-
 	if err != nil {
 		// Проверяем, является ли ошибка "пользователь не найден"
 		if errors.Is(err, domain.ErrUserNotFound) {
-			s.logger.Info("пользователь не найден в DB, создаем нового", logger.Field{Key: "user_id", Value: username})
+			s.logger.Info(
+				"пользователь не найден в DB, создаем нового",
+				logger.Field{Key: "user_id", Value: username},
+			)
 
 			// Делаем запрос DB на создание пользователя
 			// Записываем в newUser данные которые получили от DB
@@ -289,6 +344,7 @@ func (s *SubscriptionService) ActivateSubscription(
 
 	// Вычисляем на сколько дней клиенту нужна подписка
 	totalDays := months * 30
+
 	const pricePerMonth = 100
 
 	// Вычисляем стоимость подписки за указанное количество месяцев
@@ -303,15 +359,20 @@ func (s *SubscriptionService) ActivateSubscription(
 			logger.Field{Key: "required", Value: totalCost},
 		)
 
-		return "", fmt.Errorf("%w. Баланс: %d ₽, Требуется: %d ₽", domain.ErrInsufficientFunds, user.Balance, totalCost)
+		return "", fmt.Errorf(
+			"%w. Баланс: %d ₽, Требуется: %d ₽",
+			domain.ErrInsufficientFunds,
+			user.Balance,
+			totalCost,
+		)
 	}
 
 	// Списываем средства
 	newBalance := user.Balance - totalCost
+
 	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
 		Balance: &newBalance,
 	})
-
 	if err != nil {
 		return "", s.logError(
 			"ошибка обновления баланса пользователя в DB",
@@ -325,24 +386,39 @@ func (s *SubscriptionService) ActivateSubscription(
 	if err != nil {
 		// Если пользователя нет, создаем его в панели
 		if errors.Is(err, remnawave.ErrNotFound) {
-			s.logger.Info("пользователь не найден, создаем нового", logger.Field{Key: "username", Value: username})
-			err = s.remna.CreateUser(username, totalDays)
+			s.logger.Info(
+				"пользователь не найден, создаем нового",
+				logger.Field{Key: "username", Value: username},
+			)
 
+			err = s.remna.CreateUser(username, totalDays)
 			if err != nil {
-				return "", s.logError("ошибка создания пользователя", err, logger.Field{Key: "username", Value: username})
+				return "", s.logError(
+					"ошибка создания пользователя",
+					err,
+					logger.Field{Key: "username", Value: username},
+				)
 			}
 
 			return fmt.Sprintf("пользователь %s создан на %d дней", username, totalDays), nil
 		}
 
-		return "", s.logError("ошибка поиска пользователя", err, logger.Field{Key: "username", Value: username})
+		return "", s.logError(
+			"ошибка поиска пользователя",
+			err,
+			logger.Field{Key: "username", Value: username},
+		)
 	}
 
 	s.logger.Info("пользователь найден", logger.Field{Key: "username", Value: username})
 
 	err = s.remna.ExtendClientSubscription(userUUID, username, totalDays)
 	if err != nil {
-		return "", s.logError("ошибка продления подписки", err, logger.Field{Key: "username", Value: username})
+		return "", s.logError(
+			"ошибка продления подписки",
+			err,
+			logger.Field{Key: "username", Value: username},
+		)
 	}
 
 	s.logger.Info("подписка продлена",
@@ -350,10 +426,12 @@ func (s *SubscriptionService) ActivateSubscription(
 		logger.Field{Key: "days", Value: totalDays},
 	)
 
-	return "подписка для пользователя " + username + " продлена на " + strconv.Itoa(totalDays) + " дней", nil
+	return "подписка для пользователя " + username + " продлена на " + strconv.Itoa(
+		totalDays,
+	) + " дней", nil
 }
 
-// AddDevice добавляет 1 устройство пользователю
+// AddDevice добавляет 1 устройство пользователю.
 func (s *SubscriptionService) AddDevice(username string) error {
 	defer s.logDuration("AddDevice")()
 
@@ -384,7 +462,11 @@ func (s *SubscriptionService) AddDevice(username string) error {
 			logger.Field{Key: "user", Value: username},
 		)
 
-		return fmt.Errorf("%w. У пользователя уже %d устройств", domain.ErrMaxDevices, user.Response.HWIDDeviceLimit)
+		return fmt.Errorf(
+			"%w. У пользователя уже %d устройств",
+			domain.ErrMaxDevices,
+			user.Response.HWIDDeviceLimit,
+		)
 	}
 
 	devices := uint8(user.Response.HWIDDeviceLimit) + 1
