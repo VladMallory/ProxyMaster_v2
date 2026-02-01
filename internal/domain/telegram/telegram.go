@@ -77,7 +77,11 @@ func ProcessCallback(sender MessageSender,
 			nextPayment = formatDevicePaymentDate(*nextChargeAt, time.Now())
 		}
 
-		return user.ID + "|" + strconv.Itoa(user.Balance) + "|" + strconv.Itoa(extraCount) + "|" + nextPayment, nil
+		return user.ID + "|" + strconv.Itoa(
+			user.Balance,
+		) + "|" + strconv.Itoa(
+			extraCount,
+		) + "|" + nextPayment, nil
 	}
 
 	if amountStr, ok := strings.CutPrefix(data, "btn_topUp_"); ok {
@@ -239,7 +243,7 @@ func ProcessCallback(sender MessageSender,
 	case "btn_add_50gb":
 		userID := strconv.Itoa(int(chatID))
 		if err := remnawaveClient.AddTraffic(userID, 50); err != nil {
-			//заменить логгер
+			// заменить логгер
 			log.Printf("не удалось добавить трафик у пользователя %s, %v", userID, err)
 			return sender.SendMessage(chatID, "Не удалось добавить трафик")
 		}
@@ -254,7 +258,7 @@ func ProcessCallback(sender MessageSender,
 	case "btn_add_100gb":
 		userID := strconv.Itoa(int(chatID))
 		if err := remnawaveClient.AddTraffic(userID, 100); err != nil {
-			//заменить логгер
+			// заменить логгер
 			log.Printf("не удалось добавить трафик у пользователя %s, %v", userID, err)
 			return sender.SendMessage(chatID, "Не удалось добавить трафик")
 		}
@@ -269,7 +273,7 @@ func ProcessCallback(sender MessageSender,
 	case "btn_reset_traffic":
 		userID := strconv.Itoa(int(chatID))
 		if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
-			//заменить логгер
+			// заменить логгер
 			log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
 			return sender.SendMessage(chatID, "Не удалось сбросить трафик")
 		}
@@ -343,7 +347,10 @@ func ProcessCallback(sender MessageSender,
 		uuid, err := remnawaveClient.GetUUIDByUsername(userID)
 		if err != nil {
 			log.Printf("Ошибка получения UUID пользователя %s: %v", userID, err)
-			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			if sendErr := sender.SendMessage(
+				chatID,
+				"Ошибка получения данных пользователя",
+			); sendErr != nil {
 				return fmt.Errorf(
 					"не удалось отправить сообщение об ошибке получения пользователя: %w",
 					sendErr,
@@ -355,7 +362,10 @@ func ProcessCallback(sender MessageSender,
 		userInfo, err := remnawaveClient.GetUserInfo(uuid)
 		if err != nil {
 			log.Printf("Ошибка получения информации о пользователе %s: %v", userID, err)
-			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			if sendErr := sender.SendMessage(
+				chatID,
+				"Ошибка получения данных пользователя",
+			); sendErr != nil {
 				return fmt.Errorf(
 					"не удалось отправить сообщение об ошибке получения данных пользователя: %w",
 					sendErr,
@@ -365,7 +375,10 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		if userInfo.Response.HWIDDeviceLimit >= 5 {
-			if sendErr := sender.SendMessage(chatID, "❌ Достигнут лимит устройств."); sendErr != nil {
+			if sendErr := sender.SendMessage(
+				chatID,
+				"❌ Достигнут лимит устройств.",
+			); sendErr != nil {
 				return fmt.Errorf(
 					"не удалось отправить сообщение о превышении лимита устройств: %w",
 					sendErr,
@@ -425,7 +438,10 @@ func ProcessCallback(sender MessageSender,
 		activeAddons, err := userRepo.CountActiveDeviceAddons(userID)
 		if err != nil {
 			log.Printf("Ошибка подсчета доп. устройств для %s: %v", userID, err)
-			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			if sendErr := sender.SendMessage(
+				chatID,
+				"Ошибка получения данных пользователя",
+			); sendErr != nil {
 				return fmt.Errorf(
 					"не удалось отправить сообщение об ошибке получения данных пользователя: %w",
 					sendErr,
@@ -434,7 +450,10 @@ func ProcessCallback(sender MessageSender,
 			return nil
 		}
 		if activeAddons <= 0 {
-			if sendErr := sender.SendMessage(chatID, "У вас нет активных доп. устройств для продления."); sendErr != nil {
+			if sendErr := sender.SendMessage(
+				chatID,
+				"У вас нет активных доп. устройств для продления.",
+			); sendErr != nil {
 				return fmt.Errorf(
 					"не удалось отправить сообщение о отсутствии доп. устройств: %w",
 					sendErr,
@@ -494,7 +513,10 @@ func ProcessCallback(sender MessageSender,
 		_, err := remnawaveClient.GetUUIDByUsername(userID)
 		if err != nil {
 			log.Printf("Ошибка получения UUID пользователя %s: %v", userID, err)
-			if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+			if sendErr := sender.SendMessage(
+				chatID,
+				"Ошибка получения данных пользователя",
+			); sendErr != nil {
 				return fmt.Errorf(
 					"не удалось отправить сообщение об ошибке получения пользователя: %w",
 					sendErr,
@@ -654,9 +676,11 @@ type paymentPurposeData struct {
 	amount  int
 }
 
-var paymentPurposeByTransaction sync.Map
-var activePaymentStatusWatchers sync.Map
-var messageTimers sync.Map // chatID|messageID -> *time.Timer
+var (
+	paymentPurposeByTransaction sync.Map
+	activePaymentStatusWatchers sync.Map
+	messageTimers               sync.Map // chatID|messageID -> *time.Timer
+)
 
 // startMessageTimer запускает таймер для сообщения об оплате.
 // Через указанное время сообщение автоматически меняется на главное меню.
@@ -678,10 +702,19 @@ func startMessageTimer(
 		return
 	}
 
-	log.Printf("[ТАЙМЕР] Запускаем таймер на %v для сообщения %d в чате %d", duration, messageID, chatID)
+	log.Printf(
+		"[ТАЙМЕР] Запускаем таймер на %v для сообщения %d в чате %d",
+		duration,
+		messageID,
+		chatID,
+	)
 
 	timer := time.AfterFunc(duration, func() {
-		log.Printf("[ТАЙМЕР] Таймер истек для сообщения %d в чате %d, показываем главное меню", messageID, chatID)
+		log.Printf(
+			"[ТАЙМЕР] Таймер истек для сообщения %d в чате %d, показываем главное меню",
+			messageID,
+			chatID,
+		)
 
 		// Собираем текст для главного меню
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
@@ -733,12 +766,23 @@ func startAutoPaymentCheck(
 ) {
 	// 1. Запускаем таймер сообщения на 18 минут
 	// Если пользователь не оплатит за это время, сообщение автоматически сменится на главное меню
-	startMessageTimer(sender, chatID, messageID, 18*time.Minute, firstName, remnawaveClient, userRepo)
+	startMessageTimer(
+		sender,
+		chatID,
+		messageID,
+		18*time.Minute,
+		firstName,
+		remnawaveClient,
+		userRepo,
+	)
 
 	// 2. Проверяем, не запущена ли уже проверка для этой транзакции
 	_, alreadyRunning := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
 	if alreadyRunning {
-		log.Printf("[АВТОПРОВЕРКА] Проверка для транзакции %s уже запущена, пропускаем", transactionID)
+		log.Printf(
+			"[АВТОПРОВЕРКА] Проверка для транзакции %s уже запущена, пропускаем",
+			transactionID,
+		)
 		return
 	}
 
@@ -746,7 +790,10 @@ func startAutoPaymentCheck(
 		// Удаляем транзакцию из активных при завершении горутины
 		defer activePaymentStatusWatchers.Delete(transactionID)
 
-		log.Printf("[АВТОПРОВЕРКА] Запущена для транзакции %s, ожидание 15 секунд...", transactionID)
+		log.Printf(
+			"[АВТОПРОВЕРКА] Запущена для транзакции %s, ожидание 15 секунд...",
+			transactionID,
+		)
 
 		// Ждем 15 секунд перед первой проверкой (даем время на оплату)
 		time.Sleep(15 * time.Second)
@@ -761,7 +808,11 @@ func startAutoPaymentCheck(
 			// Проверяем статус платежа
 			status, err := paymentGateway.CheckStatus(context.Background(), transactionID)
 			if err != nil {
-				log.Printf("[АВТОПРОВЕРКА] Ошибка проверки статуса транзакции %s: %v", transactionID, err)
+				log.Printf(
+					"[АВТОПРОВЕРКА] Ошибка проверки статуса транзакции %s: %v",
+					transactionID,
+					err,
+				)
 				time.Sleep(checkInterval)
 				continue
 			}
@@ -781,7 +832,11 @@ func startAutoPaymentCheck(
 					userRepo,
 					remnawaveClient,
 				); err != nil {
-					log.Printf("[АВТОПРОВЕРКА] Ошибка обработки успешного платежа %s: %v", transactionID, err)
+					log.Printf(
+						"[АВТОПРОВЕРКА] Ошибка обработки успешного платежа %s: %v",
+						transactionID,
+						err,
+					)
 				} else {
 					log.Printf("[АВТОПРОВЕРКА] Платеж %s успешно обработан!", transactionID)
 				}
@@ -931,9 +986,9 @@ func handleSuccessfulPayment(
 					sender,
 					chatID,
 					messageID,
-					amount,
+					// amount,
 					remnawaveClient,
-					userRepo,
+					// userRepo,
 				)
 			}
 		}
@@ -1017,7 +1072,10 @@ func handleSuccessfulAddDevicePayment(
 	user, err := userRepo.GetUserByID(userID)
 	if err != nil {
 		log.Printf("Ошибка получения пользователя для добавления устройства: %v", err)
-		if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+		if sendErr := sender.SendMessage(
+			chatID,
+			"Ошибка получения данных пользователя",
+		); sendErr != nil {
 			return fmt.Errorf(
 				"не удалось отправить сообщение об ошибке получения пользователя: %w",
 				sendErr,
@@ -1090,7 +1148,10 @@ func handleSuccessfulPrepayDevicesPayment(
 	user, err := userRepo.GetUserByID(userID)
 	if err != nil {
 		log.Printf("Ошибка получения пользователя для продления устройств: %v", err)
-		if sendErr := sender.SendMessage(chatID, "Ошибка получения данных пользователя"); sendErr != nil {
+		if sendErr := sender.SendMessage(
+			chatID,
+			"Ошибка получения данных пользователя",
+		); sendErr != nil {
 			return fmt.Errorf(
 				"не удалось отправить сообщение об ошибке получения пользователя: %w",
 				sendErr,
@@ -1156,9 +1217,9 @@ func handleSuccessfulResetTrafficPayment(
 	sender MessageSender,
 	chatID int64,
 	messageID int,
-	amount int,
+	// amount int,
 	remnawaveClient domain.RemnawaveClient,
-	userRepo *database.UserStorage,
+	// userRepo *database.UserStorage,
 ) error {
 	userID := strconv.FormatInt(chatID, 10)
 
@@ -1231,18 +1292,17 @@ func ProcessCommand(
 	command string,
 	firstName string,
 	remnawaveClient domain.RemnawaveClient,
+	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 	logger logger.Logger,
 ) error {
-
-	//проверка на админа
+	// проверка на админа
 	isAdmin, err := isAdmin(sender, chatID, command, firstName, remnawaveClient, userRepo, logger)
-
 	if err != nil {
 		logger.Error("Ошибка проверка на администратора")
 		return nil
 	}
-	//если админская команда, пропускаем дальнейшую обработку
+	// если админская команда, пропускаем дальнейшую обработку
 	if isAdmin {
 		return nil
 	}
@@ -1293,6 +1353,12 @@ func ProcessCommand(
 			// Ошибка некритична для пользователя, просто логируем
 			log.Printf("Не удалось создать пользователя в remnawave: %v", err)
 		}
+
+		// В будущем активировать
+		// _, err = subscriptionService.ActivateSubscription(chatID, 5)
+		// if err != nil {
+		// 	return err
+		// }
 
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
 		if err := sender.ShowView(chatID, 0, domain.ViewTypeMain, text); err != nil {
