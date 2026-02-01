@@ -105,11 +105,13 @@ func (c *Client) Start(
 			}
 
 			// Передаем текст сообщения в слой бизнес-логики
-			err := domainTelegram.ProcessCommand(c,
+			err := domainTelegram.ProcessCommand(
+				c,
 				update.Message.Chat.ID,
 				update.Message.Text,
 				firstName,
 				remnawaveClient,
+				subscriptionService,
 				userRepo,
 				c.logger)
 			if err != nil {
