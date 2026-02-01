@@ -22,8 +22,10 @@ const parseModeHTML = "HTML"
 // Client — это обертка над стандартной библиотекой tgbotapi.
 // Он хранит в себе подключение к API и умеет отправлять сообщения.
 type Client struct {
-	api    *tgbotapi.BotAPI
-	logger logger.Logger
+	api                 *tgbotapi.BotAPI
+	logger              logger.Logger
+	remnawaveClient     domain.RemnawaveClient
+	subscriptionService domain.SubscriptionService
 }
 
 // NewTelegramClient создает нового клиента для Telegram.
@@ -50,6 +52,8 @@ func (c *Client) Start(
 	paymentGateway domain.PaymentGateway,
 	userRepo *database.UserStorage,
 ) {
+	c.remnawaveClient = remnawaveClient
+	c.subscriptionService = subscriptionService
 	// Настраиваем конфигурацию получения обновлений
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60 // Ждем 60 секунд новых сообщений (long polling)
@@ -101,11 +105,13 @@ func (c *Client) Start(
 			}
 
 			// Передаем текст сообщения в слой бизнес-логики
-			err := domainTelegram.ProcessCommand(c,
+			err := domainTelegram.ProcessCommand(
+				c,
 				update.Message.Chat.ID,
 				update.Message.Text,
 				firstName,
 				remnawaveClient,
+				subscriptionService,
 				userRepo,
 				c.logger)
 			if err != nil {
@@ -151,7 +157,7 @@ func (c *Client) ShowView(
 	case domain.ViewTypeSubscriptionResult:
 		text, keyboard = c.handleSubscriptionResultView(data)
 	case domain.ViewTypeMain:
-		text, keyboard = c.handleMainView(data)
+		text, keyboard = c.handleMainView(data, chatID)
 	case domain.ViewTypeServiceInfo:
 		text, keyboard = c.handleServiceInfoView()
 	case domain.ViewTypePrivacyPolicy:
@@ -200,7 +206,7 @@ func (c *Client) SendMessage(chatID int64, text string) error {
 	msg.ParseMode = parseModeHTML
 
 	// Всегда показываем главное меню под сообщением
-	msg.ReplyMarkup = c.mainKeyboard()
+	msg.ReplyMarkup = c.mainKeyboard(chatID)
 
 	_, err := c.api.Send(msg)
 	if err != nil {
@@ -263,7 +269,7 @@ func (c *Client) handleDeviceLimitsView() (string, tgbotapi.InlineKeyboardMarkup
 	return text, c.deviceLimitsKeyboard()
 }
 
-func (c *Client) handleMainView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
+func (c *Client) handleMainView(data string, userID int64) (string, tgbotapi.InlineKeyboardMarkup) {
 	var text string
 	if data != "" {
 		text = data
@@ -271,7 +277,7 @@ func (c *Client) handleMainView(data string) (string, tgbotapi.InlineKeyboardMar
 		text = "🌟 Добро пожаловать."
 	}
 
-	return text, c.mainKeyboard()
+	return text, c.mainKeyboard(userID)
 }
 
 func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
@@ -321,15 +327,14 @@ func (c *Client) handleTrafficLimitsView() (string, tgbotapi.InlineKeyboardMarku
 	return text, c.trafficLimitsKeyboard()
 }
 
-// handleServiceInfoView сука
 func (c *Client) handleServiceInfoView() (string, tgbotapi.InlineKeyboardMarkup) {
 	text := "Выберите раздел:"
 
 	return text, c.serviceInfoKeyboard()
 }
 
-// handlePrivacyPolicyView читаеттекст политики конфиденциальности и возвращает
-// вместе с соотвествующей клавиатурой
+// handlePrivacyPolicyView читает текст политики конфиденциальности и возвращает
+// вместе с соотвествующей клавиатурой.
 func (c *Client) handlePrivacyPolicyView() (string, tgbotapi.InlineKeyboardMarkup) {
 	// Читаем файл
 	content, err := os.ReadFile("assets/police.txt")
@@ -349,7 +354,7 @@ func (c *Client) handlePrivacyPolicyView() (string, tgbotapi.InlineKeyboardMarku
 }
 
 // handleUserAgreementView читает текст пользовательского соглашения и возвращает
-// вместе с соотвествующей клавиатурой
+// вместе с соотвествующей клавиатурой.
 func (c *Client) handleUserAgreementView() (string, tgbotapi.InlineKeyboardMarkup) {
 	// Читаем файл
 	content, err := os.ReadFile("assets/user_agreement.txt")
@@ -370,13 +375,33 @@ func (c *Client) handleUserAgreementView() (string, tgbotapi.InlineKeyboardMarku
 
 // mainKeyboard создает структуру кнопок для главного меню.
 // Используем Inline кнопки (прозрачные, под сообщением).
-func (c *Client) mainKeyboard() tgbotapi.InlineKeyboardMarkup {
+func (c *Client) mainKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
+	// Получение URL подписки
+	username := strconv.FormatInt(userID, 10)
+	url, err := c.subscriptionService.GetURLSubscription(username)
+
+	var connectButton tgbotapi.InlineKeyboardButton
+
+	if err != nil || url == "" {
+		// Не получили подписку - показываем кнопку с сообщением об ошибке
+		connectButton = tgbotapi.NewInlineKeyboardButtonData(
+			"📱 Подключить (Happ)",
+			"btn_connect_error",
+		)
+	} else {
+		// Если URL есть, делаем кнопку с ссылкой
+		connectButton = tgbotapi.NewInlineKeyboardButtonURL(
+			"📱 Подключить (Happ)",
+			url,
+		)
+	}
+
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("📱 Скачать приложение", "download_app"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📱 Подключить (Happ)", "btn_connect"),
+			connectButton,
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💰 Пополнить баланс", "btn_balance"),
