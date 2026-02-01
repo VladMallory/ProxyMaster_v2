@@ -39,7 +39,7 @@ func main() {
 	// получение статуса юзера
 	status, err := remnaClient.GetUserStatus(uuid)
 
-	slice := []string{"4c5af958-a8b6-47fe-8764-f79b408459c5"}
+	slice := []string{"1dc6beee-38c1-4610-92f0-86e57f3c3563"}
 	result := remnaClient.AddInternalSquad(context.Background(), "test", slice)
 
 	fmt.Println(status)
