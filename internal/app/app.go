@@ -81,7 +81,6 @@ func New() (Application, error) {
 	}
 
 	// ===restAPI===
-
 	handler := restapi.NewHandler(remnawaveClient, subService)
 	restAPI := restapi.New(handler, restAPILogger)
 
