@@ -47,7 +47,11 @@ func NewRemnaClient(cfg *config.Config, l logger.Logger) *RemnaClient {
 	}
 }
 
-func (c *RemnaClient) AddInternalSquad(ctx context.Context, username string, squadTitles []string) error {
+func (c *RemnaClient) AddInternalSquad(
+	ctx context.Context,
+	username string,
+	squadTitles []string,
+) error {
 	c.logDuration("AddInternalSquad")()
 	url := fmt.Sprintf("%s/api/users/?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
 
@@ -57,7 +61,6 @@ func (c *RemnaClient) AddInternalSquad(ctx context.Context, username string, squ
 	}
 
 	jsonData, err := json.Marshal(data)
-
 	if err != nil {
 		c.logger.Error(
 			"failed to marshal json",
@@ -81,7 +84,6 @@ func (c *RemnaClient) AddInternalSquad(ctx context.Context, username string, squ
 	}
 
 	response, err := c.httpClient.Do(request)
-
 	if err != nil {
 		c.logger.Error(
 			"failed to do request",
@@ -92,7 +94,6 @@ func (c *RemnaClient) AddInternalSquad(ctx context.Context, username string, squ
 	}
 
 	body, err := io.ReadAll(response.Body)
-
 	if err != nil {
 		c.logger.Error("failed to read body")
 
@@ -246,19 +247,13 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	return encResponse.EncryptedLink, nil
 }
 
-// GetUUIDByUsername - метод нахождения пользователя через username.
-func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
-	defer c.logDuration("GetUUIDByUsername")()
+func (c *RemnaClient) request(
+	method string,
+	url string,
+) (string, error) {
+	var responseBody []byte
 
-	var userData models.GetUUIDByUsernameResponse
-	// /api/users/by-username/{username}
-	url := fmt.Sprintf(
-		"%s/api/users/by-username/%s?%s",
-		c.cfg.RemnaPanelURL,
-		username,
-		c.cfg.RemnaSecretURLToken,
-	)
-
+	// Создание HTTP запроса с котекстом
 	request, err := http.NewRequestWithContext(
 		context.Background(),
 		http.MethodGet,
@@ -266,19 +261,36 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		http.NoBody,
 	)
 	if err != nil {
-		slog.Error(err.Error())
+		c.logger.Error(
+			"ошибка создания запроса",
+			logger.Field{Key: "err_msg", Value: err},
+			logger.Field{Key: "method", Value: method},
+			logger.Field{Key: "url", Value: url},
+		)
 
-		return "", fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
+		return fmt.Sprintf("%v: %v", ErrFailedToMakeRequest, err), nil
 	}
 
+	// Добавление стандартных заголовков
+	// для всех запросов к API remnawave
 	request.Header.Add("Content-Type", "application/json")
+	// Обязательно добавляем ключ RemnaKey чтобы панель пропустила
 	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
 
+	// Выполняет запрос
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
+		c.logger.Error(
+			"failed to execute request",
+			logger.Field{Key: "err_msg", Value: err},
+			logger.Field{Key: "method", Value: method},
+			logger.Field{Key: "url", Value: url},
+		)
+
+		return fmt.Sprintf("%v: %v", ErrFailedToMakeRequest, err), nil
 	}
 
+	// Закрывает тело ответа
 	defer func() {
 		if err = response.Body.Close(); err != nil {
 			c.logger.Error(
@@ -288,54 +300,101 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		}
 	}()
 
-	body, err := io.ReadAll(response.Body)
+	// Читает тело ответа
+	responseBody, err = io.ReadAll(response.Body)
 	if err != nil {
 		c.logger.Error(
 			"не удалось преобразовать тело ответа",
 			logger.Field{Key: "error", Value: err.Error()},
 		)
 
-		return "", fmt.Errorf("%w: %w", ErrFailedToMakeResponse, err)
+		return fmt.Sprintf("%v: %v", ErrFailedToMakeResponse, err), nil
 	}
 
-	if err := json.Unmarshal(body, &userData); err != nil {
-		c.logger.Error(
-			"не удалось распарсить тело ",
-			logger.Field{Key: "error", Value: err.Error()},
-		)
-
-		return "", fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
-	}
+	bodyStr := string(responseBody)
 
 	switch response.StatusCode {
 	case http.StatusBadRequest:
-		c.logger.Error(fmt.Sprintf("%s\n%s", ErrBadRequestUsername.Error(), string(body)))
+		c.logger.Error(
+			"bad request",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
 
-		return "", ErrBadRequestUsername
+		return bodyStr, ErrBadRequestUsername
 
 	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
+		c.logger.Error(
+			"internal server error",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
 
-		return "", ErrInternalServerError
+		return bodyStr, ErrInternalServerError
 
 	case http.StatusNotFound:
 		c.logger.Error(ErrNotFound.Error())
 
-		return "", ErrNotFound
+		return bodyStr, ErrNotFound
 	}
 
 	// AI: Защита от некорректных данных : Даже если сервер ответил 200 OK,
 	// внутри JSON могут прийти пустые поля (например, если на сервере
 	// RemnaWave произошел сбой логики, но не HTTP-ошибка).
-	if userData.Response.UUID == "" || userData.Response.Username == "" {
-		return "", ErrUUIDorUsernameIsNill
-	}
+	// if userData.Response.UUID == "" || userData.Response.Username == "" {
+	// 	return bodyStr, ErrUUIDorUsernameIsNill
+	// }
+
+	return bodyStr, nil
+}
+
+// GetUUIDByUsername - метод нахождения пользователя через username.
+func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
+	defer c.logDuration("GetUUIDByUsername")()
+
+	var userData models.GetUUIDByUsernameResponse
+
+	// Формируем URL для запроса информации о пользователе по username
+	// /api/users/by-username/{username}
+	url := fmt.Sprintf(
+		"%s/api/users/by-username/%s?%s",
+		c.cfg.RemnaPanelURL,
+		username,
+		c.cfg.RemnaSecretURLToken,
+	)
 
 	c.logger.Info(
 		"получен UUID пользователя",
 		logger.Field{Key: "username", Value: username},
 		logger.Field{Key: "uuid", Value: userData.Response.UUID},
 	)
+
+	responseBody, err := c.request("GetUUIDByUsername", url)
+	if err != nil {
+		return "", err
+	}
+
+	if err := json.Unmarshal([]byte(responseBody), &userData); err != nil {
+		c.logger.Error(
+			"не удалось распарсить тело ",
+			logger.Field{Key: "error", Value: err.Error()},
+			logger.Field{Key: "response_body", Value: responseBody},
+		)
+
+		return "", fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
+	}
+
+	// Проверка что в ответе есть хоть что-то
+	if userData.Response.UUID == "" || userData.Response.Username == "" {
+		c.logger.Error(
+			"received empty UUID or username in response",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "response_uuid", Value: userData.Response.UUID},
+			logger.Field{Key: "response_username", Value: userData.Response.Username},
+		)
+
+		return "", ErrUUIDorUsernameIsNill
+	}
 
 	// Возвращаем UUID из структуры
 	return userData.Response.UUID, nil
