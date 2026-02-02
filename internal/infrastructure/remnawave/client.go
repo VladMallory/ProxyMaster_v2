@@ -268,7 +268,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "url", Value: url},
 		)
 
-		return fmt.Sprintf("%v: %v", ErrFailedToMakeRequest, err), nil
+		return "", fmt.Errorf("%v: %v", ErrFailedToMakeRequest, err)
 	}
 
 	// Добавление стандартных заголовков
@@ -287,7 +287,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "url", Value: url},
 		)
 
-		return fmt.Sprintf("%v: %v", ErrFailedToMakeRequest, err), nil
+		return "", fmt.Errorf("%v: %v", ErrFailedToMakeRequest, err)
 	}
 
 	// Закрывает тело ответа
@@ -308,7 +308,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "error", Value: err.Error()},
 		)
 
-		return fmt.Sprintf("%v: %v", ErrFailedToMakeResponse, err), nil
+		return "", fmt.Errorf("%v: %v", ErrFailedToMakeResponse, err)
 	}
 
 	bodyStr := string(responseBody)
