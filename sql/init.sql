@@ -50,3 +50,5 @@ CREATE TABLE transactions (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
+
+ALTER USER postgres WITH PASSWORD 'userspass';
