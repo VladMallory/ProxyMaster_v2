@@ -268,7 +268,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "url", Value: url},
 		)
 
-		return "", fmt.Errorf("%v: %v", ErrFailedToMakeRequest, err)
+		return "", fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
 	}
 
 	// Добавление стандартных заголовков
@@ -287,7 +287,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "url", Value: url},
 		)
 
-		return "", fmt.Errorf("%v: %v", ErrFailedToMakeRequest, err)
+		return "", fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
 	}
 
 	// Закрывает тело ответа
@@ -308,7 +308,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "error", Value: err.Error()},
 		)
 
-		return "", fmt.Errorf("%v: %v", ErrFailedToMakeResponse, err)
+		return "", fmt.Errorf("%w: %w", ErrFailedToMakeResponse, err)
 	}
 
 	bodyStr := string(responseBody)
@@ -363,12 +363,6 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		c.cfg.RemnaSecretURLToken,
 	)
 
-	c.logger.Info(
-		"получен UUID пользователя",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "uuid", Value: userData.Response.UUID},
-	)
-
 	responseBody, err := c.request("GetUUIDByUsername", url)
 	if err != nil {
 		return "", err
@@ -395,6 +389,12 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 
 		return "", ErrUUIDorUsernameIsNill
 	}
+
+	c.logger.Info(
+		"получен UUID пользователя",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "uuid", Value: userData.Response.UUID},
+	)
 
 	// Возвращаем UUID из структуры
 	return userData.Response.UUID, nil
