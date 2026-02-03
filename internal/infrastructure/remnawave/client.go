@@ -247,9 +247,20 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	return encResponse.EncryptedLink, nil
 }
 
+type operationType int
+
+const (
+	opBasic operationType = iota
+	opReadAndParse
+	opUpdate
+	opCreate
+)
+
+// request делает запросы к remnawave.
 func (c *RemnaClient) request(
 	method string,
 	url string,
+	opType operationType,
 ) (string, error) {
 	var responseBody []byte
 
@@ -313,6 +324,11 @@ func (c *RemnaClient) request(
 
 	bodyStr := string(responseBody)
 
+	switch opType {
+	case opBasic:
+		return c.handleBasic(response, bodyStr)
+	}
+
 	switch response.StatusCode {
 	case http.StatusBadRequest:
 		c.logger.Error(
@@ -348,6 +364,51 @@ func (c *RemnaClient) request(
 	return bodyStr, nil
 }
 
+// handleBasic базовые HTTP запросы.
+func (c *RemnaClient) handleBasic(response *http.Response, bodyStr string) (string, error) {
+	switch response.StatusCode {
+	case http.StatusBadRequest, http.StatusInternalServerError, http.StatusNotFound:
+		c.logger.Error(
+			"в запросе ошибка 400",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrInternalServerError
+	}
+
+	return bodyStr, nil
+}
+
+// handleReadAndParse обработка с парсингом JSON.
+func (c *RemnaClient) handleReadAndParse(response *http.Response, bodyStr string, target interface{}) (string, error) {
+	switch response.StatusCode {
+	case http.StatusBadRequest, http.StatusInternalServerError, http.StatusNotFound:
+		c.logger.Error(
+			"в запросе ошибка",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrInternalServerError
+	}
+
+	// Если статус OK, то парсим
+	if response.StatusCode == http.StatusOK && target != nil {
+		if err := json.Unmarshal([]byte(bodyStr), target); err != nil {
+			c.logger.Error(
+				"не удалось распарсить json",
+				logger.Field{Key: "status_code", Value: response.StatusCode},
+				logger.Field{Key: "response_body", Value: bodyStr},
+			)
+
+			return bodyStr, fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
+		}
+	}
+
+	return bodyStr, nil
+}
+
 // GetUUIDByUsername - метод нахождения пользователя через username.
 func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 	defer c.logDuration("GetUUIDByUsername")()
@@ -363,7 +424,7 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		c.cfg.RemnaSecretURLToken,
 	)
 
-	responseBody, err := c.request("GetUUIDByUsername", url)
+	responseBody, err := c.request("GetUUIDByUsername", url, opBasic)
 	if err != nil {
 		return "", err
 	}
@@ -504,12 +565,12 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) error {
 	defer c.logDuration("BetterResetTraffic")()
 
-	uuid, err := c.GetUUIDByUsername(username)
+	UUID, err := c.GetUUIDByUsername(username)
 
 	switch err {
 	case nil:
 		c.logger.Info(
-			"uuid получен успешно",
+			"UUID получен успешно",
 		)
 	case ErrNotFound:
 		c.logger.Error(
@@ -530,7 +591,7 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 	url := fmt.Sprintf(
 		"%s/api/users/%s/actions/reset-traffic?%s",
 		c.cfg.RemnaPanelURL,
-		uuid,
+		UUID,
 		c.cfg.RemnaSecretURLToken,
 	)
 
@@ -623,7 +684,11 @@ func (c *RemnaClient) SetTraffic(username string, gb uint64) error {
 		TrafficLimitBytes: &trafficLimitBytes,
 	}
 
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf(
+		"%s/api/users?%s",
+		c.cfg.RemnaPanelURL,
+		c.cfg.RemnaSecretURLToken,
+	)
 
 	// Делаем json запись
 	jsonData, err := json.Marshal(userData)
@@ -1238,6 +1303,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 		)
+
 		return nil
 
 	case http.StatusNotFound:
@@ -1248,6 +1314,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
+
 		return fmt.Errorf("user not found: %s", username)
 
 	case http.StatusUnauthorized:
@@ -1258,6 +1325,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
+
 		return fmt.Errorf("authorization error - check authentication token")
 
 	default:
@@ -1268,6 +1336,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
+
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
