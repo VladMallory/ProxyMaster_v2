@@ -45,9 +45,9 @@ var (
 
 // RemnawaveClient то как мы хотим получать информацию.
 type RemnawaveClient interface {
-	GetUUIDByUsername(username string) (string, error)
+	GetUUIDByUsername(ctx context.Context, username string) (string, error)
 	CreateUser(username string, days int) error
-	DeleteUser(username string) error
+	DeleteUser(ctx context.Context, username string) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
 	EnableClient(userUUID string) error
 	DisableClient(userUUID string) error

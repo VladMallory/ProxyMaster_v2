@@ -344,7 +344,7 @@ func ProcessCallback(sender MessageSender,
 
 	case "btn_add_device":
 		userID := strconv.FormatInt(chatID, 10)
-		uuid, err := remnawaveClient.GetUUIDByUsername(userID)
+		uuid, err := remnawaveClient.GetUUIDByUsername(context.Background(), userID)
 		if err != nil {
 			log.Printf("Ошибка получения UUID пользователя %s: %v", userID, err)
 			if sendErr := sender.SendMessage(
@@ -510,7 +510,7 @@ func ProcessCallback(sender MessageSender,
 
 	case "btn_reset_traffic_payment":
 		userID := strconv.FormatInt(chatID, 10)
-		_, err := remnawaveClient.GetUUIDByUsername(userID)
+		_, err := remnawaveClient.GetUUIDByUsername(context.Background(), userID)
 		if err != nil {
 			log.Printf("Ошибка получения UUID пользователя %s: %v", userID, err)
 			if sendErr := sender.SendMessage(
@@ -1427,7 +1427,8 @@ func buildStartText(firstName string, subscriptionLine string) string {
 }
 
 func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClient) string {
-	uuid, err := remnawaveClient.GetUUIDByUsername(username)
+	ctx := context.Background()
+	uuid, err := remnawaveClient.GetUUIDByUsername(ctx, username)
 	if err != nil {
 		return "—❌ Подписка не активна"
 	}
