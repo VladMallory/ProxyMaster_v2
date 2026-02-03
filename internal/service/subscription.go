@@ -7,6 +7,7 @@ import (
 	"ProxyMaster_v2/internal/infrastructure/remnawave"
 	"ProxyMaster_v2/internal/models"
 	"ProxyMaster_v2/pkg/logger"
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -49,7 +50,7 @@ func NewSubscriptionService(
 // GetURLSubscription получает url подписки пользователя через username (Telegram ID).
 func (s *SubscriptionService) GetURLSubscription(username string) (string, error) {
 	// Получаем UUID пользователя по username (Telegram ID)
-	uuid, err := s.remna.GetUUIDByUsername(username)
+	uuid, err := s.remna.GetUUIDByUsername(context.Background(), username)
 	if err != nil {
 		return "", fmt.Errorf("не удалось получить UUID пользователя: %w", err)
 	}
@@ -382,7 +383,7 @@ func (s *SubscriptionService) ActivateSubscription(
 	}
 
 	// Проверяем есть ли пользователь в панели
-	userUUID, err := s.remna.GetUUIDByUsername(username)
+	userUUID, err := s.remna.GetUUIDByUsername(context.Background(), username)
 	if err != nil {
 		// Если пользователя нет, создаем его в панели
 		if errors.Is(err, remnawave.ErrNotFound) {
@@ -435,7 +436,7 @@ func (s *SubscriptionService) ActivateSubscription(
 func (s *SubscriptionService) AddDevice(username string) error {
 	defer s.logDuration("AddDevice")()
 
-	uuid, err := s.remna.GetUUIDByUsername(username)
+	uuid, err := s.remna.GetUUIDByUsername(context.Background(), username)
 	if err != nil {
 		s.logger.Error(
 			"failed to get user UUID",

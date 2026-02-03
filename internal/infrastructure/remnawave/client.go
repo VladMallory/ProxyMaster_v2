@@ -76,7 +76,7 @@ func (c *RemnaClient) AddInternalSquad(
 
 	if err != nil {
 		c.logger.Error(
-			"failed to make request",
+			"failed to make doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
@@ -86,18 +86,11 @@ func (c *RemnaClient) AddInternalSquad(
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.logger.Error(
-			"failed to do request",
+			"failed to do doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
 		return ErrFailedToDoRequest
-	}
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		c.logger.Error("failed to read body")
-
-		return ErrFailedToMakeResponse
 	}
 
 	defer func() {
@@ -108,6 +101,13 @@ func (c *RemnaClient) AddInternalSquad(
 			)
 		}
 	}()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		c.logger.Error("failed to read body")
+
+		return ErrFailedToMakeResponse
+	}
 
 	switch response.StatusCode {
 	case http.StatusOK:
@@ -167,7 +167,7 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	)
 	if err != nil {
 		c.logger.Error(
-			"failed to make request",
+			"failed to make doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
@@ -247,29 +247,39 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	return encResponse.EncryptedLink, nil
 }
 
-type operationType int
+// doRequest делает запросы к remnawave с стандартными заголовками.
+func (c *RemnaClient) doRequest(
+	ctx context.Context,
+	method, url string,
+	body interface{},
+) (*http.Response, error) {
+	var bodyReader io.Reader
 
-const (
-	opBasic operationType = iota
-	opReadAndParse
-	opUpdate
-	opCreate
-)
+	// Сериализация тела запроса (если есть)
+	if body != nil {
+		jsonData, err := json.Marshal(body)
+		if err != nil {
+			c.logger.Error(
+				"ошибка парсинга json",
+				logger.Field{Key: "err_msg", Value: err},
+				logger.Field{Key: "method", Value: method},
+				logger.Field{Key: "url", Value: url},
+			)
 
-// request делает запросы к remnawave.
-func (c *RemnaClient) request(
-	method string,
-	url string,
-	opType operationType,
-) (string, error) {
-	var responseBody []byte
+			return nil, fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
+		}
 
-	// Создание HTTP запроса с котекстом
+		bodyReader = bytes.NewBuffer(jsonData)
+	} else {
+		bodyReader = http.NoBody
+	}
+
+	// Создание HTTP запроса
 	request, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
+		ctx,
+		method,
 		url,
-		http.NoBody,
+		bodyReader,
 	)
 	if err != nil {
 		c.logger.Error(
@@ -279,7 +289,7 @@ func (c *RemnaClient) request(
 			logger.Field{Key: "url", Value: url},
 		)
 
-		return "", fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
 	}
 
 	// Добавление стандартных заголовков
@@ -292,76 +302,66 @@ func (c *RemnaClient) request(
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.logger.Error(
-			"failed to execute request",
+			"failed to execute doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 			logger.Field{Key: "method", Value: method},
 			logger.Field{Key: "url", Value: url},
 		)
 
-		return "", fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
 	}
 
-	// Закрывает тело ответа
-	defer func() {
-		if err = response.Body.Close(); err != nil {
-			c.logger.Error(
-				"не удалось закрыть тело ответа",
-				logger.Field{Key: "error", Value: err.Error()},
-			)
-		}
-	}()
+	return response, nil
+}
 
-	// Читает тело ответа
-	responseBody, err = io.ReadAll(response.Body)
+// readBody читает тело ответа с логированием ошибок.
+func (c *RemnaClient) readBody(resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.logger.Error(
-			"не удалось преобразовать тело ответа",
+			"failed to read response body",
+			logger.Field{Key: "error", Value: err.Error()},
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+		)
+
+		return nil, fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
+	}
+
+	return body, nil
+}
+
+// closeBody безопасно закрывает тело ответа с логированием.
+func (c *RemnaClient) closeBody(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+
+	if err := resp.Body.Close(); err != nil {
+		c.logger.Error(
+			"failed to close response body",
 			logger.Field{Key: "error", Value: err.Error()},
 		)
-
-		return "", fmt.Errorf("%w: %w", ErrFailedToMakeResponse, err)
 	}
+}
 
-	bodyStr := string(responseBody)
-
-	switch opType {
-	case opBasic:
-		return c.handleBasic(response, bodyStr)
-	}
-
-	switch response.StatusCode {
-	case http.StatusBadRequest:
+// parseJSON парсит JSON с логированием при ошибке.
+func (c *RemnaClient) parseJSON(data []byte, target interface{}) error {
+	if err := json.Unmarshal(data, target); err != nil {
 		c.logger.Error(
-			"bad request",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			"failed to unmarshal JSON",
+			logger.Field{Key: "error", Value: err.Error()},
+			logger.Field{Key: "response_body", Value: string(data)},
 		)
 
-		return bodyStr, ErrBadRequestUsername
-
-	case http.StatusInternalServerError:
-		c.logger.Error(
-			"internal server error",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
-		)
-
-		return bodyStr, ErrInternalServerError
-
-	case http.StatusNotFound:
-		c.logger.Error(ErrNotFound.Error())
-
-		return bodyStr, ErrNotFound
+		return fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
 	}
 
-	// AI: Защита от некорректных данных : Даже если сервер ответил 200 OK,
-	// внутри JSON могут прийти пустые поля (например, если на сервере
-	// RemnaWave произошел сбой логики, но не HTTP-ошибка).
-	// if userData.Response.UUID == "" || userData.Response.Username == "" {
-	// 	return bodyStr, ErrUUIDorUsernameIsNill
-	// }
+	return nil
+}
 
-	return bodyStr, nil
+// isSuccess проверяет 2xx статусы.
+func isSuccess(statusCode int) bool {
+	return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
 }
 
 // handleBasic базовые HTTP запросы.
@@ -381,11 +381,28 @@ func (c *RemnaClient) handleBasic(response *http.Response, bodyStr string) (stri
 }
 
 // handleReadAndParse обработка с парсингом JSON.
-func (c *RemnaClient) handleReadAndParse(response *http.Response, bodyStr string, target interface{}) (string, error) {
+func (c *RemnaClient) handleReadAndParse(
+	response *http.Response,
+	bodyStr string,
+	target interface{},
+) (string, error) {
 	switch response.StatusCode {
-	case http.StatusBadRequest, http.StatusInternalServerError, http.StatusNotFound:
+	case http.StatusBadRequest:
 		c.logger.Error(
-			"в запросе ошибка",
+			"bad doRequest",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrBadRequest
+
+	case http.StatusNotFound:
+		c.logger.Error(ErrNotFound.Error())
+
+		return bodyStr, ErrNotFound
+	case http.StatusInternalServerError:
+		c.logger.Error(
+			"internal server error",
 			logger.Field{Key: "status_code", Value: response.StatusCode},
 			logger.Field{Key: "response_body", Value: bodyStr},
 		)
@@ -409,8 +426,87 @@ func (c *RemnaClient) handleReadAndParse(response *http.Response, bodyStr string
 	return bodyStr, nil
 }
 
+// handleUpdate обработка PATCH/PUT запросов.
+func (c *RemnaClient) handleUpdate(response *http.Response, bodyStr string) (string, error) {
+	switch response.StatusCode {
+	case http.StatusOK, http.StatusNoContent:
+		return bodyStr, nil
+	case http.StatusBadRequest:
+		c.logger.Error(
+			"bad doRequest while updating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrBadRequest
+	case http.StatusNotFound:
+		c.logger.Error(
+			"not found while updating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrNotFound
+	case http.StatusInternalServerError:
+		c.logger.Error(
+			"internal server error while updating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrInternalServerError
+	default:
+		c.logger.Error(
+			"unexpected status code while updating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, fmt.Errorf("%w: %d", ErrUndefined, response.StatusCode)
+	}
+}
+
+// handleCreate - обработка POST запросов, создание.
+func (c *RemnaClient) handleCreate(response *http.Response, bodyStr string) (string, error) {
+	switch response.StatusCode {
+	case http.StatusCreated, http.StatusOK:
+		return bodyStr, nil
+	case http.StatusBadRequest:
+		// Проверяем, является ли ошибка "User username already exists"
+		if strings.Contains(bodyStr, "User username already exists") {
+			c.logger.Info("Пользователь уже существует, пропускаем создание")
+
+			return bodyStr, nil // Возвращаем успех, если пользователь уже существует
+		}
+
+		c.logger.Error(
+			"bad doRequest while creating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrBadRequestCreate
+	case http.StatusInternalServerError:
+		c.logger.Error(
+			"internal server error while creating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, ErrInternalServerError
+	default:
+		c.logger.Error(
+			"unexpected status code while creating",
+			logger.Field{Key: "status_code", Value: response.StatusCode},
+			logger.Field{Key: "response_body", Value: bodyStr},
+		)
+
+		return bodyStr, fmt.Errorf("%w: %d", ErrUndefined, response.StatusCode)
+	}
+}
+
 // GetUUIDByUsername - метод нахождения пользователя через username.
-func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
+func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (string, error) {
 	defer c.logDuration("GetUUIDByUsername")()
 
 	var userData models.GetUUIDByUsernameResponse
@@ -424,22 +520,48 @@ func (c *RemnaClient) GetUUIDByUsername(username string) (string, error) {
 		c.cfg.RemnaSecretURLToken,
 	)
 
-	responseBody, err := c.request("GetUUIDByUsername", url, opBasic)
+	resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	if err := json.Unmarshal([]byte(responseBody), &userData); err != nil {
+	defer c.closeBody(resp)
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return "", ErrNotFound
+	default:
+		body, readErr := c.readBody(resp)
+		if readErr != nil {
+			c.logger.Error("failed to read error response")
+
+			body = []byte{} // пустой слайс вместо nil
+		}
+
 		c.logger.Error(
-			"не удалось распарсить тело ",
-			logger.Field{Key: "error", Value: err.Error()},
-			logger.Field{Key: "response_body", Value: responseBody},
+			"ошибка чтения статуса",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response", Value: string(body)},
 		)
 
-		return "", fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
+		return "", ErrInternalServerError
 	}
 
-	// Проверка что в ответе есть хоть что-то
+	// При успешном 200 OK читаем дальше и парсим
+	// Читаем тело ответа
+	body, err := c.readBody(resp)
+	if err != nil {
+		return "", err
+	}
+
+	// Парсим JSON в структуру
+	if err := c.parseJSON(body, &userData); err != nil {
+		return "", err
+	}
+
+	// Проверка есть ли что-то в ответе
 	if userData.Response.UUID == "" || userData.Response.Username == "" {
 		c.logger.Error(
 			"received empty UUID or username in response",
@@ -480,7 +602,7 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	jsonData, err := json.Marshal(userData)
 	if err != nil {
 		c.logger.Error(
-			"failed to marshal request",
+			"failed to marshal doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
@@ -495,7 +617,7 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 	)
 	if err != nil {
 		c.logger.Error(
-			"failed to make request",
+			"failed to make doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
@@ -565,7 +687,7 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) error {
 	defer c.logDuration("BetterResetTraffic")()
 
-	UUID, err := c.GetUUIDByUsername(username)
+	UUID, err := c.GetUUIDByUsername(ctx, username)
 
 	switch err {
 	case nil:
@@ -640,7 +762,7 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 
 	case http.StatusBadRequest:
 		c.logger.Error(
-			"Bad request",
+			"Bad doRequest",
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "status code", Value: response.StatusCode},
 		)
@@ -709,7 +831,7 @@ func (c *RemnaClient) SetTraffic(username string, gb uint64) error {
 	)
 	if err != nil {
 		c.logger.Error(
-			"failed to make request",
+			"failed to make doRequest",
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
@@ -754,7 +876,7 @@ func (c *RemnaClient) SetTraffic(username string, gb uint64) error {
 		}
 
 		c.logger.Error(
-			"bad request while setting traffic",
+			"bad doRequest while setting traffic",
 			logger.Field{Key: "status_code", Value: response.StatusCode},
 			logger.Field{Key: "response_body", Value: string(body)},
 		)
@@ -1108,7 +1230,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, url, http.NoBody)
 	if err != nil {
 		c.logger.Error(
-			"failed to create request for action",
+			"failed to create doRequest for action",
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "err_msg", Value: err},
 		)
@@ -1121,7 +1243,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		c.logger.Error(
-			"failed to execute action request",
+			"failed to execute action doRequest",
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "err_msg", Value: err},
 		)
@@ -1172,7 +1294,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 		return ErrInternalServerError
 	case http.StatusBadRequest:
 		c.logger.Warn(
-			"bad request for action",
+			"bad doRequest for action",
 			logger.Field{Key: "action", Value: action},
 			logger.Field{Key: "userUUID", Value: userUUID},
 			logger.Field{Key: "response_body", Value: string(body)},
@@ -1214,7 +1336,7 @@ func (c *RemnaClient) logDuration(method string) func() {
 	}
 }
 
-func (c *RemnaClient) DeleteUser(username string) error {
+func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 	defer c.logDuration("DeleteUser")()
 
 	if username == "" {
@@ -1234,7 +1356,7 @@ func (c *RemnaClient) DeleteUser(username string) error {
 	)
 
 	// Получаем UUID пользователя по username
-	UUID, err := c.GetUUIDByUsername(username)
+	UUID, err := c.GetUUIDByUsername(ctx, username)
 	if err != nil {
 		c.logger.Error(
 			"failed to get UUID for user deletion",
@@ -1258,14 +1380,14 @@ func (c *RemnaClient) DeleteUser(username string) error {
 	request, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, url, nil)
 	if err != nil {
 		c.logger.Error(
-			"failed to create delete request",
+			"failed to create delete doRequest",
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "url", Value: url},
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create doRequest: %w", err)
 	}
 
 	// Добавляем необходимые заголовки
@@ -1276,13 +1398,13 @@ func (c *RemnaClient) DeleteUser(username string) error {
 	resp, err := c.httpClient.Do(request)
 	if err != nil {
 		c.logger.Error(
-			"failed to execute delete request",
+			"failed to execute delete doRequest",
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "UUID", Value: UUID},
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return fmt.Errorf("failed to execute request: %w", err)
+		return fmt.Errorf("failed to execute doRequest: %w", err)
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
