@@ -25,6 +25,7 @@ type Config struct {
 	// telegram
 	TelegramToken   string
 	TelegramSupport string // Поддержка телеграмм при ошибках сервиса.
+	TelegramAdminID string
 
 	// database
 	DatabaseURL string
@@ -62,6 +63,7 @@ func New() (*Config, error) {
 		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
 		RemnaDefaultGb:      os.Getenv("REMNA_DEFOULT_GB"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
+		TelegramAdminID:     os.Getenv("TELEGRAM_ADMIN_ID"),
 		DatabaseURL:         databaseURL,
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),
 		LoggerLevel:         os.Getenv("LOGGER_LEVEL"),

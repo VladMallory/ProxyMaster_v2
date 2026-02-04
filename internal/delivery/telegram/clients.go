@@ -51,6 +51,7 @@ func (c *Client) Start(
 	subscriptionService domain.SubscriptionService,
 	paymentGateway domain.PaymentGateway,
 	userRepo *database.UserStorage,
+	adminID int64,
 ) {
 	c.remnawaveClient = remnawaveClient
 	c.subscriptionService = subscriptionService
@@ -113,7 +114,8 @@ func (c *Client) Start(
 				remnawaveClient,
 				subscriptionService,
 				userRepo,
-				c.logger)
+				c.logger,
+				adminID)
 			if err != nil {
 				c.logger.Error("Ошибка обработки команды", logger.Field{Key: "error", Value: err})
 			}
