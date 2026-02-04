@@ -116,7 +116,7 @@ func (s *SubscriptionService) AddPaidDevice(username string) error {
 
 	// Проставляем лимит устройств в RemnaWave: базовое + купленные.
 	devices := uint8(baseDevicesLimit + newCount)
-	if err := s.remna.SetDevices(username, &devices); err != nil {
+	if err := s.remna.SetDevices(context.Background(), username, &devices); err != nil {
 		return s.logError(
 			"ошибка установки устройств в remnawave",
 			err,
@@ -154,7 +154,7 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 
 	// Ставим всегда 1 устройство, как ты просил.
 	devices := uint8(baseDevicesLimit)
-	if err := s.remna.SetDevices(username, &devices); err != nil {
+	if err := s.remna.SetDevices(context.Background(), username, &devices); err != nil {
 		return s.logError(
 			"ошибка установки устройств в remnawave",
 			err,
@@ -221,7 +221,7 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 
 	for _, userID := range usersToReset {
 		devices := uint8(baseDevicesLimit)
-		if err := s.remna.SetDevices(userID, &devices); err != nil {
+		if err := s.remna.SetDevices(context.Background(), userID, &devices); err != nil {
 			s.logger.Error(
 				"ошибка установки базового лимита устройств в remnawave",
 				logger.Field{Key: "user_id", Value: userID},
@@ -471,7 +471,7 @@ func (s *SubscriptionService) AddDevice(username string) error {
 	}
 
 	devices := uint8(user.Response.HWIDDeviceLimit) + 1
-	if err := s.remna.SetDevices(username, &devices); err != nil {
+	if err := s.remna.SetDevices(context.Background(), username, &devices); err != nil {
 		s.logger.Error(
 			"failed to set device limit",
 			logger.Field{Key: "err_msg", Value: err},
