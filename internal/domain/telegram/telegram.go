@@ -1295,9 +1295,19 @@ func ProcessCommand(
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 	logger logger.Logger,
+	adminID int64,
 ) error {
 	// проверка на админа
-	isAdmin, err := isAdmin(sender, chatID, command, firstName, remnawaveClient, userRepo, logger)
+	isAdmin, err := isAdmin(
+		sender,
+		chatID,
+		command,
+		// firstName,
+		// remnawaveClient,
+		adminID,
+		userRepo,
+		logger,
+	)
 	if err != nil {
 		logger.Error("Ошибка проверка на администратора")
 		return nil

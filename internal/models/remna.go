@@ -82,7 +82,7 @@ type user struct {
 // todo мб переименовать в AppToken или конфиг панели /internal/config/config.go
 // todo переименовать в PanelConfig т.к можно запутаться
 
-//legacy структура конфига
+// legacy структура конфига
 // type Config struct {
 // 	BaseURL        string
 // 	Login          string
