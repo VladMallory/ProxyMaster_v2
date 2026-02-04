@@ -255,7 +255,8 @@ func (c *RemnaClient) doRequest(
 ) (*http.Response, error) {
 	var bodyReader io.Reader
 
-	// Сериализация тела запроса (если есть)
+	// Преобразуем запрос в JSON чтобы дать
+	// его на сервер в привычном виде
 	if body != nil {
 		jsonData, err := json.Marshal(body)
 		if err != nil {
@@ -584,7 +585,7 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 }
 
 // SetDevices устанавилвает кол-во устройств пользователя.
-func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
+func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *uint8) error {
 	if devices == nil {
 		return ErrDevicesNotSet
 	}
@@ -599,54 +600,30 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 
 	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
 
-	jsonData, err := json.Marshal(userData)
+	response, err := c.doRequest(ctx, http.MethodPatch, url, userData)
 	if err != nil {
-		c.logger.Error(
-			"failed to marshal doRequest",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
+		return err
 	}
 
-	request, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodPatch,
-		url,
-		bytes.NewBuffer(jsonData),
-	)
-	if err != nil {
-		c.logger.Error(
-			"failed to make doRequest",
-			logger.Field{Key: "err_msg", Value: err},
-		)
+	defer c.closeBody(response)
 
-		return fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
+	body, err := c.readBody(response)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
 	}
 
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+	bodyStr := string(body)
 
-	response, err := c.httpClient.Do(request)
+	_, err = c.handleUpdate(response, bodyStr)
 	if err != nil {
 		c.logger.Error(
-			"failed to get response",
-			logger.Field{Key: "err_msg", Value: err},
+			"ошибка при изменении количества девайсов в панели при запросе",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "devices", Value: *devices},
 		)
 
-		return fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
+		return err
 	}
-
-	defer func() {
-		if response != nil {
-			if err := response.Body.Close(); err != nil {
-				c.logger.Error(
-					"failed to close response body",
-					logger.Field{Key: "err_msg", Value: err},
-				)
-			}
-		}
-	}()
 
 	switch response.StatusCode {
 	case http.StatusOK:
@@ -656,32 +633,17 @@ func (c *RemnaClient) SetDevices(username string, devices *uint8) error {
 		)
 
 		return nil
-
-	case http.StatusBadRequest:
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
-		}
-
-		c.logger.Error(
-			"failed to set devices",
-			logger.Field{Key: "status code", Value: response.StatusCode},
-			logger.Field{Key: "response body", Value: body},
-		)
-
-		return fmt.Errorf("%w: %s", ErrBadRequest, string(body))
-
-	case http.StatusInternalServerError:
-		c.logger.Error(
-			"failed to set devices",
-			logger.Field{Key: "status code", Value: response.StatusCode},
-		)
-
-		return fmt.Errorf("%w: %d", ErrInternalServerError, response.StatusCode)
-
-	default:
-		return fmt.Errorf("%w: %d", ErrUndefined, response.StatusCode)
 	}
+
+	// Метод успешно отработал
+	c.logger.Info(
+		"успешное измение количества устройств",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "devices", Value: *devices},
+		logger.Field{Key: "status_code", Value: response.StatusCode},
+	)
+
+	return nil
 }
 
 func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) error {
