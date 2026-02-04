@@ -316,7 +316,7 @@ func (c *RemnaClient) doRequest(
 }
 
 // readBody читает тело ответа с логированием ошибок.
-func (c *RemnaClient) readBody(resp *http.Response) ([]byte, error) {
+func (c *RemnaClient) readBody(resp *http.Response) (string, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.logger.Error(
@@ -325,10 +325,12 @@ func (c *RemnaClient) readBody(resp *http.Response) ([]byte, error) {
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
 		)
 
-		return nil, fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
+		return "", fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
 	}
 
-	return body, nil
+	bodyStr := string(body)
+
+	return bodyStr, nil
 }
 
 // closeBody безопасно закрывает тело ответа с логированием.
@@ -346,12 +348,12 @@ func (c *RemnaClient) closeBody(resp *http.Response) {
 }
 
 // parseJSON парсит JSON с логированием при ошибке.
-func (c *RemnaClient) parseJSON(data []byte, target interface{}) error {
-	if err := json.Unmarshal(data, target); err != nil {
+func (c *RemnaClient) parseJSON(data string, target interface{}) error {
+	if err := json.Unmarshal([]byte(data), target); err != nil {
 		c.logger.Error(
 			"failed to unmarshal JSON",
 			logger.Field{Key: "error", Value: err.Error()},
-			logger.Field{Key: "response_body", Value: string(data)},
+			logger.Field{Key: "response_body", Value: data},
 		)
 
 		return fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
@@ -537,14 +539,14 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 		if readErr != nil {
 			c.logger.Error("failed to read error response")
 
-			body = []byte{} // пустой слайс вместо nil
+			body = ""
 		}
 
 		c.logger.Error(
 			"ошибка чтения статуса",
 			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "status_code", Value: resp.StatusCode},
-			logger.Field{Key: "response", Value: string(body)},
+			logger.Field{Key: "response", Value: body},
 		)
 
 		return "", ErrInternalServerError
@@ -612,9 +614,7 @@ func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *
 		return fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
 	}
 
-	bodyStr := string(body)
-
-	_, err = c.handleUpdate(response, bodyStr)
+	_, err = c.handleUpdate(response, body)
 	if err != nil {
 		c.logger.Error(
 			"ошибка при изменении количества девайсов в панели при запросе",
