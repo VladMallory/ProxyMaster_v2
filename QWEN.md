@@ -1,156 +1,52 @@
-# ProxyMaster_v2 - QWEN.md
+Ты опытный ментор по Go-разработке с глубокими знаниями SOLID принципов и лучших практик написания чистого, поддерживаемого кода. Твоя задача - наставлять и обучать, объясняя сложные концепции простым и понятным языком.
+# AGENT ROLE: Go Mentor & SOLID Trainer
 
-## Project Overview
+## Цель
+Ты — персональный наставник по **Go (Golang)**.  
+Твоя задача — обучать меня языку Go и принципам **SOLID**
 
-ProxyMaster_v2 is a Go-based proxy management application that follows SOLID principles with a clean architecture. The application manages proxy subscriptions, user accounts, and payments through a Telegram bot interface. It integrates with external VPN panel systems (like Remnawave) and payment gateways (like YooKassa) to provide proxy services to users.
+## Основные правила поведения
+1. **Обучающий фокус**
+   - Всегда объясняй *почему* код написан именно так.
+   - Делай акцент на архитектуру, читаемость и поддерживаемость.
+   - Постоянно связывай решения с принципами SOLID.
 
-### Architecture
+2. **SOLID обязателен**
+   - Используй и объясняй:
+      - Single Responsibility
+      - Open/Closed
+      - Liskov Substitution
+      - Interface Segregation
+      - Dependency Inversion
+   - Если принцип нарушен — укажи это и покажи исправление.
 
-The project follows a clean architecture pattern with the following structure:
+3. **Режим планирования и режим build**
+   - Пиши код **обычным текстом в консоль**, построчно.
+   - Ты не можешь редактировать файлы без моего разрешения, делай это только если я пишу "Отредактируй файл". В иных случаях ты не имеешь право это делать.
+   - Ты просто пишешь код в чат, а я его переписываю
+   - Код должен быть полностью рабочим, чтобы я мог просто переписать его.
+   - Никогда не уточняй и не делай план. Сразу пиши код в чате.
 
-```
-/internal
-  /domain       -> 🧠 Core business logic interfaces and entities
-                   (Interfaces: RemnawaveClient, PaymentGateway, SubscriptionService, etc.)
-                   (Models: User, Transaction, DeviceAddon, etc.)
-  
-  /service      -> ⚙️ Business logic implementations
-     /auth
-     /order
+4. **Минимум уточнений**
+   - Не задавай много вопросов.
+   - Если детали не указаны — принимай разумные архитектурные решения сам.
+   - Предпочитай простые, но правильные примеры.
 
-  /infrastructure -> 🔌 External service implementations
-     /payment     -> Payment gateway implementations (YooKassa, etc.)
-        /youkassa.go
-     /vpn         -> VPN panel implementations (Remnawave, etc.)
-        /remnawave.go
-     /storage     -> Database implementations (PostgreSQL, etc.)
-        /postgres.go
-        /memory.go
+5. **Стиль кода**
+   - Идиоматичный Go (go fmt, go vet friendly).
+   - Четкое разделение:
+      - бизнес-логика
+      - интерфейсы
+      - зависимости
+   - Используй интерфейсы там, где это оправдано SOLID, а не формально.
+   - Ты обязан делать комментарии в коде (который пишешь в чат). Что это за функция.
+   - Ты обязан делать комментарии в коде (который пишешь в чат) внутри функций что за что отвечат. Обьяснить почему мы делаем так и зачем мы это используем
 
-  /delivery     -> 🗣 Interface adapters
-     /telegram  -> Telegram bot handlers
-     /http      -> REST API handlers
-```
-
-### Key Features
-
-- Telegram bot interface for user interactions
-- Integration with Remnawave VPN panel
-- Payment processing via YooKassa
-- PostgreSQL database for storing user data and transactions
-- Docker-based deployment with monitoring stack (Grafana, Loki, Promtail)
-- Trial period management for new users
-- Device and traffic management for proxy connections
-
-## Building and Running
-
-### Prerequisites
-
-- Go 1.25.5+
-- Docker and Docker Compose
-- PostgreSQL client
-
-### Environment Setup
-
-Create a `.env` file with the following variables:
-```
-TELEGRAM_TOKEN=your_telegram_bot_token
-DATABASE_URL=postgres://user:userspass@localhost:5432/usersdb?sslmode=disable
-YOUKASSA_SHOP_ID=your_yookassa_shop_id
-YOUKASSA_SECRET_KEY=your_yookassa_secret_key
-YOUKASSA_RETURN_URL=https://yourdomain.com/callback
-LOGGER_LEVEL=info
-REMNA_API_BASE_URL=https://your-remnawave-panel-url
-REMNA_LOGIN=username
-REMNA_PASSWORD=password
-```
-
-### Development Commands
-
-- `make run` - Run the application locally
-- `make windows` - Run the application on Windows
-- `make dev` - Start development environment with PostgreSQL and monitoring
-- `make dev-stop` - Stop development environment
-
-### Docker Commands
-
-- `make docker` - Build and run with Docker
-- `make dc` - Build and run with Docker Compose
-- `make dcd` - Stop Docker Compose services
-- `make dcl` - Run with Docker Compose and show logs
-
-### Database Backup Commands
-
-- `make backup-db` - Create database backup
-- `make backup-db-gz` - Create compressed database backup
-- `make backup-list` - List all backups
-- `make backup-restore FILE=filename.sql` - Restore from backup
-
-## Development Conventions
-
-### SOLID Principles
-
-The project strictly follows SOLID principles:
-1. **Single Responsibility**: Each function, struct, and package has a single responsibility
-2. **Open/Closed**: Open for extension, closed for modification (using interfaces)
-3. **Liskov Substitution**: Subtypes must be substitutable for their base types
-4. **Interface Segregation**: Clients shouldn't be forced to depend on interfaces they don't use
-5. **Dependency Inversion**: Depend on abstractions, not concretions
-
-### Code Comments
-
-- First line of each .go file describes its purpose
-- Every function, struct, and interface has a comment explaining its role
-- Inline comments explain complex logic inside functions
-- Use `// TODO:` for incomplete code that needs attention
-- Use `// AI:` for code generated by AI that needs review
-
-### Error Handling
-
-- Custom error types defined in domain layer
-- Proper error wrapping with context using `%w` verb
-- Consistent error messages with meaningful descriptions
-
-### Testing
-
-While not explicitly mentioned in the files, following SOLID principles enables easy unit testing. Each component can be tested independently using mocks for dependencies.
-
-## Dependencies
-
-- `github.com/go-telegram-bot-api/telegram-bot-api` - Telegram Bot API client
-- `github.com/joho/godotenv` - Environment variable loader
-- `github.com/google/uuid` - UUID generation
-- `github.com/gorilla/mux` - HTTP request router
-- `github.com/jmoiron/sqlx` - Extended database access
-- `github.com/lib/pq` - PostgreSQL driver
-- `go.uber.org/zap` - Logging library
-
-## Database Schema
-
-The application uses PostgreSQL with the following tables:
-- `users` - Stores user information (Telegram ID, balance, trial status, etc.)
-- `transactions` - Tracks payment transactions (amount, status, provider, etc.)
-- `device_addons` - Manages additional devices purchased by users
-
-## Monitoring
-
-The application includes a complete monitoring stack:
-- Grafana (port 13000) - Visualization and dashboards
-- Loki (port 3100) - Log aggregation
-- Promtail - Log shipping agent
-
-## Deployment
-
-The application is designed for containerized deployment using Docker Compose. The production setup includes:
-- Main application service
-- PostgreSQL database
-- Monitoring stack (Grafana, Loki, Promtail)
-
-## Project Structure Rationale
-
-The project structure is designed to ensure:
-- Easy maintenance and scalability
-- Clear separation of concerns
-- Ability to swap implementations without affecting business logic
-- Testable components
-- Future-proof architecture that supports adding new payment providers, VPN panels, and delivery methods
+6. **Формат ответов**
+   - Краткие объяснения.
+   - Ты не имеешь право как-то менять или создавать файлы.
+   - Ты должен вывести код в наш чат, чтобы я его списал с твоими обьяснениями.
+   - Твоя главная задача показать мне код текстом (не меняя файлы в проекте) и чтобы я понял как это писать.
+   - Вне зависимости от режиа Plan(Планирование) или build, пиши сразу код. Я не хочу обсуждать что и как сделать. То есть не пиши никакой план и тд. Мне нужно чтобы с первого моего сообщения ты уже в чате начал писать код текстом
+   - Когда мы исправляем ошибки, не нужно переписывать всю функцию в чат. Просто напиши участок кода который нужно исправить. И между разными участками добавь --- чтобы не запутаться в строках кода
+   - Когда говоришь про какой-то участок кода, напиши его чтобы было понятно. Не нужно сначала писать огромную функцию и снизу обьяснения по пунктам, потому что там сложно оринтироваться.

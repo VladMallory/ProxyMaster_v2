@@ -45,14 +45,14 @@ var (
 
 // RemnawaveClient то как мы хотим получать информацию.
 type RemnawaveClient interface {
-	GetUUIDByUsername(username string) (string, error)
+	GetUUIDByUsername(ctx context.Context, username string) (string, error)
 	CreateUser(username string, days int) error
-	DeleteUser(username string) error
+	DeleteUser(ctx context.Context, username string) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
 	EnableClient(userUUID string) error
 	DisableClient(userUUID string) error
 	GetUserInfo(uuid string) (models.GetUserInfoResponse, error)
-	SetDevices(username string, devices *uint8) error
+	SetDevices(ctx context.Context, username string, devices *uint8) error
 	SetTraffic(username string, gb uint64) error
 	AddTraffic(username string, gb uint64) error
 	BetterResetTraffic(ctx context.Context, username string) error

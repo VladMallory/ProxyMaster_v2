@@ -31,13 +31,13 @@ var (
 	// ErrEmptyURL возвращается при пустой ссылке.
 	ErrEmptyURL = errors.New("empty url")
 	// ErrFailedToMakeRequest возвращается при ошибке создания запроса.
-	ErrFailedToMakeRequest = errors.New("failed to make request")
+	ErrFailedToMakeRequest = errors.New("failed to make doRequest")
 	// ErrFailedToMakeResponse возвращается при ошибке преобразования ответа.
 	ErrFailedToMakeResponse = errors.New("failed to make response")
 	// ErrFailedToMarshal возвращается при ошибке сериализации JSON.
 	ErrFailedToMarshal = errors.New("failed to marshal json")
 	// ErrFailedToDoRequest возвращается при ошибке выполнения запроса.
-	ErrFailedToDoRequest = errors.New("failed to do request")
+	ErrFailedToDoRequest = errors.New("failed to do doRequest")
 	// ErrFailedToIncreaseSubscriptionPeriod возвращается при ошибке увеличения периода подписки.
 	ErrFailedToIncreaseSubscriptionPeriod = errors.New("failed to increase subscription period")
 	// ErrUUIDorUsernameIsNill
@@ -45,7 +45,7 @@ var (
 	// ErrDevicesNotSet
 	ErrDevicesNotSet = errors.New("не указано кол-во устройств в методе SetDevices")
 	// ErrBadRequest
-	ErrBadRequest = errors.New("bad request")
+	ErrBadRequest = errors.New("bad doRequest")
 	// ErrDaysNotNill
 	ErrDaysNotNill = errors.New("дней не может быть ноль")
 )

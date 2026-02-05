@@ -96,6 +96,13 @@ server:
 	git pull
 	make dcl
 
+update:
+	docker compose pull
+	docker compose down --remove-orphans
+	docker compose build --no-cache
+	docker compose up -d --force-recreate
+	docker compose logs -f
+
 # Запуск dev окружения (без Go приложения)
 dev: dev-stop
 	docker compose -f docker-compose.dev.yml up -d --build

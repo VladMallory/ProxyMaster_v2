@@ -13,6 +13,7 @@ import (
 	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"log"
+	"strconv"
 )
 
 // Application главный интерфейс приложения.
@@ -28,6 +29,7 @@ type app struct {
 	telegramClient      *telegram.Client
 	userRepo            *database.UserStorage
 	restAPI             domain.ServerAPI
+	telegramAdminID     int64
 }
 
 // New собирает приложение.
@@ -75,7 +77,7 @@ func New() (Application, error) {
 	)
 
 	// ===telegram bot===
-	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, loggerClient)
+	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, cfg, loggerClient)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
@@ -84,6 +86,12 @@ func New() (Application, error) {
 	handler := restapi.NewHandler(remnawaveClient, subService)
 	restAPI := restapi.New(handler, restAPILogger)
 
+	// Парсим TelegramAdminID с проверкой ошибки
+	telegramAdminID, err := strconv.ParseInt(cfg.TelegramAdminID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("неверный TelegramAdminID: %w", err)
+	}
+
 	return &app{
 		remnawaveClient:     remnawaveClient,
 		paymentGateway:      youkassaClient,
@@ -91,6 +99,7 @@ func New() (Application, error) {
 		telegramClient:      telegramClient,
 		userRepo:            userRepo,
 		restAPI:             restAPI,
+		telegramAdminID:     telegramAdminID,
 	}, nil
 }
 
@@ -102,6 +111,7 @@ func (a *app) Run() {
 		a.subscriptionService,
 		a.paymentGateway,
 		a.userRepo,
+		a.telegramAdminID,
 	)
 
 	// запускаем restAPI

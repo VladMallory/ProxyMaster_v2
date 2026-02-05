@@ -4,6 +4,7 @@
 package telegram
 
 import (
+	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
@@ -26,11 +27,12 @@ type Client struct {
 	logger              logger.Logger
 	remnawaveClient     domain.RemnawaveClient
 	subscriptionService domain.SubscriptionService
+	cfg                 *config.Config
 }
 
 // NewTelegramClient создает нового клиента для Telegram.
 // token: токен бота, который мы получили от BotFather.
-func NewTelegramClient(token string, logger logger.Logger) (*Client, error) {
+func NewTelegramClient(token string, cfg *config.Config, logger logger.Logger) (*Client, error) {
 	// Инициализируем библиотеку с токеном
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
@@ -39,6 +41,7 @@ func NewTelegramClient(token string, logger logger.Logger) (*Client, error) {
 
 	return &Client{
 		api:    api,
+		cfg:    cfg,
 		logger: logger.Named("telegram"),
 	}, nil
 }
@@ -51,6 +54,7 @@ func (c *Client) Start(
 	subscriptionService domain.SubscriptionService,
 	paymentGateway domain.PaymentGateway,
 	userRepo *database.UserStorage,
+	adminID int64,
 ) {
 	c.remnawaveClient = remnawaveClient
 	c.subscriptionService = subscriptionService
@@ -113,7 +117,8 @@ func (c *Client) Start(
 				remnawaveClient,
 				subscriptionService,
 				userRepo,
-				c.logger)
+				c.logger,
+				adminID)
 			if err != nil {
 				c.logger.Error("Ошибка обработки команды", logger.Field{Key: "error", Value: err})
 			}
@@ -408,7 +413,7 @@ func (c *Client) mainKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("👤 Увеличение лимитов", "btn_unlimits"),
-			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", "https://t.me/bloknotanet"),
+			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", c.cfg.TelegramSupport),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🧾 Информация о сервисе", "btn_info"),
