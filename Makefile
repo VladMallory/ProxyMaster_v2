@@ -1,4 +1,4 @@
-.PHONY: run windows run2 backup-db backup-db-gz backup-list backup-info backup-restore backup-cleanup db-only db-stop docker-build docker dc dcd dev dev-stop docker-build-linux docker-linux gosec list
+.PHONY: run windows run2 backup-db backup-db-gz backup-list backup-info backup-restore backup-restore-clean backup-cleanup db-only db-stop docker-build docker dc dcd dev dev-stop docker-build-linux docker-linux gosec list
 binary=ProxyMaster_v2
 cmdMacosAndLinux=./cmd/myapp/main.go
 cmdWindows=.\cmd\myapp\main.go
@@ -39,22 +39,58 @@ backup-info:
 	@echo "📊 Последний бекап:"
 	@ls -lh other/backups/ | tail -2 || echo "  Бекапов нет"
 
-# Восстановить базу из бекапа (указать имя файла)
-# Использование: make backup-restore FILE=usersdb_backup_20260115_193758.sql
+# Восстановить базу из бекапа (полная перезапись)
+# Использование: make backup-restore FILE=backup_2026-02-05_02-00-01.sql
 backup-restore:
 	@if [ -z "$(FILE)" ]; then \
 		echo "❌ Нужно указать имя файла бекапа"; \
-		echo "Использование: make backup-restore FILE=usersdb_backup_YYYYMMDD_HHMMSS.sql"; \
+		echo "Использование: make backup-restore FILE=backup_YYYY-MM-DD_HH-MM-SS.sql"; \
+		echo "Или: make backup-restore FILE=usersdb_backup_YYYYMMDD_HHMMSS.sql"; \
 		echo ""; \
 		make backup-list; \
 	else \
 		if [ ! -f "other/backups/$(FILE)" ]; then \
 			echo "❌ Файл other/backups/$(FILE) не найден"; \
 		else \
-			echo "⚠️  ВНИМАНИЕ: Это перезапишет текущую базу данных!"; \
+			echo "⚠️  ВНИМАНИЕ: Это УДАЛИТ текущую базу данных и создаст новую из бекапа!"; \
 			echo "Восстанавливаю из: $(FILE)"; \
+			\
+			echo "🗑️  Очищаю базу данных..."; \
+			docker exec users_postgres psql -U user -d usersdb -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" && \
+			echo "✅ База очищена"; \
+			\
+			echo "📥 Восстанавливаю данные из бекапа..."; \
 			docker exec -i users_postgres psql -U user -d usersdb < other/backups/$(FILE) && \
 			echo "✓ База успешно восстановлена из $(FILE)"; \
+			\
+			echo "👥 Проверьте количество пользователей: go run ./other/tools/database/editClient.go"; \
+		fi; \
+	fi
+
+# Полностью заменить базу данных из бекапа (удалить старую и восстановить)
+# Использование: make backup-restore-clean FILE=backup_2026-02-05_02-00-01.sql
+backup-restore-clean:
+	@if [ -z "$(FILE)" ]; then \
+		echo "❌ Нужно указать имя файла бекапа"; \
+		echo "Использование: make backup-restore-clean FILE=backup_YYYY-MM-DD_HH-MM-SS.sql"; \
+		echo ""; \
+		make backup-list; \
+	else \
+		if [ ! -f "other/backups/$(FILE)" ]; then \
+			echo "❌ Файл other/backups/$(FILE) не найден"; \
+		else \
+			echo "⚠️  ВНИМАНИЕ: Это УДАЛИТ текущую базу данных и создаст новую из бекапа!"; \
+			echo "Восстанавливаю из: $(FILE)"; \
+			\
+			echo "🗑️  Очищаю базу данных..."; \
+			docker exec users_postgres psql -U user -d usersdb -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" && \
+			echo "✅ База очищена"; \
+			\
+			echo "📥 Восстанавливаю данные из бекапа..."; \
+			docker exec -i users_postgres psql -U user -d usersdb < other/backups/$(FILE) && \
+			echo "✓ База успешно восстановлена из $(FILE)"; \
+			\
+			echo "👥 Проверьте количество пользователей: go run ./other/tools/database/editClient.go"; \
 		fi; \
 	fi
 
