@@ -141,7 +141,7 @@ func printUsersTable(users []models.UserTG) {
 		// Выводим строку
 		fmt.Printf("│ %-15s │ %6d ₽ │ %-7s │ %14d │ %-20s │\n",
 			user.ID,
-			user.Balance,
+			0,
 			trialStatus,
 			user.ExtraDevicesCount,
 			regDate,
@@ -157,14 +157,10 @@ func printUsersTable(users []models.UserTG) {
 
 // printStatistics выводит статистику по пользователям.
 func printStatistics(users []models.UserTG) {
-	var totalBalance int
-
 	var trialUsers int
-
 	var totalExtraDevices int
 
 	for _, user := range users {
-		totalBalance += user.Balance
 		totalExtraDevices += user.ExtraDevicesCount
 
 		if user.Trial {
@@ -172,15 +168,8 @@ func printStatistics(users []models.UserTG) {
 		}
 	}
 
-	avgBalance := 0
-	if len(users) > 0 {
-		avgBalance = totalBalance / len(users)
-	}
-
 	fmt.Println("\n📊 Статистика:")
 	fmt.Println("├─────────────────────────────────────────────")
-	fmt.Printf("│ Общий баланс всех пользователей: %d ₽\n", totalBalance)
-	fmt.Printf("│ Средний баланс на пользователя: %d ₽\n", avgBalance)
 	fmt.Printf("│ Пользователей на пробном периоде: %d/%d (%.1f%%)\n",
 		trialUsers, len(users), float64(trialUsers)/float64(len(users))*100)
 	fmt.Printf("│ Всего дополнительных устройств: %d\n", totalExtraDevices)

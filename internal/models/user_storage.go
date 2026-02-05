@@ -8,9 +8,6 @@ type UserTG struct {
 	// ID телеграм-id пользователя (наш username).
 	ID string `db:"id"`
 
-	// Balance баланс пользователя в рублях.
-	Balance int `db:"balance"`
-
 	// Trial флаг пробного периода.
 	Trial bool `db:"trial"`
 
@@ -23,19 +20,17 @@ type UserTG struct {
 
 // CreateUserTGDTO описывает данные для создания пользователя.
 type CreateUserTGDTO struct {
-	ID      string `db:"id"`
-	Balance int    `db:"balance"`
-	Trial   bool   `db:"trial"`
+	ID    string `db:"id"`
+	Trial bool   `db:"trial"`
 }
 
 // UpdateUserTGDTO описывает частичное обновление пользователя.
 type UpdateUserTGDTO struct {
 	// Ставим * для надежности. Чтобы передавали значения через &
-	// Иначе не указав явно Balance он бы при каждом запросе
-	// ставился бы на 0. А так он остается таким же, как был.
+	// Иначе не указав явно Trial он бы при каждом запросе
+	// ставился бы на false. А так он остается таким же, как был.
 	// Потому что ставится nil, если значение не указано.
-	Balance *int
-	Trial   *bool
+	Trial *bool
 
 	// ExtraDevicesCount количество активных доп. устройств.
 	ExtraDevicesCount *int

@@ -90,25 +90,6 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 		return 0, domain.ErrNoActiveDeviceAddons
 	}
 
-	amount := len(addonIDs) * priceRUB
-	_, ok, err := s.tryDebitBalanceTx(tx, userID, amount)
-	if err != nil {
-		s.logger.Error("failed to debit balance for PrepayDeviceAddonsAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "amount", Value: amount},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-		return 0, fmt.Errorf("failed to debit balance: %w", err)
-	}
-	if !ok {
-		s.logger.Error("insufficient funds for PrepayDeviceAddonsAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "amount", Value: amount},
-			logger.Field{Key: "err_msg", Value: domain.ErrInsufficientFunds},
-		)
-		return 0, domain.ErrInsufficientFunds
-	}
-
 	seconds := int64(chargePeriod.Seconds())
 	updateQuery := `
 	UPDATE device_addons
@@ -234,37 +215,6 @@ LIMIT $2
 		if len(addonIDs) == 0 {
 			continue
 		}
-		amount := len(addonIDs) * priceRUB
-
-		_, ok, err := s.tryDebitBalanceTx(tx, userID, amount)
-		if err != nil {
-			s.logger.Error("failed to debit balance during billing",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "amount", Value: amount},
-				logger.Field{Key: "err_msg", Value: err},
-			)
-			return nil, err
-		}
-
-		if !ok {
-			if err := s.deactivateAllDeviceAddonsTx(tx, userID); err != nil {
-				s.logger.Error("failed to deactivate all addons during billing",
-					logger.Field{Key: "user_id", Value: userID},
-					logger.Field{Key: "err_msg", Value: err},
-				)
-				return nil, err
-			}
-			if err := s.setExtraDevicesCountTx(tx, userID, 0); err != nil {
-				s.logger.Error("failed to reset extra devices count during billing",
-					logger.Field{Key: "user_id", Value: userID},
-					logger.Field{Key: "err_msg", Value: err},
-				)
-				return nil, err
-			}
-			usersToReset = append(usersToReset, userID)
-			continue
-		}
-
 		if err := s.updateDeviceAddonsNextChargeAtTx(tx, addonIDs, nextChargeAt); err != nil {
 			s.logger.Error("failed to update next_charge_at for addons",
 				logger.Field{Key: "user_id", Value: userID},
