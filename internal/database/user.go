@@ -49,16 +49,15 @@ func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserT
 	var user models.UserTG
 
 	query := `
-	INSERT INTO users (id, balance, trial, extra_devices_count, created_at)
-	VALUES ($1, $2, $3, $4, $5)
-	RETURNING id, balance, trial, extra_devices_count, created_at
+	INSERT INTO users (id, trial, extra_devices_count, created_at)
+	VALUES ($1, $2, $3, $4)
+	RETURNING id, trial, extra_devices_count, created_at
 	`
 
 	now := time.Now()
 	err := s.db.QueryRowx(
 		query,
 		userData.ID,
-		userData.Balance,
 		userData.Trial,
 		0,
 		now,
@@ -83,7 +82,7 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 	var users []models.UserTG
 
 	query := `
-	SELECT id, balance, trial, extra_devices_count, created_at
+	SELECT id, trial, extra_devices_count, created_at
 	FROM users
 	ORDER BY created_at DESC
 	`
@@ -107,7 +106,7 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 	var user models.UserTG
 
 	query := `
-	SELECT id, balance, trial, extra_devices_count, created_at
+	SELECT id, trial, extra_devices_count, created_at
 	FROM users
 	WHERE id = $1
 	`
@@ -147,10 +146,6 @@ func (s *UserStorage) UpdateUser(
 		return nil, err
 	}
 
-	if updateData.Balance != nil {
-		user.Balance = *updateData.Balance
-	}
-
 	if updateData.Trial != nil {
 		user.Trial = *updateData.Trial
 	}
@@ -161,17 +156,15 @@ func (s *UserStorage) UpdateUser(
 
 	query := `
 	UPDATE users
-	SET balance = $1,
-	    trial = $2,
-	    extra_devices_count = $3
-	WHERE id = $4
-	RETURNING id, balance, trial, extra_devices_count, created_at
+	SET trial = $1,
+	    extra_devices_count = $2
+	WHERE id = $3
+	RETURNING id, trial, extra_devices_count, created_at
 	`
 
 	var updatedUser models.UserTG
 	if err := s.db.QueryRowx(
 		query,
-		user.Balance,
 		user.Trial,
 		user.ExtraDevicesCount,
 		id,

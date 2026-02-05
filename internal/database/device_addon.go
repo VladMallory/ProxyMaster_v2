@@ -187,25 +187,6 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 		return 0, err
 	}
 
-	// Пытаемся списать деньги.
-	_, ok, err := s.tryDebitBalanceTx(tx, userID, priceRUB)
-	if err != nil {
-		s.logger.Error("failed to debit balance for AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "priceRUB", Value: priceRUB},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-		return 0, fmt.Errorf("failed to debit balance: %w", err)
-	}
-	if !ok {
-		s.logger.Error("insufficient funds for AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "priceRUB", Value: priceRUB},
-			logger.Field{Key: "err_msg", Value: domain.ErrInsufficientFunds},
-		)
-		return 0, domain.ErrInsufficientFunds
-	}
-
 	// Создаём запись device_addon.
 	addonID := uuid.NewString()
 	nextChargeAt := time.Now().Add(chargePeriod)

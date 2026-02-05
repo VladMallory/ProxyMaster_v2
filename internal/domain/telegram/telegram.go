@@ -78,7 +78,7 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		return user.ID + "|" + strconv.Itoa(
-			user.Balance,
+			0,
 		) + "|" + strconv.Itoa(
 			extraCount,
 		) + "|" + nextPayment, nil
@@ -305,9 +305,8 @@ func ProcessCallback(sender MessageSender,
 			}
 			// Если пользователь не найден, создаем нового
 			if _, err = userRepo.CreateUser(models.CreateUserTGDTO{
-				ID:      userID,
-				Balance: 0,
-				Trial:   false,
+				ID:    userID,
+				Trial: false,
 			}); err != nil {
 				log.Printf("Ошибка создания пользователя в DB: %v", err)
 				errorMsg := "ошибка создания пользователя"
@@ -994,39 +993,6 @@ func handleSuccessfulPayment(
 		}
 	}
 
-	userID := strconv.FormatInt(chatID, 10)
-	user, err := userRepo.GetUserByID(userID)
-	if err != nil {
-		log.Printf("Ошибка получения пользователя для обновления баланса: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Ошибка получения данных пользователя",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке получения пользователя: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	newBalance := user.Balance + amount
-	if _, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
-		Balance: &newBalance,
-	}); err != nil {
-		log.Printf("Ошибка обновления баланса: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке обновления баланса: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
 	successMsg := fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount)
 	if err := sender.ShowView(
 		chatID,
@@ -1069,37 +1035,6 @@ func handleSuccessfulAddDevicePayment(
 	userRepo *database.UserStorage,
 ) error {
 	userID := strconv.FormatInt(chatID, 10)
-	user, err := userRepo.GetUserByID(userID)
-	if err != nil {
-		log.Printf("Ошибка получения пользователя для добавления устройства: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Ошибка получения данных пользователя",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке получения пользователя: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	newBalance := user.Balance + amount
-	if _, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
-		Balance: &newBalance,
-	}); err != nil {
-		log.Printf("Ошибка обновления баланса для оплаты устройства: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке обновления баланса: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
 
 	if err := subscriptionService.AddPaidDevice(userID); err != nil {
 		errorMsg := "❌ Ошибка добавления устройства."
@@ -1145,37 +1080,6 @@ func handleSuccessfulPrepayDevicesPayment(
 	userRepo *database.UserStorage,
 ) error {
 	userID := strconv.FormatInt(chatID, 10)
-	user, err := userRepo.GetUserByID(userID)
-	if err != nil {
-		log.Printf("Ошибка получения пользователя для продления устройств: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Ошибка получения данных пользователя",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке получения пользователя: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	newBalance := user.Balance + amount
-	if _, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
-		Balance: &newBalance,
-	}); err != nil {
-		log.Printf("Ошибка обновления баланса для продления устройств: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Платеж прошел, но не удалось обновить баланс. Обратитесь в поддержку.",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке обновления баланса: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
 
 	count, err := subscriptionService.PrepayPaidDevices(userID)
 	if err != nil {
@@ -1326,9 +1230,8 @@ func ProcessCommand(
 			if errors.Is(err, domain.ErrUserNotFound) {
 				// Создаем пользователя, если не найден
 				if _, err = userRepo.CreateUser(models.CreateUserTGDTO{
-					ID:      userID,
-					Balance: 0,
-					Trial:   false,
+					ID:    userID,
+					Trial: false,
 				}); err != nil {
 					log.Printf("Ошибка создания пользователя в DB: %v", err)
 					if sendErr := sender.SendMessage(
@@ -1400,9 +1303,8 @@ func buildMainViewText(
 		// Если пользователя нету, создаем его в базе
 		if errors.Is(err, domain.ErrUserNotFound) {
 			_, createErr := userRepo.CreateUser(models.CreateUserTGDTO{
-				ID:      username,
-				Balance: 0,
-				Trial:   false,
+				ID:    username,
+				Trial: false,
 			})
 			if createErr == nil {
 				return buildStartText(firstName, buildSubscriptionLine(username, remnawaveClient))

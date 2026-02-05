@@ -41,8 +41,9 @@ func NewSubscriptionService(
 		logger: l,
 	}
 
-	go svc.runExtraDevicesBillingLoop()
-	go svc.runSubscriptionBillingLoop()
+	// Отключены фоновые проверки биллинга, так как баланс удален
+	// go svc.runExtraDevicesBillingLoop()
+	// go svc.runSubscriptionBillingLoop()
 
 	return svc
 }
@@ -306,7 +307,7 @@ func (s *SubscriptionService) ActivateSubscription(
 	username := strconv.FormatInt(telegramID, 10)
 
 	// Проверяем наличия пользователя в базе данных и создаем если его нет
-	user, err := s.dbRepo.GetUserByID(username)
+	_, err := s.dbRepo.GetUserByID(username)
 	if err != nil {
 		// Проверяем, является ли ошибка "пользователь не найден"
 		if errors.Is(err, domain.ErrUserNotFound) {
@@ -316,11 +317,9 @@ func (s *SubscriptionService) ActivateSubscription(
 			)
 
 			// Делаем запрос DB на создание пользователя
-			// Записываем в newUser данные которые получили от DB
-			newUser, createDBErr := s.dbRepo.CreateUser(models.CreateUserTGDTO{
-				ID:      username,
-				Balance: 0,
-				Trial:   false,
+			_, createDBErr := s.dbRepo.CreateUser(models.CreateUserTGDTO{
+				ID:    username,
+				Trial: false,
 			})
 			if createDBErr != nil {
 				return "", s.logError(
@@ -329,8 +328,6 @@ func (s *SubscriptionService) ActivateSubscription(
 					logger.Field{Key: "user_id", Value: username},
 				)
 			}
-
-			user = newUser
 		} else {
 			// Если пользователь не найден, скорее всего это ошибка DB
 			return "", s.logError(
@@ -349,39 +346,6 @@ func (s *SubscriptionService) ActivateSubscription(
 	const pricePerMonth = 100
 
 	// Вычисляем стоимость подписки за указанное количество месяцев
-	// Если пришла 2 месяца, 100 * на 2 = 200 итоговая цена
-	totalCost := months * pricePerMonth
-
-	// Проверяем достаточно ли на балансе средств на подписку
-	if user.Balance < totalCost {
-		s.logger.Info("у пользователя не достаточно средств для подписки",
-			logger.Field{Key: "user_id", Value: username},
-			logger.Field{Key: "balance", Value: user.Balance},
-			logger.Field{Key: "required", Value: totalCost},
-		)
-
-		return "", fmt.Errorf(
-			"%w. Баланс: %d ₽, Требуется: %d ₽",
-			domain.ErrInsufficientFunds,
-			user.Balance,
-			totalCost,
-		)
-	}
-
-	// Списываем средства
-	newBalance := user.Balance - totalCost
-
-	_, err = s.dbRepo.UpdateUser(username, models.UpdateUserTGDTO{
-		Balance: &newBalance,
-	})
-	if err != nil {
-		return "", s.logError(
-			"ошибка обновления баланса пользователя в DB",
-			err,
-			logger.Field{Key: "user_id", Value: username},
-		)
-	}
-
 	// Проверяем есть ли пользователь в панели
 	userUUID, err := s.remna.GetUUIDByUsername(context.Background(), username)
 	if err != nil {
