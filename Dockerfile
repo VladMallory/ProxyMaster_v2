@@ -1,5 +1,5 @@
-FROM golang:1.25.6-alpine AS builder
-#FROM golang:1.26rc2-alpine3.23 AS builder
+FROM golang:1.25.7-alpine AS builder
+#FROM golang:1.26rc3-alpine AS builder
 
 # устанавливаем рабочую директорию
 WORKDIR /app

@@ -1178,6 +1178,75 @@ func newShortSecret() string {
 	return raw[:31]
 }
 
+func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) error {
+	defer c.logDuration("DeleteDeviceHWID")
+
+	// Получаем UUID
+	UUID, err := c.GetUUIDByUsername(ctx, username)
+	if err != nil {
+		c.logger.Error(
+			"ошибка получения UUID",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return fmt.Errorf("ошибка получения UUID", err)
+	}
+
+	// URL для удаления устройств
+	url := fmt.Sprintf("%s/api/hwid/devices/delete-all?%s",
+		c.cfg.RemnaPanelURL,
+		c.cfg.RemnaSecretURLToken,
+	)
+
+	// JSON запрос с UUID пользователя
+	requestBody := map[string]string{
+		"userUuid": UUID,
+	}
+
+	// Делаем POST запрос
+	response, err := c.doRequest(ctx, http.MethodPost, url, requestBody)
+	if err != nil {
+		c.logger.Error(
+			"запрос на удаление девайсов",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "url", Value: url},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return fmt.Errorf("ошибка удаления девайсов у клиента")
+	}
+
+	defer c.closeBody(response)
+
+	// Читаем тело ответа
+	body, err := c.readBody(response)
+	if err != nil {
+		c.logger.Error(
+			"",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "url", Value: url},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return fmt.Errorf("ошибка чтения ответа")
+	}
+
+	_, err = c.handleCreate(response, body)
+	if err != nil {
+		c.logger.Error(
+			"",
+			logger.Field{Key: "username", Value: username},
+			logger.Field{Key: "url", Value: url},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+
+		return fmt.Errorf("ошибка обработки ответа")
+	}
+
+	return nil
+}
+
 // changeUserState изменяет состояние пользователя в панели Remnawave.
 func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	url := c.actionURL(userUUID, action)
