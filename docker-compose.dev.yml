@@ -13,7 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U user -d usersdb" ]
       interval: 10s
@@ -62,6 +61,26 @@ services:
     depends_on:
       - loki
     restart: unless-stopped
+
+  migrator:
+      image: migrate/migrate:latest
+      depends_on:
+        postgres:
+          condition: service_healthy
+      volumes:
+        - ./migrations:/migrations/
+      command:
+        [
+          "-path", "/migrations/",
+          "-database", "postgresql://user:userspass@172.18.0.6:5432/usersdb?sslmode=disable",
+          "up"
+        ]
+      networks:
+        - my-local-net
+
+networks:
+  my-local-net:
+    driver: bridge
 
 volumes:
   postgres_data:
