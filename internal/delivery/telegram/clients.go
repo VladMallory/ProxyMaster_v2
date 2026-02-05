@@ -32,7 +32,7 @@ type Client struct {
 
 // NewTelegramClient создает нового клиента для Telegram.
 // token: токен бота, который мы получили от BotFather.
-func NewTelegramClient(token string, logger logger.Logger) (*Client, error) {
+func NewTelegramClient(token string, cfg *config.Config, logger logger.Logger) (*Client, error) {
 	// Инициализируем библиотеку с токеном
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
@@ -41,6 +41,7 @@ func NewTelegramClient(token string, logger logger.Logger) (*Client, error) {
 
 	return &Client{
 		api:    api,
+		cfg:    cfg,
 		logger: logger.Named("telegram"),
 	}, nil
 }
@@ -412,7 +413,7 @@ func (c *Client) mainKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("👤 Увеличение лимитов", "btn_unlimits"),
-			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", c.cfg.TelegramAdminID),
+			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", c.cfg.TelegramSupport),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🧾 Информация о сервисе", "btn_info"),
