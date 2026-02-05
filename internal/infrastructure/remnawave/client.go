@@ -508,6 +508,26 @@ func (c *RemnaClient) handleCreate(response *http.Response, bodyStr string) (str
 	}
 }
 
+// wrapErr убирает дублирование обработки ошибок.
+func (c *RemnaClient) wrapErr(err error, msg, username string, url ...string) error {
+	if err == nil {
+		return nil
+	}
+
+	fields := []logger.Field{
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "err_msg", Value: err},
+	}
+
+	if len(url) > 0 && url[0] != "" {
+		fields = append(fields, logger.Field{Key: "url", Value: url[0]})
+	}
+
+	c.logger.Error(msg, fields...)
+
+	return fmt.Errorf("%s: %w", msg, err)
+}
+
 // GetUUIDByUsername - метод нахождения пользователя через username.
 func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (string, error) {
 	defer c.logDuration("GetUUIDByUsername")()
@@ -1183,14 +1203,8 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 
 	// Получаем UUID
 	UUID, err := c.GetUUIDByUsername(ctx, username)
-	if err != nil {
-		c.logger.Error(
-			"ошибка получения UUID",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("ошибка получения UUID", err)
+	if err = c.wrapErr(err, "ошибка получения UUID", username); err != nil {
+		return err
 	}
 
 	// URL для удаления устройств
@@ -1206,15 +1220,8 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 
 	// Делаем POST запрос
 	response, err := c.doRequest(ctx, http.MethodPost, url, requestBody)
-	if err != nil {
-		c.logger.Error(
-			"запрос на удаление девайсов",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "url", Value: url},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("ошибка удаления девайсов у клиента")
+	if err = c.wrapErr(err, "ошибка POST запроса", username); err != nil {
+		return err
 	}
 
 	defer c.closeBody(response)
