@@ -29,7 +29,7 @@ func main() {
 	remnaClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
 
 	// получене uuid юзера
-	uuid, err := remnaClient.GetUUIDByUsername("test")
+	uuid, err := remnaClient.GetUUIDByUsername(context.Background(), "test")
 	if err != nil {
 		log.Fatal(err)
 	}
