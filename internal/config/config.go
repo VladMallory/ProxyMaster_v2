@@ -63,6 +63,7 @@ func New() (*Config, error) {
 		RemnaSquadUUID:      os.Getenv("REMNA_SQUAD_UUID"),
 		RemnaDefaultGb:      os.Getenv("REMNA_DEFOULT_GB"),
 		TelegramToken:       os.Getenv("TELEGRAM_TOKEN"),
+		TelegramSupport:     os.Getenv("TELEGRAM_SUPPORT"),
 		TelegramAdminID:     os.Getenv("TELEGRAM_ADMIN_ID"),
 		DatabaseURL:         databaseURL,
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),

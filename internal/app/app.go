@@ -77,7 +77,7 @@ func New() (Application, error) {
 	)
 
 	// ===telegram bot===
-	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, loggerClient)
+	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, cfg, loggerClient)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
