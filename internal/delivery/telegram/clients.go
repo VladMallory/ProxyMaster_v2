@@ -4,6 +4,7 @@
 package telegram
 
 import (
+	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
@@ -26,6 +27,7 @@ type Client struct {
 	logger              logger.Logger
 	remnawaveClient     domain.RemnawaveClient
 	subscriptionService domain.SubscriptionService
+	cfg                 *config.Config
 }
 
 // NewTelegramClient создает нового клиента для Telegram.
@@ -410,7 +412,7 @@ func (c *Client) mainKeyboard(userID int64) tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("👤 Увеличение лимитов", "btn_unlimits"),
-			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", "https://t.me/bloknotanet"),
+			tgbotapi.NewInlineKeyboardButtonURL("🛟 Поддержка", c.cfg.TelegramAdminID),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🧾 Информация о сервисе", "btn_info"),
