@@ -33,8 +33,6 @@ func NewSubscriptionService(
 	dbRepo *database.UserStorage,
 	l logger.Logger,
 ) *SubscriptionService {
-	l.Info("Создан экземпляр подписочного сервиса")
-
 	svc := &SubscriptionService{
 		remna:  remna,
 		dbRepo: dbRepo,

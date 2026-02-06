@@ -31,8 +31,6 @@ type RemnaClient struct {
 
 // NewRemnaClient конструктор для создания клиента.
 func NewRemnaClient(cfg *config.Config, l logger.Logger) *RemnaClient {
-	l.Info("Создан экземпляр remnawave")
-
 	return &RemnaClient{
 		cfg: cfg,
 		httpClient: &http.Client{
@@ -515,8 +513,8 @@ func (c *RemnaClient) wrapErr(err error, msg, username string, url ...string) er
 	}
 
 	fields := []logger.Field{
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "err_msg", Value: err},
+		{Key: "username", Value: username},
+		{Key: "err_msg", Value: err},
 	}
 
 	if len(url) > 0 && url[0] != "" {
