@@ -40,12 +40,12 @@ var (
 	ErrFailedToDoRequest = errors.New("failed to do doRequest")
 	// ErrFailedToIncreaseSubscriptionPeriod возвращается при ошибке увеличения периода подписки.
 	ErrFailedToIncreaseSubscriptionPeriod = errors.New("failed to increase subscription period")
-	// ErrUUIDorUsernameIsNill
+	// ErrUUIDorUsernameIsNill.
 	ErrUUIDorUsernameIsNill = errors.New("uuid or username is nil")
-	// ErrDevicesNotSet
+	// ErrDevicesNotSet.
 	ErrDevicesNotSet = errors.New("не указано кол-во устройств в методе SetDevices")
-	// ErrBadRequest
+	// ErrBadRequest.
 	ErrBadRequest = errors.New("bad doRequest")
-	// ErrDaysNotNill
+	// ErrDaysNotNill.
 	ErrDaysNotNill = errors.New("дней не может быть ноль")
 )
