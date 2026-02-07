@@ -85,6 +85,7 @@ func (c *Client) Start(
 				subscriptionService,
 				paymentGateway,
 				userRepo,
+				c.cfg,
 			)
 			if err != nil {
 				c.logger.Error("Ошибка обработки callback", logger.Field{Key: "error", Value: err})
@@ -144,8 +145,8 @@ func (c *Client) ShowView(
 		text, keyboard = c.handleDownloadAppView()
 	case domain.ViewTypeIosRegion:
 		text, keyboard = c.handleIosRegionView()
-	case domain.ViewTypeTariffs:
-		text, keyboard = c.handleTariffsView()
+	// case domain.ViewTypeTariffs:
+	// 	text, keyboard = c.handleTariffsView()
 	case domain.ViewTypeTopUp:
 		text, keyboard = c.handleTopUpView()
 
@@ -247,9 +248,9 @@ func (c *Client) handleIosRegionView() (string, tgbotapi.InlineKeyboardMarkup) {
 	return text, c.iosRegionKeyboard()
 }
 
-func (c *Client) handleTariffsView() (string, tgbotapi.InlineKeyboardMarkup) {
-	return "Выберите тариф подписки:", c.tariffsKeyboard()
-}
+// func (c *Client) handleTariffsView() (string, tgbotapi.InlineKeyboardMarkup) {
+// 	return "Выберите тариф подписки:", c.tariffsKeyboard()
+// }
 
 func (c *Client) handleTopUpView() (string, tgbotapi.InlineKeyboardMarkup) {
 	return "💰 Выберите сумму для пополнения баланса:", c.topUpKeyboard()

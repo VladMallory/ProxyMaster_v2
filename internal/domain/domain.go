@@ -14,16 +14,16 @@ var (
 	ErrNoActiveDeviceAddons = errors.New("no active device addons")
 )
 
-// ViewType тип ошибки
+// ViewType тип ошибки.
 type ViewType string
 
-// ViewType какие ошибки могут быть
+// ViewType какие ошибки могут быть.
 const (
-	ViewTypeDownloadApp        ViewType = "download_app"
-	ViewTypeIosRegion          ViewType = "ios_region"
-	ViewTypeTariffs            ViewType = "tariffs"
-	ViewTypeTopUp              ViewType = "top_up"
-	ViewTypePayment            ViewType = "payment"
+	ViewTypeDownloadApp ViewType = "download_app" //nolint:gofmt
+	ViewTypeIosRegion   ViewType = "ios_region"
+	ViewTypeTariffs     ViewType = "tariffs"
+	ViewTypeTopUp       ViewType = "top_up"
+	// ViewTypePayment            ViewType = "payment"
 	ViewTypeCheckPayment       ViewType = "check_payment"
 	ViewTypeProfile            ViewType = "profile"
 	ViewTypeDeviceLimits       ViewType = "device_limits"
@@ -34,7 +34,7 @@ const (
 	ViewTypeServiceInfo        ViewType = "service_info"
 	ViewTypePrivacyPolicy      ViewType = "privacy_policy"
 	ViewTypeUserAgreement      ViewType = "user_agreement"
-	ViewTypeError              ViewType = "unknown view type"
+	// ViewTypeError              ViewType = "unknown view type"
 )
 
 // Ошибка приложения.
@@ -66,7 +66,7 @@ type UserRepository interface {
 	UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error)
 }
 
-// SubscriptionService - бизнес логика управления подписками
+// SubscriptionService - бизнес логика управления подписками.
 type SubscriptionService interface {
 	// ActivateSubscription обрабатывает логику создания или
 	// продления подписки

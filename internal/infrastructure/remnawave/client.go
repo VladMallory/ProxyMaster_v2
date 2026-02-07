@@ -58,85 +58,24 @@ func (c *RemnaClient) AddInternalSquad(
 		ActiveInternalSquads: squadTitles,
 	}
 
-	jsonData, err := json.Marshal(data)
+	response, err := c.doRequest(ctx, http.MethodPatch, url, data)
+	if err := c.wrapErr(err, "ошибка отправки запроса", username, url); err != nil {
+		return err
+	}
+
+	defer c.closeBody(response)
+
+	body, err := c.readBody(response)
 	if err != nil {
-		c.logger.Error(
-			"failed to marshal json",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return ErrFailedToMarshal
+		return err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(jsonData))
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
-
-	if err != nil {
-		c.logger.Error(
-			"failed to make doRequest",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return ErrFailedToMakeRequest
+	_, err = c.handleUpdate(response, body)
+	if err := c.wrapErr(err, "ошибка проверки status code", username, url); err != nil {
+		return err
 	}
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.logger.Error(
-			"failed to do doRequest",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return ErrFailedToDoRequest
-	}
-
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			c.logger.Error(
-				"failed to close the body",
-				logger.Field{Key: "err_msg", Value: err},
-			)
-		}
-	}()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		c.logger.Error("failed to read body")
-
-		return ErrFailedToMakeResponse
-	}
-
-	switch response.StatusCode {
-	case http.StatusOK:
-		c.logger.Info(
-			"added internal squad successfully",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "squads added", Value: squadTitles},
-		)
-
-		return nil
-
-	case http.StatusBadRequest:
-		c.logger.Error(
-			"failed to add internal squad",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "response_body", Value: string(body)},
-		)
-
-		return ErrBadRequest
-
-	case http.StatusInternalServerError:
-		c.logger.Error(
-			"failed to add internal squad",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "response_body", Value: string(body)},
-		)
-
-		return ErrInternalServerError
-	}
-
-	return ErrUndefined
+	return err
 }
 
 // EncryptURL метод, который шифрует URL.
@@ -182,60 +121,38 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 		return "", fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
 	}
 
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			c.logger.Error(
-				"не удалось закрыть тело ответа",
-				logger.Field{Key: "error", Value: err.Error()},
-			)
-		}
-	}()
+	defer c.closeBody(response)
 
 	if response.StatusCode != http.StatusOK {
-		body, readErr := io.ReadAll(response.Body)
-		if readErr != nil {
-			c.logger.Error(
-				"failed to read error response body",
-				logger.Field{Key: "err_msg", Value: readErr},
-				logger.Field{Key: "status_code", Value: response.StatusCode},
-			)
-
-			return "", fmt.Errorf("%w: %d", ErrBadStatusCode, response.StatusCode)
+		body, err := c.readBody(response)
+		if err != nil {
+			return "", err
 		}
 
 		c.logger.Error(
-			"bad status code",
+			"плохой status code",
 			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: string(body)},
+			logger.Field{Key: "response_body", Value: body},
 		)
 
 		return "", fmt.Errorf("%w: %d", ErrBadStatusCode, response.StatusCode)
 	}
 
-	body, err := io.ReadAll(response.Body)
+	body, err := c.readBody(response)
 	if err != nil {
-		c.logger.Error(
-			"failed to read response body",
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return "", fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
+		return "", err
 	}
 
 	var encResponse models.EncryptURLResponse
-	if err := json.Unmarshal(body, &encResponse); err != nil {
-		c.logger.Error(
-			"failed to unmarshal json",
-			logger.Field{Key: "err_msg", Value: err},
-			logger.Field{Key: "response_body", Value: string(body)},
-		)
 
-		return "", fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
+	err = c.parseJSON(body, &encResponse)
+	if err != nil {
+		return "", err
 	}
 
 	if encResponse.EncryptedLink == "" {
 		c.logger.Error(
-			"received empty encrypted link",
+			"ошибка получения зашифрванной подписки",
 			logger.Field{Key: "response_body", Value: string(body)},
 		)
 
@@ -358,11 +275,6 @@ func (c *RemnaClient) parseJSON(data string, target interface{}) error {
 	}
 
 	return nil
-}
-
-// isSuccess проверяет 2xx статусы.
-func isSuccess(statusCode int) bool {
-	return statusCode >= http.StatusOK && statusCode < http.StatusMultipleChoices
 }
 
 // handleBasic базовые HTTP запросы.

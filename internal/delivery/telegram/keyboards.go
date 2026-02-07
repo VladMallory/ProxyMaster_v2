@@ -2,6 +2,10 @@
 package telegram
 
 import (
+	"fmt"
+	"log"
+	"strconv"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -44,36 +48,42 @@ func (c *Client) iosRegionKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-// tariffsKeyboard генерирует Inline-клавиатуру с вариантами подписки.
-// Кнопки содержат:
-// 1. Текст, который видит пользователь (например, "📅 1 Месяц - 100₽")
-// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1").
-func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
-	return tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📅 1 месяц - 100₽", "btn_sub_tariff_1"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📅 2 месяца - 200₽", "btn_sub_tariff_2"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📅 3 месяца - 300₽", "btn_sub_tariff_3"),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
-		),
-	)
+func (c *Client) pricePerMonth(n int) string {
+	pricePerMonth := c.cfg.PricePerMonth
+
+	// Преобразуем в int
+	price, err := strconv.Atoi(pricePerMonth)
+	if err != nil {
+		log.Fatal("ошибка преобразования int", err)
+	}
+
+	// Умножаем цену одного месяца на то которое пришло в n
+	total := price * n
+
+	return strconv.Itoa(total)
 }
 
 func (c *Client) topUpKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 100₽ - 1 месяц", "btn_topUp_100"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 200₽ - 2 месяца", "btn_topUp_200"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("💰 %s₽ - 1 месяц", c.pricePerMonth(1)),
+				fmt.Sprintf("btn_topUp_%s", c.pricePerMonth(1)),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("💰 %s₽ - 2 месяца", c.pricePerMonth(2)),
+				fmt.Sprintf("btn_topUp_%s", c.pricePerMonth(2)),
+			),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💰 300₽ - 3 месяца", "btn_topUp_300"),
-			tgbotapi.NewInlineKeyboardButtonData("💰 500₽ - 5 месяцев", "btn_topUp_500"),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("💰 %s₽ - 3 месяца", c.pricePerMonth(3)),
+				fmt.Sprintf("btn_topUp_%s", c.pricePerMonth(3)),
+			),
+			tgbotapi.NewInlineKeyboardButtonData(
+				fmt.Sprintf("💰 %s₽ - 5 месяцев", c.pricePerMonth(5)),
+				fmt.Sprintf("btn_topUp_%s", c.pricePerMonth(5)),
+			),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
@@ -185,3 +195,25 @@ func privacyPolicyKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 	)
 }
+
+// ===LEGACY===
+// tariffsKeyboard генерирует Inline-клавиатуру с вариантами подписки.
+// Кнопки содержат:
+// 1. Текст, который видит пользователь (например, "📅 1 Месяц - 100₽")
+// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1").
+// func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
+// 	return tgbotapi.NewInlineKeyboardMarkup(
+// 		tgbotapi.NewInlineKeyboardRow(
+// 			tgbotapi.NewInlineKeyboardButtonData("📅 1 месяц - 100₽", "btn_sub_tariff_1"),
+// 		),
+// 		tgbotapi.NewInlineKeyboardRow(
+// 			tgbotapi.NewInlineKeyboardButtonData("📅 2 месяца - 200₽", "btn_sub_tariff_2"),
+// 		),
+// 		tgbotapi.NewInlineKeyboardRow(
+// 			tgbotapi.NewInlineKeyboardButtonData("📅 3 месяца - 300₽", "btn_sub_tariff_3"),
+// 		),
+// 		tgbotapi.NewInlineKeyboardRow(
+// 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
+// 		),
+// 	)
+// }
