@@ -38,6 +38,9 @@ type Config struct {
 	YouKassaSecretKey string
 	YouKassaReturnURL string
 
+	// Настройки
+	PricePerMonth string // оплата за месяц
+
 	// Logger
 	LoggerLevel string
 }
@@ -71,5 +74,6 @@ func New() (*Config, error) {
 		YouKassaShopID:      os.Getenv("YOUKASSA_SHOP_ID"),
 		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
+		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
 	}, nil
 }

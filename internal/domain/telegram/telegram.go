@@ -6,6 +6,7 @@
 package telegram
 
 import (
+	"ProxyMaster_v2/internal/config"
 	"ProxyMaster_v2/internal/database"
 	"ProxyMaster_v2/internal/domain"
 	"ProxyMaster_v2/internal/models"
@@ -44,6 +45,7 @@ func ProcessCallback(sender MessageSender,
 	subscriptionService domain.SubscriptionService,
 	paymentGateway domain.PaymentGateway,
 	userRepo *database.UserStorage,
+	cfg *config.Config,
 ) error {
 	buildProfileData := func(userID string) (string, error) {
 		user, err := userRepo.GetUserByID(userID)
@@ -136,6 +138,7 @@ func ProcessCallback(sender MessageSender,
 			userRepo,
 			remnawaveClient,
 			firstName,
+			cfg,
 		)
 
 		return nil
@@ -172,6 +175,7 @@ func ProcessCallback(sender MessageSender,
 				subscriptionService,
 				userRepo,
 				remnawaveClient,
+				cfg,
 			)
 		case domain.PaymentStatusPending:
 			started := tryStartPaymentStatusWatcher(
@@ -183,6 +187,7 @@ func ProcessCallback(sender MessageSender,
 				subscriptionService,
 				userRepo,
 				remnawaveClient,
+				cfg,
 			)
 			if started {
 				if err := sender.SendMessage(
@@ -428,6 +433,7 @@ func ProcessCallback(sender MessageSender,
 			userRepo,
 			remnawaveClient,
 			firstName,
+			cfg,
 		)
 
 		return nil
@@ -503,6 +509,7 @@ func ProcessCallback(sender MessageSender,
 			userRepo,
 			remnawaveClient,
 			firstName,
+			cfg,
 		)
 
 		return nil
@@ -566,6 +573,7 @@ func ProcessCallback(sender MessageSender,
 			userRepo,
 			remnawaveClient,
 			firstName,
+			cfg,
 		)
 
 		return nil
@@ -762,6 +770,7 @@ func startAutoPaymentCheck(
 	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
 	firstName string,
+	cfg *config.Config,
 ) {
 	// 1. Запускаем таймер сообщения на 18 минут
 	// Если пользователь не оплатит за это время, сообщение автоматически сменится на главное меню
@@ -830,6 +839,7 @@ func startAutoPaymentCheck(
 					subscriptionService,
 					userRepo,
 					remnawaveClient,
+					cfg,
 				); err != nil {
 					log.Printf(
 						"[АВТОПРОВЕРКА] Ошибка обработки успешного платежа %s: %v",
@@ -865,6 +875,7 @@ func tryStartPaymentStatusWatcher(
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
+	cfg *config.Config,
 ) bool {
 	_, loaded := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
 	if loaded {
@@ -894,6 +905,7 @@ func tryStartPaymentStatusWatcher(
 					subscriptionService,
 					userRepo,
 					remnawaveClient,
+					cfg,
 				); err != nil {
 					log.Printf("Ошибка обработки успешного платежа (внутри горутины): %v", err)
 				}
@@ -938,6 +950,7 @@ func handleSuccessfulPayment(
 	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
+	cfg *config.Config,
 ) error {
 	// Останавливаем таймер сообщения, так как оплата прошла успешно
 	stopMessageTimer(chatID, messageID)
@@ -1003,8 +1016,12 @@ func handleSuccessfulPayment(
 		return fmt.Errorf("ошибка отображения сообщения об успешной оплате: %w", err)
 	}
 
-	const pricePerMonthRUB = 100
-	months := amount / pricePerMonthRUB
+	pricePerMonth, err := strconv.Atoi(cfg.PricePerMonth)
+	if err != nil {
+		log.Printf("Ошибка преобразования цены: %v", err)
+		return err
+	}
+	months := amount / pricePerMonth
 	if months <= 0 {
 		return nil
 	}

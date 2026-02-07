@@ -12,14 +12,14 @@ const (
 	PaymentStatusFailed  PaymentStatus = "failed"
 )
 
-// PaymentGateway Общий интерфейс для всех платежных систем
+// PaymentGateway Общий интерфейс для всех платежных систем.
 type PaymentGateway interface {
 	CreateTransaction(ctx context.Context, amount float64, orderID string) (paymentURL, externalID string, err error)
 	CheckStatus(ctx context.Context, transactionID string) (PaymentStatus, error)
 	GetTransactionInfo(ctx context.Context, transactionID string) (TransactionInfo, error)
 }
 
-// TransactionInfo Общий интерфейс для информации о транзакции
+// TransactionInfo Общий интерфейс для информации о транзакции.
 type TransactionInfo interface {
 	GetID() string
 	GetAmount() float64
