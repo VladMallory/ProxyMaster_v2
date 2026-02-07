@@ -34,6 +34,8 @@ YOUKASSA_SECRET_KEY=
 YOUKASSA_BASE_URL=https://api.youkassa.ru
 YOUKASSA_RETURN_URL=https://google.com
 
+PRICE_PER_MONTH=100 # стоимость подписки за один месяц
+
 # Logger. Можно ставить info, debug, warn, error.
 LOGGER_LEVEL=info
 
