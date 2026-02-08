@@ -128,6 +128,18 @@ dcl: dc
 dcd:
 	docker compose down
 
+# Запуск минимальной конфигурации (только app + postgres)
+dcm: dcdm
+	docker compose -f docker-compose.minimal.yml up -d --build
+
+# Логи минимальной конфигурации
+dcmf:
+	docker compose -f docker-compose.minimal.yml logs -f
+
+# Остановить минимальную конфигурацию
+dcdm:
+	docker compose -f docker-compose.minimal.yml down
+
 server: 
 	git pull
 	make dcl

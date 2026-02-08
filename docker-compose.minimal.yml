@@ -1,0 +1,41 @@
+services:
+  app:
+    build: .
+    container_name: proxymaster_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgres://user:userspass@postgres:5432/usersdb?sslmode=disable
+      - TZ=Asia/Vladivostok
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: users_postgres
+    environment:
+      POSTGRES_DB: usersdb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: userspass
+      TZ: Asia/Vladivostok
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d usersdb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
