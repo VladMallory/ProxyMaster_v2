@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// BulkExtendRequest структура для запроса в апи remnawave
+// BulkExtendRequest структура для запроса в апи remnawave.
 type BulkExtendRequest struct {
 	UUIDs []string `json:"uuids"`
 	Days  int      `json:"extendDays"`
@@ -48,7 +48,7 @@ type LoginRequest struct {
 }
 
 // LoginResponse описывает ответ сервера после успешной авторизации.
-// Обновлено на основе реального ответа сервера: {"response": {"accessToken": "..."}}
+// Обновлено на основе реального ответа сервера: {"response": {"accessToken": "..."}}.
 type LoginResponse struct {
 	Response struct {
 		AccessToken string `json:"accessToken"`
@@ -107,24 +107,21 @@ type CreateRequestUserDTO struct {
 	// Tag                  *string  `json:"tag"`
 	// TelegramID           *string  `json:"telegramId"`
 	// Email                *string  `json:"email"`
-	// HWIDDeviceLimit      int      `json:"hwidDeviceLimit"`
+	HWIDDeviceLimit      int      `json:"hwidDeviceLimit"`
 	ActiveInternalSquads []string `json:"activeInternalSquads"`
 	// UUID                 string   `json:"uuid"`
 	// ExternalSquadUUID    *string  `json:"externalSquadUuid"` доп поля, хз нужны будут или нет
 }
 
-//
-//
-//
-//
+// ============
 
-// ActiveInternalSquad Представляет активную внутреннюю группу
+// ActiveInternalSquad Представляет активную внутреннюю группу.
 type ActiveInternalSquad struct {
 	UUID string `json:"uuid"`
 	Name string `json:"name"`
 }
 
-// UserTraffic Информация о трафике пользователя
+// UserTraffic Информация о трафике пользователя.
 type UserTraffic struct {
 	UsedTrafficBytes         uint64    `json:"usedTrafficBytes"`
 	LifetimeUsedTrafficBytes uint64    `json:"lifetimeUsedTrafficBytes"`
@@ -166,7 +163,7 @@ type GetUUIDByUsernameResponse struct {
 	} `json:"response"`
 }
 
-// GetUserInfoResponse Ответ
+// GetUserInfoResponse Ответ.
 type GetUserInfoResponse struct {
 	Response struct {
 		UUID                   string                `json:"uuid"`

@@ -315,11 +315,11 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 	}
 
 	text := fmt.Sprintf(
-		"ID пользователя: %s\nБаланс: %s ₽\nДоп. устройств: %d\nДоп. списание: %d ₽/мес\nНужно оплатить до: %s",
+		"ID пользователя: %s\nБаланс: %s ₽\nЛимит устройств: %d\nДоп. списание: %d ₽/мес\nНужно оплатить до: %s",
 		userID,
 		balance,
 		extraDevicesInt,
-		extraDevicesInt*50,
+		(extraDevicesInt-2)*50,
 		nextPayment,
 	)
 	keyboard := c.profileKeyboard()

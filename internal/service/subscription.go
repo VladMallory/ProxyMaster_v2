@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	baseDevicesLimit    = 1
 	maxDevicesLimit     = 5
 	extraDevicePriceRUB = 50
 )
@@ -88,10 +87,32 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 func (s *SubscriptionService) AddPaidDevice(username string) error {
 	defer s.logDuration("AddPaidDevice")()
 
+	// Получаем текущий лимит устройств из remnawave
+	uuid, err := s.remna.GetUUIDByUsername(context.Background(), username)
+	if err != nil {
+		return s.logError(
+			"ошибка получения UUID",
+			err,
+			logger.Field{Key: "username", Value: username},
+		)
+	}
+
+	userInfo, err := s.remna.GetUserInfo(uuid)
+	if err != nil {
+		return s.logError(
+			"ошибка получения GetUserInfo",
+			err,
+			logger.Field{Key: "username", Value: username},
+		)
+	}
+
+	remnawaveDeviceLimit := userInfo.Response.HWIDDeviceLimit
+
 	// Атомарно: проверяем лимит, списываем деньги, создаём addon, обновляем счётчик.
-	newCount, err := s.dbRepo.AddDeviceAddonAtomic(
+	// Базовый лимит в RemnaWave = 2
+	_, err = s.dbRepo.AddDeviceAddonAtomic(
 		username,
-		baseDevicesLimit,
+		remnawaveDeviceLimit,
 		maxDevicesLimit,
 		extraDevicePriceRUB,
 		30*24*time.Hour,
@@ -114,7 +135,7 @@ func (s *SubscriptionService) AddPaidDevice(username string) error {
 	}
 
 	// Проставляем лимит устройств в RemnaWave: базовое + купленные.
-	devices := uint8(baseDevicesLimit + newCount)
+	devices := uint8(remnawaveDeviceLimit + 1) // базовый лимит в RemnaWave = 2
 	if err := s.remna.SetDevices(context.Background(), username, &devices); err != nil {
 		return s.logError(
 			"ошибка установки устройств в remnawave",
@@ -151,8 +172,8 @@ func (s *SubscriptionService) ResetPaidDevices(username string) error {
 		)
 	}
 
-	// Ставим всегда 1 устройство, как ты просил.
-	devices := uint8(baseDevicesLimit)
+	// Ставим базовый лимит RemnaWave = 2 устройства
+	devices := uint8(2)
 	if err := s.remna.SetDevices(context.Background(), username, &devices); err != nil {
 		return s.logError(
 			"ошибка установки устройств в remnawave",
@@ -219,7 +240,8 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 	}
 
 	for _, userID := range usersToReset {
-		devices := uint8(baseDevicesLimit)
+		// Устанавливаем базовый лимит RemnaWave = 2 устройства
+		devices := uint8(2)
 		if err := s.remna.SetDevices(context.Background(), userID, &devices); err != nil {
 			s.logger.Error(
 				"ошибка установки базового лимита устройств в remnawave",
@@ -340,8 +362,6 @@ func (s *SubscriptionService) ActivateSubscription(
 
 	// Вычисляем на сколько дней клиенту нужна подписка
 	totalDays := months * 30
-
-	const pricePerMonth = 100
 
 	// Вычисляем стоимость подписки за указанное количество месяцев
 	// Проверяем есть ли пользователь в панели
