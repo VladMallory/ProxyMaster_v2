@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -1333,17 +1334,25 @@ func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClie
 	ctx := context.Background()
 	uuid, err := remnawaveClient.GetUUIDByUsername(ctx, username)
 	if err != nil {
-		return "—❌ Подписка не активна\n—📱 Лимит устройств: 1"
+		return "—❌ Подписка не активна"
 	}
 
 	info, err := remnawaveClient.GetUserInfo(uuid)
 	if err != nil {
-		return "—❌ Подписка не активна\n—📱 Лимит устройств: 1"
+		return "—❌ Подписка не активна"
 	}
 
 	deviceLimit := info.Response.HWIDDeviceLimit
-	if deviceLimit <= 0 {
-		deviceLimit = 1
+
+	// Если от remnawave прилетело 0 (дефолтное значение)
+	// то берем данные из env, преобразуем в int и подставляем его в /start
+	if deviceLimit == 0 {
+		envDeviceLimit := os.Getenv("DEVICE_LIMIT")
+		if envDeviceLimit != "" {
+			if parsed, err := strconv.Atoi(envDeviceLimit); err == nil && parsed > 0 {
+				deviceLimit = parsed
+			}
+		}
 	}
 
 	if strings.EqualFold(info.Response.Status, "ACTIVE") &&
