@@ -17,10 +17,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-// Чтобы линтер не жаловался на дублирование кода
+// Чтобы линтер не жаловался на дублирование кода.
 const parseModeHTML = "HTML"
 
-// Client — это обертка над стандартной библиотекой tgbotapi.
+// Client это обертка над стандартной библиотекой tgbotapi.
 // Он хранит в себе подключение к API и умеет отправлять сообщения.
 type Client struct {
 	api                 *tgbotapi.BotAPI
@@ -116,7 +116,7 @@ func (c *Client) Start(
 				update.Message.Text,
 				firstName,
 				remnawaveClient,
-				subscriptionService,
+				// subscriptionService,
 				userRepo,
 				c.logger,
 				adminID)
@@ -234,7 +234,7 @@ func (c *Client) handleCheckPaymentView(data string) (string, tgbotapi.InlineKey
 }
 
 func (c *Client) handleSubscriptionResultView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
-	return data, c.profileKeyboard()
+	return data, handleBackView()
 }
 
 func (c *Client) handleDownloadAppView() (string, tgbotapi.InlineKeyboardMarkup) {
@@ -352,11 +352,11 @@ func (c *Client) handlePrivacyPolicyView() (string, tgbotapi.InlineKeyboardMarku
 
 		text := "не удалось загрузить файл политики конфиденциальности"
 
-		return text, privacyPolicyKeyboard()
+		return text, handleBackView()
 	}
 
 	// Если все хорошо, возвращаем текст и клавиатуру
-	return string(content), privacyPolicyKeyboard()
+	return string(content), handleBackView()
 }
 
 // handleUserAgreementView читает текст пользовательского соглашения и возвращает
@@ -372,11 +372,11 @@ func (c *Client) handleUserAgreementView() (string, tgbotapi.InlineKeyboardMarku
 
 		text := "не удалось загрузить файл пользовательского соглашения"
 
-		return text, privacyPolicyKeyboard() // Можно использовать ту же клавиатуру
+		return text, handleBackView() // Можно использовать ту же клавиатуру
 	}
 
 	// Если все хорошо, возвращаем текст и клавиатуру
-	return string(content), privacyPolicyKeyboard()
+	return string(content), handleBackView()
 }
 
 // mainKeyboard создает структуру кнопок для главного меню.

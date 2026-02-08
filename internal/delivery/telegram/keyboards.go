@@ -187,8 +187,8 @@ func (c *Client) serviceInfoKeyboard() tgbotapi.InlineKeyboardMarkup {
 	)
 }
 
-// privacyPolicyKeyboard
-func privacyPolicyKeyboard() tgbotapi.InlineKeyboardMarkup {
+// handleBackView показывает клавиатуру для возврата в главное меню.
+func handleBackView() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🏠 В главное меню", "btn_back"),
