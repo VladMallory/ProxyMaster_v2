@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -40,6 +41,7 @@ type Config struct {
 
 	// Настройки
 	PricePerMonth string // оплата за месяц
+	DeviceLimit   int    // базовый лимит устройств
 
 	// Logger
 	LoggerLevel string
@@ -55,6 +57,14 @@ func New() (*Config, error) {
 	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if databaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL не установлен")
+	}
+
+	// Читаем базовый лимит устройств
+	deviceLimitStr := os.Getenv("DEVICE_LIMIT")
+	deviceLimit, err := strconv.Atoi(deviceLimitStr)
+
+	if err != nil || deviceLimit < 1 {
+		deviceLimit = 2 // Значение по умолчанию
 	}
 
 	return &Config{
@@ -75,5 +85,6 @@ func New() (*Config, error) {
 		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
 		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
+		DeviceLimit:         deviceLimit,
 	}, nil
 }

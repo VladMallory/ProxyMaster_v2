@@ -33,6 +33,8 @@ type app struct {
 }
 
 // New собирает приложение.
+//
+//nolint:funlen
 func New() (Application, error) {
 	// ===конфиг .env===
 	cfg, err := config.New()
@@ -66,7 +68,12 @@ func New() (Application, error) {
 	userRepo := database.NewUserStorage(db, databaseLogger)
 
 	// ===services===
-	subService := service.NewSubscriptionService(remnawaveClient, userRepo, subscriptionLogger)
+	subService := service.NewSubscriptionService(
+		remnawaveClient,
+		userRepo,
+		subscriptionLogger,
+		cfg.DeviceLimit,
+	)
 
 	// ===youkassa===
 	youkassaClient := youkassa.NewClient(
