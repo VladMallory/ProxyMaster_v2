@@ -35,6 +35,7 @@ YOUKASSA_BASE_URL=https://api.youkassa.ru
 YOUKASSA_RETURN_URL=https://google.com
 
 PRICE_PER_MONTH=100 # стоимость подписки за один месяц
+DEVICE_LIMIT=2 # указать тот который указан при в дефолте remnawave
 
 # Logger. Можно ставить info, debug, warn, error.
 LOGGER_LEVEL=info
