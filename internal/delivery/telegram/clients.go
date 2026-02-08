@@ -314,12 +314,22 @@ func (c *Client) handleProfileView(data string) (string, tgbotapi.InlineKeyboard
 		extraDevicesInt = 0
 	}
 
+	// Рассчитываем дополнительное списание
+	// Считаем разницу между текущим лимитом и базовым (из .env)
+	// Умножаем на стоимость одного дополнительного устройства (50₽)
+	extraCharge := (extraDevicesInt - c.cfg.DeviceLimit) * 50
+
+	// Защита от отрицательного значения (если лимит меньше базового)
+	if extraCharge < 0 {
+		extraCharge = 0
+	}
+
 	text := fmt.Sprintf(
 		"ID пользователя: %s\nБаланс: %s ₽\nЛимит устройств: %d\nДоп. списание: %d ₽/мес\nНужно оплатить до: %s",
 		userID,
 		balance,
 		extraDevicesInt,
-		(extraDevicesInt-2)*50,
+		extraCharge,
 		nextPayment,
 	)
 	keyboard := c.profileKeyboard()

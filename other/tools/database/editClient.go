@@ -15,23 +15,23 @@ import (
 
 type consoleLogger struct{}
 
-func (c *consoleLogger) Debug(msg string, fields ...logger.Field) {}
-func (c *consoleLogger) Info(msg string, fields ...logger.Field)  {}
-func (c *consoleLogger) Warn(msg string, fields ...logger.Field)  {}
+func (c *consoleLogger) Debug(string, ...logger.Field) {}
+func (c *consoleLogger) Info(string, ...logger.Field)  {}
+func (c *consoleLogger) Warn(string, ...logger.Field)  {}
 
 func (c *consoleLogger) Error(msg string, fields ...logger.Field) {
-	log.Fatalf("❌ [ERROR] %s", msg)
-
 	for _, f := range fields {
 		log.Fatalf("%s=%v", f.Key, f.Value)
 	}
+
+	log.Fatalln(msg)
 }
 
-func (c *consoleLogger) With(fields ...logger.Field) logger.Logger {
+func (c *consoleLogger) With(...logger.Field) logger.Logger {
 	return c // игнорируем поля для простоты
 }
 
-func (c *consoleLogger) Named(name string) logger.Logger {
+func (c *consoleLogger) Named(string) logger.Logger {
 	return c // игнорируем имя для простоты
 }
 
@@ -40,6 +40,8 @@ func (c *consoleLogger) Sync() error {
 }
 
 // AI: писала нейронка.
+//
+//nolint:cyclop, funlen
 func main() {
 	// Настройка подключения к базе данных
 	// Используем те же параметры, что и в основном приложении
@@ -112,6 +114,99 @@ func main() {
 
 	// Выводим красиво в терминале
 	printUsersTable(users)
+
+	// Интерактивное меню для удаления пользователя
+	fmt.Println("\n🗑️ Удаление пользователя:")
+	fmt.Println("Введите ID пользователя для удаления или 'q' для выхода:")
+	fmt.Print("> ")
+
+	var input string
+
+	_, err = fmt.Scanln(&input)
+	if err != nil {
+		return
+	}
+
+	// Проверяем, хочет ли пользователь выйти
+	if input == "q" || input == "Q" {
+		fmt.Println("👋 Выход из программы")
+
+		return
+	}
+
+	// Ищем пользователя в списке
+	var foundUser *models.UserTG
+
+	for i := range users {
+		if users[i].ID == input {
+			foundUser = &users[i]
+
+			break
+		}
+	}
+
+	// Если пользователь не найден - сообщаем и выходим
+	if foundUser == nil {
+		fmt.Printf("❌ Пользователь с ID '%s' не найден\n", input)
+
+		return
+	}
+
+	// Подтверждение удаления - важная мера безопасности
+	// Предотвращает случайное удаление
+	fmt.Printf("\n⚠️ Вы уверены, что хотите удалить пользователя?\n")
+	fmt.Printf("   ID: %s\n", foundUser.ID)
+	fmt.Printf("   Пробный период: %v\n", foundUser.Trial)
+	fmt.Printf("   Доп. устройств: %d\n", foundUser.ExtraDevicesCount)
+	fmt.Println("\nВведите 'yes' для подтверждения удаления:")
+	fmt.Print("> ")
+
+	var confirm string
+
+	_, err = fmt.Scanln(&confirm)
+	if err != nil {
+		return
+	}
+
+	if confirm != "yes" && confirm != "YES" && confirm != "Yes" {
+		fmt.Println("❌ Удаление отменено")
+
+		return
+	}
+
+	// Удаляем пользователя из базы
+	fmt.Println("\n🔄 Удаляю пользователя из базы данных...")
+
+	if err := deleteUserByID(db, input); err != nil {
+		fmt.Printf("❌ Ошибка при удалении: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("✅ Пользователь успешно удален из базы данных")
+
+	// Показываем обновленный список
+	fmt.Println("\n📋 Обновленный список пользователей:")
+
+	updatedUsers, err := userStorage.GetAllUsers()
+	if err != nil {
+		fmt.Printf("❌ Ошибка получения обновленного списка: %v\n", err)
+		os.Exit(1)
+	}
+
+	printUsersTable(updatedUsers)
+}
+
+// deleteUserByID удаляет пользователя из базы данных по его ID
+// Выполняет прямой SQL запрос DELETE для удаления записи.
+func deleteUserByID(db *sqlx.DB, userID string) error {
+	// Выполняем запрос на удаление
+	// WHERE id = $1 - используем параметризованный запрос для безопасности (SQL injection protection)
+	_, err := db.Exec("DELETE FROM users WHERE id = $1", userID)
+	if err != nil {
+		return fmt.Errorf("ошибка удаления пользователя: %w", err)
+	}
+
+	return nil
 }
 
 // printUsersTable выводит таблицу пользователей в красивом формате.
@@ -158,6 +253,7 @@ func printUsersTable(users []models.UserTG) {
 // printStatistics выводит статистику по пользователям.
 func printStatistics(users []models.UserTG) {
 	var trialUsers int
+
 	var totalExtraDevices int
 
 	for _, user := range users {
