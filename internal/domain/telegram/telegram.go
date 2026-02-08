@@ -173,7 +173,6 @@ func ProcessCallback(sender MessageSender,
 				transactionID,
 				paymentGateway,
 				subscriptionService,
-				userRepo,
 				remnawaveClient,
 				cfg,
 			)
@@ -185,7 +184,6 @@ func ProcessCallback(sender MessageSender,
 				transactionID,
 				paymentGateway,
 				subscriptionService,
-				userRepo,
 				remnawaveClient,
 				cfg,
 			)
@@ -837,7 +835,6 @@ func startAutoPaymentCheck(
 					transactionID,
 					paymentGateway,
 					subscriptionService,
-					userRepo,
 					remnawaveClient,
 					cfg,
 				); err != nil {
@@ -873,7 +870,6 @@ func tryStartPaymentStatusWatcher(
 	transactionID string,
 	paymentGateway domain.PaymentGateway,
 	subscriptionService domain.SubscriptionService,
-	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
 	cfg *config.Config,
 ) bool {
@@ -903,7 +899,6 @@ func tryStartPaymentStatusWatcher(
 					transactionID,
 					paymentGateway,
 					subscriptionService,
-					userRepo,
 					remnawaveClient,
 					cfg,
 				); err != nil {
@@ -948,7 +943,6 @@ func handleSuccessfulPayment(
 	transactionID string,
 	paymentGateway domain.PaymentGateway,
 	subscriptionService domain.SubscriptionService,
-	userRepo *database.UserStorage,
 	remnawaveClient domain.RemnawaveClient,
 	cfg *config.Config,
 ) error {
@@ -980,18 +974,14 @@ func handleSuccessfulPayment(
 					sender,
 					chatID,
 					messageID,
-					amount,
 					subscriptionService,
-					userRepo,
 				)
 			case paymentPurposePrepayDevices:
 				return handleSuccessfulPrepayDevicesPayment(
 					sender,
 					chatID,
 					messageID,
-					amount,
 					subscriptionService,
-					userRepo,
 				)
 			case paymentPurposeResetTraffic:
 				return handleSuccessfulResetTrafficPayment(
@@ -1004,16 +994,6 @@ func handleSuccessfulPayment(
 				)
 			}
 		}
-	}
-
-	successMsg := fmt.Sprintf("✅ Оплата прошла успешно! Ваш баланс пополнен на %d RUB.", amount)
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
-		return fmt.Errorf("ошибка отображения сообщения об успешной оплате: %w", err)
 	}
 
 	pricePerMonth, err := strconv.Atoi(cfg.PricePerMonth)
@@ -1047,9 +1027,7 @@ func handleSuccessfulAddDevicePayment(
 	sender MessageSender,
 	chatID int64,
 	messageID int,
-	amount int,
 	subscriptionService domain.SubscriptionService,
-	userRepo *database.UserStorage,
 ) error {
 	userID := strconv.FormatInt(chatID, 10)
 
@@ -1092,9 +1070,7 @@ func handleSuccessfulPrepayDevicesPayment(
 	sender MessageSender,
 	chatID int64,
 	messageID int,
-	amount int,
 	subscriptionService domain.SubscriptionService,
-	userRepo *database.UserStorage,
 ) error {
 	userID := strconv.FormatInt(chatID, 10)
 
@@ -1213,7 +1189,6 @@ func ProcessCommand(
 	command string,
 	firstName string,
 	remnawaveClient domain.RemnawaveClient,
-	subscriptionService domain.SubscriptionService,
 	userRepo *database.UserStorage,
 	logger logger.Logger,
 	adminID int64,
@@ -1349,7 +1324,7 @@ func buildStartText(firstName string, subscriptionLine string) string {
 	}
 
 	return fmt.Sprintf(
-		"🌟 Добро пожаловать, %s!\n<blockquote>%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, он импортирует подписку в Happ",
+		"🌟 Добро пожаловать, %s!\n<blockquote>%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, откроется сайт, промотайте вниз и нажмите <u>Добавить подписку</u> он импортирует подписку в Happ",
 		name,
 		subscriptionLine,
 	)
