@@ -48,27 +48,24 @@ func ProcessCallback(sender MessageSender,
 	cfg *config.Config,
 ) error {
 	buildProfileData := func(userID string) (string, error) {
+		// Получаем пользователя из БД (для ID)
 		user, err := userRepo.GetUserByID(userID)
 		if err != nil {
 			return "", fmt.Errorf("ошибка получения пользователя: %w", err)
 		}
 
-		// Получаем 100% точный результат количества устройств
-		extraCount, err := userRepo.CountActiveDeviceAddons(userID)
+		// Получаем реальный лимит устройств с RemnaWave
+		uuid, err := remnawaveClient.GetUUIDByUsername(context.Background(), userID)
 		if err != nil {
-			return "", fmt.Errorf("ошибка подсчета активных дополнений устройств: %w", err)
+			return "", fmt.Errorf("ошибка получения UUID пользователя: %w", err)
 		}
 
-		// Проверяем
-		if user.ExtraDevicesCount != extraCount {
-			_, err = userRepo.UpdateUser(userID, models.UpdateUserTGDTO{
-				ExtraDevicesCount: &extraCount,
-			})
-			if err != nil {
-				return "", fmt.Errorf("ошибка обновления пользователя: %w", err)
-			}
+		userInfo, err := remnawaveClient.GetUserInfo(uuid)
+		if err != nil {
+			return "", fmt.Errorf("ошибка получения информации о пользователе: %w", err)
 		}
 
+		// Получаем дату следующего списания доп. устройств
 		nextChargeAt, err := userRepo.GetNextDeviceAddonChargeAt(userID)
 		if err != nil {
 			return "", fmt.Errorf("ошибка получения даты следующего списания: %w", err)
@@ -79,10 +76,12 @@ func ProcessCallback(sender MessageSender,
 			nextPayment = formatDevicePaymentDate(*nextChargeAt, time.Now())
 		}
 
+		// Формируем данные профиля
+		// userID | balance (0, так как баланс удален) | deviceLimit (из RemnaWave) | nextPayment
 		return user.ID + "|" + strconv.Itoa(
 			0,
 		) + "|" + strconv.Itoa(
-			extraCount,
+			userInfo.Response.HWIDDeviceLimit,
 		) + "|" + nextPayment, nil
 	}
 
@@ -1324,7 +1323,7 @@ func buildStartText(firstName string, subscriptionLine string) string {
 	}
 
 	return fmt.Sprintf(
-		"🌟 Добро пожаловать, %s!\n<blockquote>%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, откроется сайт, промотайте вниз и нажмите <u>Добавить подписку</u> он импортирует подписку в Happ",
+		"🌟 Добро пожаловать, %s!\n<blockquote>%s\n</blockquote>\n🚀 Если вам не понятно как подключиться, обратитесь в поддержку, мы отправим инструкцию и поможем\n\n1️⃣ Скачайте приложение по кнопке <u>Скачать приложение</u>. Выберите ваше устройство, iOS или Android и т.д.\n2️⃣ После установки нажмите <u>Подключить (Happ)</u>, откроется сайт, промотайте вниз и нажмите <u>Добавить подписку</u>, он импортирует подписку в Happ",
 		name,
 		subscriptionLine,
 	)
@@ -1334,20 +1333,25 @@ func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClie
 	ctx := context.Background()
 	uuid, err := remnawaveClient.GetUUIDByUsername(ctx, username)
 	if err != nil {
-		return "—❌ Подписка не активна"
+		return "—❌ Подписка не активна\n—📱 Лимит устройств: 1"
 	}
 
 	info, err := remnawaveClient.GetUserInfo(uuid)
 	if err != nil {
-		return "—❌ Подписка не активна"
+		return "—❌ Подписка не активна\n—📱 Лимит устройств: 1"
+	}
+
+	deviceLimit := info.Response.HWIDDeviceLimit
+	if deviceLimit <= 0 {
+		deviceLimit = 1
 	}
 
 	if strings.EqualFold(info.Response.Status, "ACTIVE") &&
 		info.Response.ExpireAt.After(time.Now()) {
-		return "—✅ Подписка активна до " + formatRussianDate(info.Response.ExpireAt)
+		return "—✅ Подписка активна до " + formatRussianDate(info.Response.ExpireAt) + "\n—📱 Лимит устройств: " + strconv.Itoa(deviceLimit)
 	}
 
-	return "—❌ Подписка не активна"
+	return "—❌ Подписка не активна\n—📱 Лимит устройств: " + strconv.Itoa(deviceLimit)
 }
 
 func formatRussianDate(t time.Time) string {
