@@ -64,7 +64,7 @@ func New() (*Config, error) {
 	deviceLimit, err := strconv.Atoi(deviceLimitStr)
 
 	if err != nil || deviceLimit < 1 {
-		deviceLimit = 2 // Значение по умолчанию
+		log.Fatalln("укажите в env лимит устройств")
 	}
 
 	return &Config{

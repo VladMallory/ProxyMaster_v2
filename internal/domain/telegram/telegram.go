@@ -225,69 +225,32 @@ func ProcessCallback(sender MessageSender,
 	}
 
 	switch data {
-	case "btn_sub_tariff_1":
-		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 1)
-	case "btn_sub_tariff_2":
-		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 2)
-	case "btn_sub_tariff_3":
-		return handleSubscriptionFromBalance(sender, subscriptionService, chatID, messageID, 3)
 	case "btn_balance":
 		return showView(domain.ViewTypeTopUp, "", "ошибка отображения меню пополнения")
 	case "download_app":
 		return showView(domain.ViewTypeDownloadApp, "", "ошибка отображения меню загрузки")
 	case "btn_ios_menu":
 		return showView(domain.ViewTypeIosRegion, "", "ошибка отображения меню iOS")
-	case "btn_back_download_app":
-		return showView(domain.ViewTypeDownloadApp, "", "ошибка возврата к меню загрузки")
+	// case "btn_back_download_app":
+	// 	return showView(domain.ViewTypeDownloadApp, "", "ошибка возврата к меню загрузки")
 	case "btn_unlimits":
 		return showView(domain.ViewTypeDeviceLimits, "", "ошибка отображения лимитов устройств")
 	case "btn_traffic_limits":
 		return showView(domain.ViewTypeTrafficLimits, "", "ошибка отображения лимитов трафика")
-	case "btn_add_50gb":
-		userID := strconv.Itoa(int(chatID))
-		if err := remnawaveClient.AddTraffic(userID, 50); err != nil {
-			// заменить логгер
-			log.Printf("не удалось добавить трафик у пользователя %s, %v", userID, err)
-			return sender.SendMessage(chatID, "Не удалось добавить трафик")
-		}
-
-		profileData, err := buildProfileData(userID)
-		if err != nil {
-			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
-		}
-
-		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
-
-	case "btn_add_100gb":
-		userID := strconv.Itoa(int(chatID))
-		if err := remnawaveClient.AddTraffic(userID, 100); err != nil {
-			// заменить логгер
-			log.Printf("не удалось добавить трафик у пользователя %s, %v", userID, err)
-			return sender.SendMessage(chatID, "Не удалось добавить трафик")
-		}
-
-		profileData, err := buildProfileData(userID)
-		if err != nil {
-			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
-		}
-
-		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
-
-	case "btn_reset_traffic":
-		userID := strconv.Itoa(int(chatID))
-		if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
-			// заменить логгер
-			log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
-			return sender.SendMessage(chatID, "Не удалось сбросить трафик")
-		}
-
-		profileData, err := buildProfileData(userID)
-		if err != nil {
-			return sender.SendMessage(chatID, "Ошибка получения данных профиля")
-		}
-
-		return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
-
+	// case "btn_reset_traffic":
+	// 	userID := strconv.Itoa(int(chatID))
+	// 	if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
+	// 		// заменить логгер
+	// 		log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
+	// 		return sender.SendMessage(chatID, "Не удалось сбросить трафик")
+	// 	}
+	//
+	// 	profileData, err := buildProfileData(userID)
+	// 	if err != nil {
+	// 		return sender.SendMessage(chatID, "Ошибка получения данных профиля")
+	// 	}
+	//
+	// 	return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -465,6 +428,7 @@ func ProcessCallback(sender MessageSender,
 			return nil
 		}
 
+		// Цена за устройство
 		amount := activeAddons * 50
 		orderID := fmt.Sprintf("tg_prepay_devices_%d_%d", chatID, time.Now().UnixNano())
 		url, id, err := paymentGateway.CreateTransaction(
@@ -609,29 +573,27 @@ func ProcessCallback(sender MessageSender,
 			profileData,
 			"ошибка отображения профиля после сброса устройств",
 		)
-
-	case "btn_connect":
-		username := strconv.FormatInt(chatID, 10)
-		url, err := subscriptionService.GetURLSubscription(username)
-		if err != nil {
-			log.Printf("Ошибка получения URL подписки для %s: %v", username, err)
-			return showView(
-				domain.ViewTypeConnect,
-				"Ошибка получения ссылки. Убедитесь, что подписка активна, или обратитесь в поддержку.",
-				"ошибка отображения сообщения об ошибке подключения",
-			)
-		}
-
-		if url == "" {
-			return showView(
-				domain.ViewTypeConnect,
-				"Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.",
-				"ошибка отображения сообщения о пустой ссылке",
-			)
-		}
-
-		return showView(domain.ViewTypeConnect, url, "ошибка отображения ссылки на подключение")
-
+	// case "btn_connect":
+	// 	username := strconv.FormatInt(chatID, 10)
+	// 	url, err := subscriptionService.GetURLSubscription(username)
+	// 	if err != nil {
+	// 		log.Printf("Ошибка получения URL подписки для %s: %v", username, err)
+	// 		return showView(
+	// 			domain.ViewTypeConnect,
+	// 			"Ошибка получения ссылки. Убедитесь, что подписка активна, или обратитесь в поддержку.",
+	// 			"ошибка отображения сообщения об ошибке подключения",
+	// 		)
+	// 	}
+	//
+	// 	if url == "" {
+	// 		return showView(
+	// 			domain.ViewTypeConnect,
+	// 			"Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.",
+	// 			"ошибка отображения сообщения о пустой ссылке",
+	// 		)
+	// 	}
+	//
+	// 	return showView(domain.ViewTypeConnect, url, "ошибка отображения ссылки на подключение")
 	case "btn_connect_error":
 		return showView(
 			domain.ViewTypeConnect,

@@ -195,25 +195,3 @@ func handleBackView() tgbotapi.InlineKeyboardMarkup {
 		),
 	)
 }
-
-// ===LEGACY===
-// tariffsKeyboard генерирует Inline-клавиатуру с вариантами подписки.
-// Кнопки содержат:
-// 1. Текст, который видит пользователь (например, "📅 1 Месяц - 100₽")
-// 2. Data - скрытые данные, которые бот получит при нажатии (например, "btn_tariff_1").
-// func (c *Client) tariffsKeyboard() tgbotapi.InlineKeyboardMarkup {
-// 	return tgbotapi.NewInlineKeyboardMarkup(
-// 		tgbotapi.NewInlineKeyboardRow(
-// 			tgbotapi.NewInlineKeyboardButtonData("📅 1 месяц - 100₽", "btn_sub_tariff_1"),
-// 		),
-// 		tgbotapi.NewInlineKeyboardRow(
-// 			tgbotapi.NewInlineKeyboardButtonData("📅 2 месяца - 200₽", "btn_sub_tariff_2"),
-// 		),
-// 		tgbotapi.NewInlineKeyboardRow(
-// 			tgbotapi.NewInlineKeyboardButtonData("📅 3 месяца - 300₽", "btn_sub_tariff_3"),
-// 		),
-// 		tgbotapi.NewInlineKeyboardRow(
-// 			tgbotapi.NewInlineKeyboardButtonData("🔙 Назад", "btn_back"),
-// 		),
-// 	)
-// }
