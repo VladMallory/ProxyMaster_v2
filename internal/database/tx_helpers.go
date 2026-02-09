@@ -27,28 +27,6 @@ func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int
 	return nil
 }
 
-// updateDeviceAddonsNextChargeAtTx обновляет время следующего списания для доп. устройств в транзакции.
-func (s *UserStorage) updateDeviceAddonsNextChargeAtTx(
-	tx *sqlx.Tx,
-	addonIDs []string,
-	nextChargeAt interface{},
-) error {
-	defer s.logDuration("updateDeviceAddonsNextChargeAtTx")()
-	query := `
-	UPDATE device_addons
-	SET next_charge_at = $1
-	WHERE id = ANY($2)
-	`
-	if _, err := tx.Exec(query, nextChargeAt, pq.Array(addonIDs)); err != nil {
-		s.logger.Error("failed to update next_charge_at in tx",
-			logger.Field{Key: "addon_ids", Value: addonIDs},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-		return fmt.Errorf("failed to update next_charge_at: %w", err)
-	}
-	return nil
-}
-
 // deactivateDeviceAddonsTx деактивирует доп. устройства в транзакции.
 func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) error {
 	defer s.logDuration("deactivateDeviceAddonsTx")()

@@ -265,7 +265,7 @@ func (s *SubscriptionService) runExtraDevicesBillingLoop() {
 }
 
 func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
-	usersToReset, err := s.dbRepo.ProcessDueDeviceAddonsBilling(
+	activeCounts, err := s.dbRepo.ProcessDueDeviceAddonsBilling(
 		now,
 		200,
 		extraDevicePriceRUB,
@@ -277,17 +277,7 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 		return
 	}
 
-	for _, userID := range usersToReset {
-		// Получаем количество активных доп. устройств после деактивации истекших.
-		activeAddons, err := s.dbRepo.CountActiveDeviceAddons(userID)
-		if err != nil {
-			s.logger.Error(
-				"ошибка подсчета активных доп. устройств",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "err_msg", Value: err},
-			)
-			continue
-		}
+	for userID, activeAddons := range activeCounts {
 		// Устанавливаем лимит в RemnaWave: базовый + активные доп. устройства.
 		devices := uint8(s.baseDeviceLimit + activeAddons)
 		if err := s.remna.SetDevices(context.Background(), userID, &devices); err != nil {
