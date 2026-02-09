@@ -277,68 +277,6 @@ func (c *RemnaClient) parseJSON(data string, target interface{}) error {
 	return nil
 }
 
-// handleBasic базовые HTTP запросы.
-func (c *RemnaClient) handleBasic(response *http.Response, bodyStr string) (string, error) {
-	switch response.StatusCode {
-	case http.StatusBadRequest, http.StatusInternalServerError, http.StatusNotFound:
-		c.logger.Error(
-			"в запросе ошибка 400",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
-		)
-
-		return bodyStr, ErrInternalServerError
-	}
-
-	return bodyStr, nil
-}
-
-// handleReadAndParse обработка с парсингом JSON.
-func (c *RemnaClient) handleReadAndParse(
-	response *http.Response,
-	bodyStr string,
-	target interface{},
-) (string, error) {
-	switch response.StatusCode {
-	case http.StatusBadRequest:
-		c.logger.Error(
-			"bad doRequest",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
-		)
-
-		return bodyStr, ErrBadRequest
-
-	case http.StatusNotFound:
-		c.logger.Error(ErrNotFound.Error())
-
-		return bodyStr, ErrNotFound
-	case http.StatusInternalServerError:
-		c.logger.Error(
-			"internal server error",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
-		)
-
-		return bodyStr, ErrInternalServerError
-	}
-
-	// Если статус OK, то парсим
-	if response.StatusCode == http.StatusOK && target != nil {
-		if err := json.Unmarshal([]byte(bodyStr), target); err != nil {
-			c.logger.Error(
-				"не удалось распарсить json",
-				logger.Field{Key: "status_code", Value: response.StatusCode},
-				logger.Field{Key: "response_body", Value: bodyStr},
-			)
-
-			return bodyStr, fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
-		}
-	}
-
-	return bodyStr, nil
-}
-
 // handleUpdate обработка PATCH/PUT запросов.
 func (c *RemnaClient) handleUpdate(response *http.Response, bodyStr string) (string, error) {
 	switch response.StatusCode {
