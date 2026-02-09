@@ -857,12 +857,10 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 
 		// Проверяем, является ли ошибка "User username already exists"
 		if strings.Contains(string(body), "User username already exists") {
-			slog.Info("Пользователь уже существует, пропускаем создание", "username", username)
+			c.logger.Info("пользователь существует, пропускаем создание")
 
 			return nil
 		}
-
-		slog.Error(fmt.Sprintf("%s\n%s", ErrBadRequestCreate.Error(), string(body)))
 
 		return ErrBadRequestCreate
 	case http.StatusInternalServerError:
@@ -981,45 +979,6 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	}
 
 	slog.Info("Пользователь успешно выключен")
-
-	return nil
-}
-
-// AddTraffic добавляет траффик к текущему.
-func (c *RemnaClient) AddTraffic(username string, gb uint64) error {
-	defer c.logDuration("AddTraffic")()
-
-	user, err := c.GetUserInfo(username)
-	if err != nil {
-		c.logger.Error(
-			"failed to add traffic",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "GB", Value: gb},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return err
-	}
-
-	userTraffic := user.Response.TrafficLimitBytes / (1024 * 1024 * 1024)
-	if err = c.SetTraffic(username, (uint64(userTraffic) + gb)); err != nil {
-		c.logger.Error(
-			"failed to add traffic",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "GB", Value: gb},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return err
-	}
-
-	c.logger.Info(
-		"added traffic successfully",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "was GB", Value: userTraffic},
-		logger.Field{Key: "added GB", Value: gb},
-		logger.Field{Key: "current GB", Value: (uint64(userTraffic) + gb)},
-	)
 
 	return nil
 }

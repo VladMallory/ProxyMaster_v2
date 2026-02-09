@@ -54,7 +54,6 @@ type RemnawaveClient interface {
 	GetUserInfo(uuid string) (models.GetUserInfoResponse, error)
 	SetDevices(ctx context.Context, username string, devices *uint8) error
 	SetTraffic(username string, gb uint64) error
-	AddTraffic(username string, gb uint64) error
 	BetterResetTraffic(ctx context.Context, username string) error
 }
 
