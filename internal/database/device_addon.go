@@ -160,11 +160,16 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 		return 0, fmt.Errorf("failed to lock user: %w", err)
 	}
 
-	// Считаем текущее количество активных доп. устройств.
+	// Считаем текущее количество активных доп. устройств с блокировкой строк.
+	// Используем подзапрос для блокировки всех device_addons пользователя.
 	countQuery := `
 	SELECT COUNT(*)
-	FROM device_addons
-	WHERE user_id = $1 AND active = TRUE
+	FROM (
+		SELECT id
+		FROM device_addons
+		WHERE user_id = $1 AND active = TRUE
+		FOR UPDATE
+	) AS locked_addons
 	`
 	var activeAddons int
 	if err := tx.QueryRowx(countQuery, userID).Scan(&activeAddons); err != nil {

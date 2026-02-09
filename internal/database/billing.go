@@ -122,12 +122,13 @@ type dueDeviceAddonRow struct {
 
 // ProcessDueDeviceAddonsBilling обрабатывает биллинг просроченных дополнительных устройств.
 // Находит истекшие device_addons и деактивирует их, обновляя счетчик users.extra_devices_count.
+// Возвращает map[userID]activeCount - количество активных доп. устройств после деактивации.
 func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	now time.Time,
 	limit int,
 	priceRUB int,
 	chargePeriod time.Duration,
-) ([]string, error) {
+) (map[string]int, error) {
 	defer s.logDuration("ProcessDueDeviceAddonsBilling")()
 	if limit <= 0 {
 		limit = 200
@@ -193,7 +194,7 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		byUser[row.UserID] = append(byUser[row.UserID], row.ID)
 	}
 
-	usersToReset := make([]string, 0, len(byUser))
+	result := make(map[string]int, len(byUser))
 	for userID, addonIDs := range byUser {
 		if len(addonIDs) == 0 {
 			continue
@@ -216,15 +217,33 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 			)
 			return nil, err
 		}
-		usersToReset = append(usersToReset, userID)
+		// Считаем оставшиеся активные устройства в этой же транзакции.
+		countQuery := `
+		SELECT COUNT(*)
+		FROM (
+			SELECT id
+			FROM device_addons
+			WHERE user_id = $1 AND active = TRUE
+			FOR UPDATE
+		) AS active_addons
+		`
+		var activeCount int
+		if err := tx.QueryRowx(countQuery, userID).Scan(&activeCount); err != nil {
+			s.logger.Error("failed to count remaining active addons",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+			return nil, fmt.Errorf("failed to count remaining active addons: %w", err)
+		}
+		result[userID] = activeCount
 	}
 
 	if err := tx.Commit(); err != nil {
 		s.logger.Error("failed to commit billing transaction",
 			logger.Field{Key: "err_msg", Value: err},
 		)
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, fmt.Errorf("failed to commit billing transaction: %w", err)
 	}
 
-	return usersToReset, nil
+	return result, nil
 }
