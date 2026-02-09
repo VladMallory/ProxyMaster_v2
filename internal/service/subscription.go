@@ -91,6 +91,61 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...logger.F
 func (s *SubscriptionService) AddPaidDevice(username string) error {
 	defer s.logDuration("AddPaidDevice")()
 
+	// Проверяем наличие пользователя в базе, создаем если нет.
+	_, err := s.dbRepo.GetUserByID(username)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			s.logger.Info(
+				"пользователь не найден в DB при покупке устройства, создаем нового",
+				logger.Field{Key: "user_id", Value: username},
+			)
+
+			_, createDBErr := s.dbRepo.CreateUser(models.CreateUserTGDTO{
+				ID:    username,
+				Trial: false,
+			})
+			if createDBErr != nil {
+				return s.logError(
+					"ошибка создания пользователя в DB при покупке устройства",
+					createDBErr,
+					logger.Field{Key: "user_id", Value: username},
+				)
+			}
+		} else {
+			return s.logError(
+				"ошибка поиска пользователя в DB при покупке устройства",
+				err,
+				logger.Field{Key: "user_id", Value: username},
+			)
+		}
+	}
+
+	// Проверяем наличие пользователя в RemnaWave, создаем если нет.
+	_, err = s.remna.GetUUIDByUsername(context.Background(), username)
+	if err != nil {
+		if errors.Is(err, remnawave.ErrNotFound) {
+			s.logger.Info(
+				"пользователь не найден в RemnaWave при покупке устройства, создаем нового",
+				logger.Field{Key: "username", Value: username},
+			)
+
+			err = s.remna.CreateUser(username, 30)
+			if err != nil {
+				return s.logError(
+					"ошибка создания пользователя в RemnaWave при покупке устройства",
+					err,
+					logger.Field{Key: "username", Value: username},
+				)
+			}
+		} else {
+			return s.logError(
+				"ошибка поиска пользователя в RemnaWave при покупке устройства",
+				err,
+				logger.Field{Key: "username", Value: username},
+			)
+		}
+	}
+
 	// Атомарно: проверяем лимит, списываем деньги, создаём addon, обновляем счётчик.
 	// Используем базовый лимит из конфигурации вместо текущего лимита из RemnaWave
 	newExtraDevicesCount, err := s.dbRepo.AddDeviceAddonAtomic(
