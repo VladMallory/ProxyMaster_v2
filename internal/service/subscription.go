@@ -41,8 +41,9 @@ func NewSubscriptionService(
 		baseDeviceLimit: baseDeviceLimit,
 	}
 
-	// Отключены фоновые проверки биллинга, так как баланс удален
-	// go svc.runExtraDevicesBillingLoop()
+	// Запускаем фоновую проверку биллинга доп. устройств.
+	go svc.runExtraDevicesBillingLoop()
+	// Автопродление подписок отключено, так как баланс удален.
 	// go svc.runSubscriptionBillingLoop()
 
 	return svc
@@ -196,11 +197,11 @@ func (s *SubscriptionService) PrepayPaidDevices(username string) (int, error) {
 	return count, nil
 }
 
-// runExtraDevicesBillingLoop раз в час проверяет и списывает доп. устройства.
+// runExtraDevicesBillingLoop раз в сутки проверяет и деактивирует просроченные доп. устройства.
 func (s *SubscriptionService) runExtraDevicesBillingLoop() {
 	s.processExtraDevicesBilling(time.Now())
 
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(24 * time.Hour)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -222,12 +223,23 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 	}
 
 	for _, userID := range usersToReset {
-		// Устанавливаем базовый лимит RemnaWave
-		devices := uint8(s.baseDeviceLimit)
+		// Получаем количество активных доп. устройств после деактивации истекших.
+		activeAddons, err := s.dbRepo.CountActiveDeviceAddons(userID)
+		if err != nil {
+			s.logger.Error(
+				"ошибка подсчета активных доп. устройств",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+			continue
+		}
+		// Устанавливаем лимит в RemnaWave: базовый + активные доп. устройства.
+		devices := uint8(s.baseDeviceLimit + activeAddons)
 		if err := s.remna.SetDevices(context.Background(), userID, &devices); err != nil {
 			s.logger.Error(
-				"ошибка установки базового лимита устройств в remnawave",
+				"ошибка установки лимита устройств в remnawave",
 				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "devices", Value: devices},
 				logger.Field{Key: "err_msg", Value: err},
 			)
 		}

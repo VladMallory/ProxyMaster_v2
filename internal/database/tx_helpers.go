@@ -8,24 +8,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// deactivateAllDeviceAddonsTx отключает все доп. устройства пользователя в рамках транзакции.
-func (s *UserStorage) deactivateAllDeviceAddonsTx(tx *sqlx.Tx, userID string) error {
-	defer s.logDuration("deactivateAllDeviceAddonsTx")()
-	query := `
-	UPDATE device_addons
-	SET active = FALSE
-	WHERE user_id = $1 AND active = TRUE
-	`
-	if _, err := tx.Exec(query, userID); err != nil {
-		s.logger.Error("failed to deactivate device addons in tx",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-		return fmt.Errorf("failed to deactivate device addons: %w", err)
-	}
-	return nil
-}
-
 // setExtraDevicesCountTx устанавливает количество доп. устройств в рамках транзакции.
 func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
 	defer s.logDuration("setExtraDevicesCountTx")()
@@ -63,6 +45,43 @@ func (s *UserStorage) updateDeviceAddonsNextChargeAtTx(
 			logger.Field{Key: "err_msg", Value: err},
 		)
 		return fmt.Errorf("failed to update next_charge_at: %w", err)
+	}
+	return nil
+}
+
+// deactivateDeviceAddonsTx деактивирует доп. устройства в транзакции.
+func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) error {
+	defer s.logDuration("deactivateDeviceAddonsTx")()
+	query := `
+	UPDATE device_addons
+	SET active = FALSE
+	WHERE id = ANY($1)
+	`
+	if _, err := tx.Exec(query, pq.Array(addonIDs)); err != nil {
+		s.logger.Error("failed to deactivate device addons in tx",
+			logger.Field{Key: "addon_ids", Value: addonIDs},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return fmt.Errorf("failed to deactivate device addons: %w", err)
+	}
+	return nil
+}
+
+// decrementExtraDevicesCountTx уменьшает количество доп. устройств в транзакции.
+func (s *UserStorage) decrementExtraDevicesCountTx(tx *sqlx.Tx, userID string, amount int) error {
+	defer s.logDuration("decrementExtraDevicesCountTx")()
+	query := `
+	UPDATE users
+	SET extra_devices_count = GREATEST(extra_devices_count - $1, 0)
+	WHERE id = $2
+	`
+	if _, err := tx.Exec(query, amount, userID); err != nil {
+		s.logger.Error("failed to decrement extra_devices_count in tx",
+			logger.Field{Key: "user_id", Value: userID},
+			logger.Field{Key: "amount", Value: amount},
+			logger.Field{Key: "err_msg", Value: err},
+		)
+		return fmt.Errorf("failed to decrement extra_devices_count: %w", err)
 	}
 	return nil
 }

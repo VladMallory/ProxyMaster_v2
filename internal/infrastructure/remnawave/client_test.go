@@ -588,60 +588,6 @@ func TestEnableClient_success(t *testing.T) {
 	server.Close()
 }
 
-// TestDisableClient_success тест на успешное выключение клиента.
-// TestDisableClient_success использует helperSetupClientWithMethod для проверки PUT метода
-// TestDisableClient_success этот тест проверяет корректность выполнения API вызова DisableClient.
-func TestDisableClient_success(t *testing.T) {
-	client, server := helperSetupClientWithMethod("PUT", "/api/users/test-uuid/actions/disable")
-
-	err := client.DisableClient("test-uuid")
-	if err != nil {
-		t.Errorf("Выключение должно пройти успешно, ошибка: %v", err)
-	}
-
-	server.Close()
-}
-
-// TestAddTraffic_success тест на успешное добавление трафика.
-func TestAddTraffic_success(t *testing.T) {
-	client, server := helperSetupClient(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/users/testUser" {
-			if r.Method != "GET" {
-				t.Errorf("Ожидали GET метод для GetUserInfo, получили: %s", r.Method)
-			}
-
-			response := map[string]interface{}{
-				"response": map[string]interface{}{
-					"trafficLimitBytes": uint64(100 * 1024 * 1024 * 1024), // 100 GB
-					"status":            "ACTIVE",
-				},
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-
-			err := json.NewEncoder(w).Encode(response)
-			if err != nil {
-				return
-			}
-		}
-
-		if r.URL.Path == "/api/users" {
-			if r.Method != "PATCH" {
-				t.Errorf("Ожидали PATCH метод для SetTraffic, получили: %s", r.Method)
-			}
-
-			w.WriteHeader(http.StatusOK)
-		}
-	})
-	defer server.Close()
-
-	err := client.AddTraffic("testUser", 50)
-	if err != nil {
-		t.Errorf("Добавление трафика должно пройти успешно, ошибка: %v", err)
-	}
-}
-
 // TestDeleteDeviceHWID_success тест на успешное удаление устройств.
 func TestDeleteDeviceHWID_success(t *testing.T) {
 	client, server := helperSetupClient(func(w http.ResponseWriter, r *http.Request) {

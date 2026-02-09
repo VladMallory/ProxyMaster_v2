@@ -142,8 +142,13 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Блокируем запись пользователя, чтобы параллельные запросы ждали.
-	lockQuery := `SELECT id FROM users WHERE id = $1 FOR UPDATE`
+	// Блокируем запись пользователя и device_addons, чтобы параллельные запросы ждали.
+	lockQuery := `
+	SELECT u.id
+	FROM users u
+	WHERE u.id = $1
+	FOR UPDATE OF u
+	`
 	var lockedID string
 	if err := tx.QueryRowx(lockQuery, userID).Scan(&lockedID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -160,8 +165,13 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 		return 0, fmt.Errorf("failed to lock user: %w", err)
 	}
 
-	// Считаем текущее количество активных доп. устройств.
-	countQuery := `SELECT COUNT(*) FROM device_addons WHERE user_id = $1 AND active = TRUE`
+	// Считаем текущее количество активных доп. устройств с блокировкой.
+	countQuery := `
+	SELECT COUNT(*)
+	FROM device_addons
+	WHERE user_id = $1 AND active = TRUE
+	FOR UPDATE
+	`
 	var activeAddons int
 	if err := tx.QueryRowx(countQuery, userID).Scan(&activeAddons); err != nil {
 		s.logger.Error("failed to count active addons for AddDeviceAddonAtomic",

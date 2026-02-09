@@ -121,6 +121,7 @@ type dueDeviceAddonRow struct {
 }
 
 // ProcessDueDeviceAddonsBilling обрабатывает биллинг просроченных дополнительных устройств.
+// Находит истекшие device_addons и деактивирует их, обновляя счетчик users.extra_devices_count.
 func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	now time.Time,
 	limit int,
@@ -160,23 +161,24 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	selectUsersQuery := `
-SELECT DISTINCT ON (user_id) user_id
-FROM device_addons
-WHERE active = TRUE AND next_charge_at <= $1
-ORDER BY user_id, next_charge_at ASC
-LIMIT $2
-`
+	selectDueQuery := `
+	SELECT id, user_id
+	FROM device_addons
+	WHERE active = TRUE AND next_charge_at <= $1
+	ORDER BY user_id, next_charge_at ASC
+	LIMIT $2
+	FOR UPDATE
+	`
 
-	var userIDs []string
-	if err := tx.Select(&userIDs, selectUsersQuery, now, limit); err != nil {
-		s.logger.Error("failed to select due device addon users",
+	var due []dueDeviceAddonRow
+	if err := tx.Select(&due, selectDueQuery, now, limit); err != nil {
+		s.logger.Error("failed to select due device addons",
 			logger.Field{Key: "limit", Value: limit},
 			logger.Field{Key: "err_msg", Value: err},
 		)
-		return nil, fmt.Errorf("failed to select due device addon users: %w", err)
+		return nil, fmt.Errorf("failed to select due device addons: %w", err)
 	}
-	if len(userIDs) == 0 {
+	if len(due) == 0 {
 		if err := tx.Commit(); err != nil {
 			s.logger.Error("failed to commit empty billing transaction",
 				logger.Field{Key: "err_msg", Value: err},
@@ -186,43 +188,35 @@ LIMIT $2
 		return nil, nil
 	}
 
-	selectDueForUsersQuery := `
-	SELECT id, user_id
-	FROM device_addons
-	WHERE active = TRUE AND next_charge_at <= $1 AND user_id = ANY($2)
-	ORDER BY user_id, next_charge_at ASC
-	FOR UPDATE
-	`
-
-	var due []dueDeviceAddonRow
-	if err := tx.Select(&due, selectDueForUsersQuery, now, pq.Array(userIDs)); err != nil {
-		s.logger.Error("failed to select due device addons for users",
-			logger.Field{Key: "user_ids_count", Value: len(userIDs)},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-		return nil, fmt.Errorf("failed to select due device addons for users: %w", err)
-	}
-
-	byUser := make(map[string][]string, len(userIDs))
+	byUser := make(map[string][]string)
 	for _, row := range due {
 		byUser[row.UserID] = append(byUser[row.UserID], row.ID)
 	}
 
-	nextChargeAt := now.Add(chargePeriod)
-
-	usersToReset := make([]string, 0)
+	usersToReset := make([]string, 0, len(byUser))
 	for userID, addonIDs := range byUser {
 		if len(addonIDs) == 0 {
 			continue
 		}
-		if err := s.updateDeviceAddonsNextChargeAtTx(tx, addonIDs, nextChargeAt); err != nil {
-			s.logger.Error("failed to update next_charge_at for addons",
+		// Деактивируем истекшие устройства.
+		if err := s.deactivateDeviceAddonsTx(tx, addonIDs); err != nil {
+			s.logger.Error("failed to deactivate device addons",
 				logger.Field{Key: "user_id", Value: userID},
 				logger.Field{Key: "addon_ids", Value: addonIDs},
 				logger.Field{Key: "err_msg", Value: err},
 			)
 			return nil, err
 		}
+		// Обновляем счетчик доп. устройств.
+		if err := s.decrementExtraDevicesCountTx(tx, userID, len(addonIDs)); err != nil {
+			s.logger.Error("failed to decrement extra_devices_count",
+				logger.Field{Key: "user_id", Value: userID},
+				logger.Field{Key: "amount", Value: len(addonIDs)},
+				logger.Field{Key: "err_msg", Value: err},
+			)
+			return nil, err
+		}
+		usersToReset = append(usersToReset, userID)
 	}
 
 	if err := tx.Commit(); err != nil {
