@@ -2,18 +2,19 @@
 package app
 
 import (
-	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/internal/database"
-	restapi "ProxyMaster_v2/internal/delivery/restAPI"
-	"ProxyMaster_v2/internal/delivery/telegram"
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/payments/youkassa"
-	"ProxyMaster_v2/internal/service"
-	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"log"
 	"strconv"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/database"
+	restapi "github.com/VladMallory/ProxyMaster_v2/internal/delivery/restAPI"
+	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
+	"github.com/VladMallory/ProxyMaster_v2/internal/payments/youkassa"
+	"github.com/VladMallory/ProxyMaster_v2/internal/service"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // Application главный интерфейс приложения.

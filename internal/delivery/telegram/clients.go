@@ -4,16 +4,16 @@
 package telegram
 
 import (
-	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/internal/database"
-	"ProxyMaster_v2/internal/domain"
-	domainTelegram "ProxyMaster_v2/internal/domain/telegram"
-	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/database"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	domainTelegram "github.com/VladMallory/ProxyMaster_v2/internal/domain/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 

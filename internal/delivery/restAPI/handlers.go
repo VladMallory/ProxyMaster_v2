@@ -3,12 +3,12 @@
 package restapi
 
 import (
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/models"
 	"encoding/json"
 	"net/http"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
 	"github.com/gorilla/mux"
 )
 

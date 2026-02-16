@@ -2,8 +2,9 @@
 package main
 
 import (
-	"ProxyMaster_v2/internal/app"
 	"log"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/app"
 )
 
 func main() {

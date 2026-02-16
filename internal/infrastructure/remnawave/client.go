@@ -4,9 +4,6 @@
 package remnawave
 
 import (
-	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/pkg/logger"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -18,6 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/google/uuid"
 )
 

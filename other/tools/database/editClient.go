@@ -1,14 +1,14 @@
 package main
 
 import (
-	"ProxyMaster_v2/internal/database"
-	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/database"
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )

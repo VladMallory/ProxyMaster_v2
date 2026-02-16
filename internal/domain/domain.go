@@ -1,9 +1,10 @@
 package domain
 
 import (
-	"ProxyMaster_v2/internal/models"
 	"context"
 	"errors"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
 )
 
 var (

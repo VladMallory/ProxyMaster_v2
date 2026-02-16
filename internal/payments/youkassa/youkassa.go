@@ -3,8 +3,6 @@
 package youkassa
 
 import (
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/pkg/logger"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -17,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // Client хранит настройки и зависимости для общения с API ЮKassa.

@@ -1,14 +1,14 @@
 package database
 
 import (
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/lib/pq"
 )
 
@@ -40,6 +40,7 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 		context.Background(),
 		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
 	)
+
 	if err != nil {
 		s.logger.Error("failed to begin transaction for PrepayDeviceAddonsAtomic",
 			logger.Field{Key: "user_id", Value: userID},
