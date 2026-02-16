@@ -1,12 +1,13 @@
 package telegram
 
 import (
-	"ProxyMaster_v2/internal/database"
-	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/database"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // Distribution Админские команды.

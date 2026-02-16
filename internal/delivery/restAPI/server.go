@@ -2,10 +2,10 @@
 package restapi
 
 import (
-	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 	"net/http"
 
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/gorilla/mux"
 )
 
@@ -38,8 +38,8 @@ func (s *ServerAPI) corsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*") // вместо звездочки ОБЯЗАТЕЛЬНО поставить домен фронта
-			//если забуду его поставить, отхуярьте меня ногами
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS") //пока только GET и OPTIONS, если надо сами допишите
+			// если забуду его поставить, отхуярьте меня ногами
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS") // пока только GET и OPTIONS, если надо сами допишите
 
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 

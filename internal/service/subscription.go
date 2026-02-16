@@ -2,16 +2,17 @@
 package service
 
 import (
-	"ProxyMaster_v2/internal/database"
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/infrastructure/remnawave"
-	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/database"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 const (

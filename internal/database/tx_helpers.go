@@ -1,9 +1,9 @@
 package database
 
 import (
-	"ProxyMaster_v2/pkg/logger"
 	"fmt"
 
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )

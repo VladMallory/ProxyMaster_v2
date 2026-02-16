@@ -2,12 +2,12 @@
 package database
 
 import (
-	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )

@@ -6,11 +6,6 @@
 package telegram
 
 import (
-	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/internal/database"
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"errors"
 	"fmt"
@@ -20,6 +15,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/database"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // MessageSender — интерфейс, который должен реализовать "отправитель" (в нашем случае Telegram клиент).

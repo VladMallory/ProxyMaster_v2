@@ -131,6 +131,7 @@ dcd:
 # Запуск минимальной конфигурации (только app + postgres)
 dcm: dcdm
 	docker compose -f docker-compose.minimal.yml up -d --build
+	docker compose logs -f
 
 # Логи минимальной конфигурации
 dcmf:

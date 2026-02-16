@@ -1,15 +1,15 @@
 package database
 
 import (
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/internal/models"
-	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/models"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/google/uuid"
 )
 

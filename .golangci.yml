@@ -49,7 +49,6 @@ linters:
     - nlreturn
     - paralleltest
     - perfsprint
-    - wsl
   disable:
     - errcheck
     - containedctx
