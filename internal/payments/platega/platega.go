@@ -2,8 +2,6 @@
 package platega
 
 import (
-	"ProxyMaster_v2/internal/domain"
-	"ProxyMaster_v2/pkg/logger"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,6 +10,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // NewClient создает новый экземпляр клиента Platega.

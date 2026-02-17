@@ -2,8 +2,9 @@
 package platega
 
 import (
-	"ProxyMaster_v2/pkg/logger"
 	"net/http"
+
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // PaymentMethod методы оплаты, которые принимает platega.
@@ -37,13 +38,13 @@ type CreateTransactionRequest struct {
 	Payload        string         `json:"payload"`
 }
 
-// PaymentDetails детали оплаты
+// PaymentDetails детали оплаты.
 type PaymentDetails struct {
 	Amount   int    `json:"amount,string"` // мб можно и флоат64? Илья: не можно
 	Currency string `json:"currency"`
 }
 
-// Client что нужно для работы с platega
+// Client что нужно для работы с platega.
 type Client struct {
 	baseURL    string
 	apiKey     string
@@ -65,7 +66,7 @@ type CreateTransactionResponse struct {
 	CryptoAmount   float64 `json:"cryptoAmount"`
 }
 
-// TransactionInfoResponse ответ с информацией о транзакции
+// TransactionInfoResponse ответ с информацией о транзакции.
 type TransactionInfoResponse struct {
 	ID             string `json:"id"`
 	Status         string `json:"status"`

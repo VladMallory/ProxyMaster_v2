@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -263,7 +264,7 @@ func (c *RemnaClient) closeBody(resp *http.Response) {
 }
 
 // parseJSON парсит JSON с логированием при ошибке.
-func (c *RemnaClient) parseJSON(data string, target interface{}) error {
+func (c *RemnaClient) parseJSON(data string, target any) error {
 	if err := json.Unmarshal([]byte(data), target); err != nil {
 		c.logger.Error(
 			"failed to unmarshal JSON",
@@ -272,6 +273,61 @@ func (c *RemnaClient) parseJSON(data string, target interface{}) error {
 		)
 
 		return fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
+	}
+
+	return nil
+}
+
+// doRequestAndParse - выполняет HTTP запрос, проверяет статус код, читает и парсит ответ
+// Применяет DRY - используется во всех методах клиентской части.
+func (c *RemnaClient) doRequestAndParse(
+	ctx context.Context,
+	method, url string,
+	body any,
+	response any,
+	logField string, // для логов (username или uuid)
+	userData models.GetUUIDByUsernameResponse,
+) error {
+	// Выполняем базовый HTTP запрос
+	resp, err := c.doRequest(ctx, method, url, body)
+	if err != nil {
+		return err
+	}
+	defer c.closeBody(resp)
+
+	// Обработка статус кодов ответа
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Все ок, продолжаем парсить
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		// Для ошибок читаем тело ответа для логирования
+		respBody, readErr := c.readBody(resp)
+		if readErr != nil {
+			c.logger.Error("failed to read error response")
+			respBody = ""
+		}
+
+		c.logger.Error(
+			"ошибка HTTP ответа",
+			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			logger.Field{Key: "response", Value: respBody},
+			logger.Field{Key: "field", Value: logField},
+		)
+
+		return ErrInternalServerError
+	}
+
+	// Читаем тело ответа при успешном запросе
+	respBody, err := c.readBody(resp)
+	if err != nil {
+		return err
+	}
+
+	// Парсим JSON в переданную структуру
+	if err := c.parseJSON(respBody, response); err != nil {
+		return err
 	}
 
 	return nil
@@ -380,8 +436,6 @@ func (c *RemnaClient) wrapErr(err error, msg, username string, url ...string) er
 func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (string, error) {
 	defer c.logDuration("GetUUIDByUsername")()
 
-	var userData models.GetUUIDByUsernameResponse
-
 	// Формируем URL для запроса информации о пользователе по username
 	// /api/users/by-username/{username}
 	url := fmt.Sprintf(
@@ -391,52 +445,24 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 		c.cfg.RemnaSecretURLToken,
 	)
 
-	resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
-	if err != nil {
+	var userData models.GetUUIDByUsernameResponse
+
+	// Выполняем HTTP запрос и парсим ответ через вспомогательный метод
+	if err := c.doRequestAndParse(
+		ctx,
+		http.MethodGet,
+		url,
+		nil,
+		&userData,
+		username,
+		userData); err != nil {
 		return "", err
 	}
 
-	defer c.closeBody(resp)
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusNotFound:
-		return "", ErrNotFound
-	default:
-		body, readErr := c.readBody(resp)
-		if readErr != nil {
-			c.logger.Error("failed to read error response")
-
-			body = ""
-		}
-
-		c.logger.Error(
-			"ошибка чтения статуса",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status_code", Value: resp.StatusCode},
-			logger.Field{Key: "response", Value: body},
-		)
-
-		return "", ErrInternalServerError
-	}
-
-	// При успешном 200 OK читаем дальше и парсим
-	// Читаем тело ответа
-	body, err := c.readBody(resp)
-	if err != nil {
-		return "", err
-	}
-
-	// Парсим JSON в структуру
-	if err := c.parseJSON(body, &userData); err != nil {
-		return "", err
-	}
-
-	// Проверка есть ли что-то в ответе
+	// Проверка валидности ответа
 	if userData.Response.UUID == "" || userData.Response.Username == "" {
 		c.logger.Error(
 			"received empty UUID or username in response",
-			logger.Field{Key: "username", Value: username},
 			logger.Field{Key: "response_uuid", Value: userData.Response.UUID},
 			logger.Field{Key: "response_username", Value: userData.Response.Username},
 		)
@@ -483,25 +509,7 @@ func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *
 	}
 
 	_, err = c.handleUpdate(response, body)
-	if err != nil {
-		c.logger.Error(
-			"ошибка при изменении количества девайсов в панели при запросе",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "devices", Value: *devices},
-		)
-
-		return err
-	}
-
-	switch response.StatusCode {
-	case http.StatusOK:
-		c.logger.Info(
-			fmt.Sprintf("devices for user: %s set successfully", username),
-			logger.Field{Key: "status code", Value: response.StatusCode},
-		)
-
-		return nil
-	}
+	c.wrapErr(err, "handleUpdate", username, url)
 
 	// Метод успешно отработал
 	c.logger.Info(
@@ -518,26 +526,15 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 	defer c.logDuration("BetterResetTraffic")()
 
 	UUID, err := c.GetUUIDByUsername(ctx, username)
-
-	switch err {
-	case nil:
-		c.logger.Info(
-			"UUID получен успешно",
-		)
-	case ErrNotFound:
-		c.logger.Error(
-			"User not found",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return ErrNotFound
-	case ErrInternalServerError:
-		c.logger.Error(
-			"Internal server error",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "err_msg", Value: err},
-		)
+	switch {
+	case err == nil:
+		c.logger.Info("UUID получен успешно")
+	case errors.Is(err, ErrNotFound):
+		return c.wrapErr(err, "User not found", username)
+	case errors.Is(err, ErrInternalServerError):
+		return c.wrapErr(err, "Internal server error", username)
+	default:
+		return c.wrapErr(err, "Failed to get UUID", username)
 	}
 
 	url := fmt.Sprintf(
@@ -547,78 +544,23 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 		c.cfg.RemnaSecretURLToken,
 	)
 
-	request, err := http.NewRequestWithContext(ctx, "POST", url, http.NoBody)
+	resp, err := c.doRequest(ctx, http.MethodPost, url, nil)
 	if err != nil {
-		return ErrFailedToMakeRequest
+		return err
 	}
 
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+	defer c.closeBody(resp)
 
-	response, err := c.httpClient.Do(request)
+	body, err := c.readBody(resp)
 	if err != nil {
-		return ErrFailedToDoRequest
+		return err
 	}
 
-	defer func() {
-		if err := response.Body.Close(); err != nil {
-			c.logger.Error(
-				"Failed to close response body",
-				logger.Field{Key: "username", Value: username},
-				logger.Field{Key: "err_msg", Value: err},
-			)
-		}
-	}()
-
-	switch response.StatusCode {
-	case http.StatusOK:
-		c.logger.Info(
-			"Traffic reset successfully",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: response.Body},
-		)
-
-		return nil
-	case http.StatusNotFound:
-		c.logger.Error(
-			"User not found",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: response.Body},
-		)
-
-		return ErrNotFound
-
-	case http.StatusBadRequest:
-		c.logger.Error(
-			"Bad doRequest",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status code", Value: response.StatusCode},
-		)
-
-		return ErrBadRequest
-
-	case http.StatusInternalServerError:
-		c.logger.Error(
-			"Internal server error",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: response.Body},
-		)
-
-		return ErrInternalServerError
-
-	default:
-		c.logger.Error(
-			"Unexpected status code",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "status code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: response.Body},
-		)
-
-		return ErrUndefined
+	if _, err := c.handleUpdate(resp, body); err != nil {
+		return err
 	}
+
+	return nil
 }
 
 // SetTraffic устанавливает новое значение трафика.
@@ -1043,7 +985,7 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return fmt.Errorf("ошибка чтения ответа")
+		return errors.New("ошибка чтения ответа")
 	}
 
 	_, err = c.handleCreate(response, body)
@@ -1055,7 +997,7 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 			logger.Field{Key: "err_msg", Value: err},
 		)
 
-		return fmt.Errorf("ошибка обработки ответа")
+		return errors.New("ошибка обработки ответа")
 	}
 
 	return nil
@@ -1185,7 +1127,7 @@ func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 	defer c.logDuration("DeleteUser")()
 
 	if username == "" {
-		err := fmt.Errorf("указан пустой username для удаления пользователя")
+		err := errors.New("указан пустой username для удаления пользователя")
 		c.logger.Error(
 			"указан пустой username для удаления пользователя",
 			logger.Field{Key: "username", Value: username},
@@ -1251,12 +1193,8 @@ func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 
 		return fmt.Errorf("failed to execute doRequest: %w", err)
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			return
-		}
-	}(resp.Body)
+
+	defer c.closeBody(resp)
 
 	// Читаем тело ответа для более подробного логирования ошибок
 	respBody, _ := io.ReadAll(resp.Body)
@@ -1282,7 +1220,7 @@ func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
 
-		return fmt.Errorf("user not found: %s", username)
+		return errors.New("user not found: %s")
 
 	case http.StatusUnauthorized:
 		c.logger.Error(
@@ -1293,7 +1231,7 @@ func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
 
-		return fmt.Errorf("authorization error - check authentication token")
+		return errors.New("authorization error - check authentication token")
 
 	default:
 		c.logger.Error(
@@ -1304,6 +1242,6 @@ func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 			logger.Field{Key: "response_body", Value: string(respBody)},
 		)
 
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return errors.New("unexpected status code: %d")
 	}
 }

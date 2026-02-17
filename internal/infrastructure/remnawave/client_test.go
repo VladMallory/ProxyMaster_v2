@@ -2,8 +2,6 @@
 package remnawave
 
 import (
-	"ProxyMaster_v2/internal/config"
-	"ProxyMaster_v2/pkg/logger"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +10,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
 // TestGetUUIDByUsername самый простой тест для получения UUID.
