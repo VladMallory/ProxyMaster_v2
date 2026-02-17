@@ -293,7 +293,7 @@ func TestSetTraffic_success(t *testing.T) {
 func TestGetUserInfo_success(t *testing.T) {
 	client, server := helperSetupClient(func(w http.ResponseWriter, r *http.Request) { //nolint:golines
 		if r.URL.Path == "/api/users/test-uuid" {
-			response := map[string]interface{}{
+			response := map[string]any{
 				"response": map[string]string{
 					"status": "ACTIVE",
 				},
