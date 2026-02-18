@@ -224,7 +224,11 @@ func TestCreateUser_success(t *testing.T) {
 	logClient, _ := logger.NewZap("debug")
 	client := NewRemnaClient(cfg, logClient)
 
-	err := client.CreateUser("new user", 30)
+	dto := CreateUserDTO{
+		Username: "new user",
+		Days:     30,
+	}
+	err := client.CreateUser(dto)
 	if err != nil {
 		t.Errorf("Создание должно пройти успешно, ошибка: %v", err)
 	}
@@ -254,7 +258,11 @@ func TestCreateUser_duplicate(t *testing.T) {
 	logClient, _ := logger.NewZap("debug")
 	client := NewRemnaClient(cfg, logClient)
 
-	err := client.CreateUser("existing user", 30)
+	dto := CreateUserDTO{
+		Username: "existing user",
+		Days:     30,
+	}
+	err := client.CreateUser(dto)
 	if err != nil {
 		t.Errorf("Повторное создание должно пройти успешно, ошибка: %v", err)
 	}
@@ -547,7 +555,11 @@ func TestCreateUser_invalidDays(t *testing.T) {
 	client := NewRemnaClient(cfg, logClient)
 
 	// Должна быть ошибка так как days <= 0
-	err := client.CreateUser("testUser", -1)
+	dto := CreateUserDTO{
+		Username: "testUser",
+		Days:     -1,
+	}
+	err := client.CreateUser(dto)
 	if err == nil {
 		t.Error("Ожидали ошибку для некорректного количества дней")
 	}

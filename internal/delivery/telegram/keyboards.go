@@ -1,4 +1,4 @@
-//nolint:golines
+// nolint: perfsprint, golines
 package telegram
 
 import (
@@ -97,7 +97,7 @@ func (c *Client) profileKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData(
 				"➕ Добавить устройство (+50₽/мес)",
 				"btn_add_device",
-			), // nolint: golines
+			),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(

@@ -80,8 +80,33 @@ func ensurePostgresRole(db *sqlx.DB, databaseURL string) error {
 }
 
 func ensureSchema(db *sqlx.DB) error {
-	// Добавляем колонку extra_devices_count, если её еще нет.
-	// Она нужна для отображения в личном кабинете.
+	// Проверяем существует ли таблица users
+	var tableExists bool
+	if err := db.Get(&tableExists, `
+		SELECT EXISTS (
+			SELECT FROM information_schema.tables
+			WHERE table_schema = 'public'
+			AND table_name = 'users'
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to check if users table exists: %w", err)
+	}
+
+	// Если таблицы нет - создаем её с актуальной схемой (без balance)
+	if !tableExists {
+		if _, err := db.ExecContext(context.Background(), `
+			CREATE TABLE users (
+				id VARCHAR(20) PRIMARY KEY,
+				trial BOOLEAN NOT NULL DEFAULT FALSE,
+				extra_devices_count INTEGER NOT NULL DEFAULT 0,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			)
+		`); err != nil {
+			return fmt.Errorf("failed to create users table: %w", err)
+		}
+	}
+
+	// Добавляем колонку extra_devices_count, если её ещё нет (для старых баз)
 	if _, err := db.ExecContext(context.Background(), `
 		ALTER TABLE users
 		ADD COLUMN IF NOT EXISTS extra_devices_count INTEGER NOT NULL DEFAULT 0
