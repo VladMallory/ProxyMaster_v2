@@ -15,13 +15,23 @@ import (
 	"github.com/google/uuid"
 )
 
+// CreateUserDTO для передачи данных при создании пользователя.
+type CreateUserDTO struct {
+	Username string // Имя пользователя в панели
+	Days     int    // Количество дней подписки
+	FullName string // Полное имя пользователя
+	Telegram string // @ телеграм пользователя
+}
+
 // CreateUser создает пользователя в панели.
-func (c *RemnaClient) CreateUser(username string, days int) error {
+func (c *RemnaClient) CreateUser(dto CreateUserDTO) error {
 	defer c.logDuration("CreateUser")()
 
-	if days <= 0 {
+	if dto.Days <= 0 {
 		return ErrDaysNotNill
 	}
+
+	description := fmt.Sprintf("Created via ProxyMaster | %s | @%s", dto.FullName, dto.Telegram)
 
 	now := time.Now().UTC()
 
@@ -32,7 +42,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 
 	// Заполняем структуру для remnawave, чтобы она указала параметры в панели.
 	userData := &models.CreateRequestUserDTO{
-		Username:             username,
+		Username:             dto.Username,
 		Status:               "ACTIVE",
 		TrojanPassword:       newShortSecret(), // Пароль для протокола Trojan.
 		VLessUUID:            uuid.NewString(),
@@ -40,10 +50,10 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 		ShortUUID:            newShortSecret(), // Короткий uuid для идентификации.
 		TrafficLimitBytes:    trafficLimit,     // Устанавливаем лимит трафика.
 		TrafficLimitStrategy: "MONTH",          // Период сброса трафика.
-		ExpireAt:             now.AddDate(0, 0, days).Format(time.RFC3339),
+		ExpireAt:             now.AddDate(0, 0, dto.Days).Format(time.RFC3339),
 		CreatedAt:            now.Format(time.RFC3339),
 		LastTrafficResetAt:   now.Format(time.RFC3339),
-		Description:          "Created via ProxyMaster",
+		Description:          description,
 		ActiveInternalSquads: []string{c.cfg.RemnaSquadUUID},
 	}
 
@@ -67,7 +77,7 @@ func (c *RemnaClient) CreateUser(username string, days int) error {
 
 	c.logger.Info(
 		"успешное создание пользователя в панели",
-		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "username", Value: dto.Username},
 	)
 
 	return nil

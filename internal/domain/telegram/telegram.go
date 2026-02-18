@@ -19,6 +19,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
@@ -1151,6 +1152,7 @@ func ProcessCommand(
 	chatID int64,
 	command string,
 	firstName string,
+	telegramUsername string,
 	remnawaveClient domain.RemnawaveClient,
 	userRepo *database.UserStorage,
 	logger logger.Logger,
@@ -1180,6 +1182,7 @@ func ProcessCommand(
 	case "/start":
 		userID := strconv.FormatInt(chatID, 10)
 
+		// Создаем в BD
 		_, err := userRepo.GetUserByID(userID)
 		if err != nil {
 			if errors.Is(err, domain.ErrUserNotFound) {
@@ -1217,7 +1220,14 @@ func ProcessCommand(
 		}
 
 		username := strconv.Itoa(int(chatID))
-		if err := remnawaveClient.CreateUser(username, 5); err != nil {
+		dto := remnawave.CreateUserDTO{
+			Username: username,
+			Days:     5,
+			FullName: firstName,
+			Telegram: telegramUsername,
+		}
+
+		if err := remnawaveClient.CreateUser(dto); err != nil {
 			// Ошибка некритична для пользователя, просто логируем
 			log.Printf("Не удалось создать пользователя в remnawave: %v", err)
 		}

@@ -105,8 +105,10 @@ func (c *Client) Start(
 		// 2. Обработка обычных текстовых сообщений
 		if update.Message != nil {
 			firstName := ""
+			telegramUsername := ""
 			if update.Message.From != nil {
 				firstName = update.Message.From.FirstName
+				telegramUsername = update.Message.From.UserName
 			}
 
 			// Передаем текст сообщения в слой бизнес-логики
@@ -115,8 +117,8 @@ func (c *Client) Start(
 				update.Message.Chat.ID,
 				update.Message.Text,
 				firstName,
+				telegramUsername,
 				remnawaveClient,
-				// subscriptionService,
 				userRepo,
 				c.logger,
 				adminID)

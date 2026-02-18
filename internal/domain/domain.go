@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
 )
 
@@ -24,7 +25,7 @@ const (
 	ViewTypeIosRegion   ViewType = "ios_region"
 	ViewTypeTariffs     ViewType = "tariffs"
 	ViewTypeTopUp       ViewType = "top_up"
-	// ViewTypePayment            ViewType = "payment"
+	// ViewTypePayment            ViewType = "payment".
 	ViewTypeCheckPayment       ViewType = "check_payment"
 	ViewTypeProfile            ViewType = "profile"
 	ViewTypeDeviceLimits       ViewType = "device_limits"
@@ -35,7 +36,7 @@ const (
 	ViewTypeServiceInfo        ViewType = "service_info"
 	ViewTypePrivacyPolicy      ViewType = "privacy_policy"
 	ViewTypeUserAgreement      ViewType = "user_agreement"
-	// ViewTypeError              ViewType = "unknown view type"
+	// ViewTypeError              ViewType = "unknown view type".
 )
 
 // Ошибка приложения.
@@ -47,7 +48,7 @@ var (
 // RemnawaveClient то как мы хотим получать информацию.
 type RemnawaveClient interface {
 	GetUUIDByUsername(ctx context.Context, username string) (string, error)
-	CreateUser(username string, days int) error
+	CreateUser(dto remnawave.CreateUserDTO) error
 	DeleteUser(ctx context.Context, username string) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
 	EnableClient(userUUID string) error

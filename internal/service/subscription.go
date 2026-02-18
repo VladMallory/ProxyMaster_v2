@@ -130,7 +130,12 @@ func (s *SubscriptionService) AddPaidDevice(username string) error {
 				logger.Field{Key: "username", Value: username},
 			)
 
-			err = s.remna.CreateUser(username, 30)
+			dto := remnawave.CreateUserDTO{
+				Username: username,
+				Days:     30,
+			}
+
+			err = s.remna.CreateUser(dto)
 			if err != nil {
 				return s.logError(
 					"ошибка создания пользователя в RemnaWave при покупке устройства",
@@ -414,7 +419,12 @@ func (s *SubscriptionService) ActivateSubscription(
 				logger.Field{Key: "username", Value: username},
 			)
 
-			err = s.remna.CreateUser(username, totalDays)
+			dto := remnawave.CreateUserDTO{
+				Username: username,
+				Days:     totalDays,
+			}
+
+			err = s.remna.CreateUser(dto)
 			if err != nil {
 				return "", s.logError(
 					"ошибка создания пользователя",
