@@ -72,7 +72,7 @@ func (c *RemnaClient) CreateUser(dto CreateUserDTO) error {
 		return err
 	}
 
-	if _, err := c.handleUpdate(resp, body); err != nil {
+	if _, err := c.handleCreate(resp, body); err != nil {
 		return err
 	}
 

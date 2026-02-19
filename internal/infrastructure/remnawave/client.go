@@ -78,6 +78,8 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 
 	response, err := c.httpClient.Do(req)
 	if err != nil {
+		username := "заглушка" // заглушка для wrapErr
+		c.wrapErr(err, "Do", username, url)
 		c.logger.Error(
 			"failed to get response",
 			logger.Field{Key: "err_msg", Value: err},
