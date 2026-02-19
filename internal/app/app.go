@@ -1,4 +1,6 @@
 // Package app тут собирается и запускается приложение
+//
+// nolint: forbidigo
 package app
 
 import (

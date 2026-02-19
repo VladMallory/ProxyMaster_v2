@@ -3,6 +3,7 @@ package remnawave
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -210,6 +211,53 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 	return userInfo, nil
 }
 
+// GetUUIDByUsername - метод нахождения пользователя через username.
+func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (string, error) {
+	defer c.logDuration("GetUUIDByUsername")()
+
+	// Формируем URL для запроса информации о пользователе по username
+	// /api/users/by-username/{username}
+	url := fmt.Sprintf(
+		"%s/api/users/by-username/%s?%s",
+		c.cfg.RemnaPanelURL,
+		username,
+		c.cfg.RemnaSecretURLToken,
+	)
+
+	var userData models.GetUUIDByUsernameResponse
+
+	// Выполняем HTTP запрос и парсим ответ через вспомогательный метод
+	if err := c.doRequestAndParse(
+		ctx,
+		http.MethodGet,
+		url,
+		nil,
+		&userData,
+		username); err != nil {
+		return "", err
+	}
+
+	// Проверка валидности ответа
+	if userData.Response.UUID == "" || userData.Response.Username == "" {
+		c.logger.Error(
+			"received empty UUID or username in response",
+			logger.Field{Key: "response_uuid", Value: userData.Response.UUID},
+			logger.Field{Key: "response_username", Value: userData.Response.Username},
+		)
+
+		return "", ErrUUIDorUsernameIsNill
+	}
+
+	c.logger.Info(
+		"получен UUID пользователя",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "uuid", Value: userData.Response.UUID},
+	)
+
+	// Возвращаем UUID из структуры
+	return userData.Response.UUID, nil
+}
+
 // GetUserStatus возвращает статус пользователя по его UUID.
 func (c *RemnaClient) GetUserStatus(uuid string) (string, error) {
 	defer c.logDuration("GetUserStatus")()
@@ -229,4 +277,36 @@ func newShortSecret() string {
 	}
 
 	return raw[:31]
+}
+
+// DeleteUser удаляет клиенту из панели.
+func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
+	defer c.logDuration("DeleteUser")()
+
+	if username == "" {
+		err := errors.New("указан пустой username для удаления пользователя")
+
+		return err
+	}
+
+	// Получаем UUID пользователя по username
+	UUID, err := c.GetUUIDByUsername(ctx, username)
+	if err != nil {
+		c.wrapErr(err, "GetUUIDByUsername", username)
+
+		return fmt.Errorf("failed to get UUID: %w", err)
+	}
+
+	// Формируем URL для удаления пользователя (не забываем добавить секретный токен)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, UUID, c.cfg.RemnaSecretURLToken)
+
+	resp, err := c.doRequest(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	defer c.closeBody(resp)
+
+	respBody, _ := c.readBody(resp)
+
+	return c.handleDelete(resp, respBody, username, UUID)
 }

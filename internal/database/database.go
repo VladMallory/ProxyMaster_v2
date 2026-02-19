@@ -2,17 +2,19 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
-// Connect is function for database connection
+// Connect is function for database connection.
 func Connect(databaseURL string, l logger.Logger) (*sqlx.DB, error) {
 	// Подключаемся к Postgres.
 	db, err := sqlx.Connect("postgres", databaseURL)
@@ -32,10 +34,9 @@ func Connect(databaseURL string, l logger.Logger) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("failed to ensure postgres role: %w", err)
 	}
 
-	// Делаем мягкую миграцию схемы.
-	// Это нужно, потому что init.sql выполняется только при первом старте контейнера с пустым volume.
-	if err := ensureSchema(db); err != nil {
-		return nil, fmt.Errorf("failed to ensure schema: %w", err)
+	// Выполняем миграции из папки migrations/
+	if err := runMigrations(databaseURL); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	return db, nil
@@ -79,58 +80,20 @@ func ensurePostgresRole(db *sqlx.DB, databaseURL string) error {
 	return nil
 }
 
-func ensureSchema(db *sqlx.DB) error {
-	// Проверяем существует ли таблица users
-	var tableExists bool
-	if err := db.Get(&tableExists, `
-		SELECT EXISTS (
-			SELECT FROM information_schema.tables
-			WHERE table_schema = 'public'
-			AND table_name = 'users'
-		)
-	`); err != nil {
-		return fmt.Errorf("failed to check if users table exists: %w", err)
+// runMigrations запускает миграции из папки migrations/
+// Это автоматически применит все .up.sql файлы по порядку.
+func runMigrations(databaseURL string) error {
+	m, err := migrate.New(
+		"file://migrations",
+		databaseURL,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
+	defer m.Close()
 
-	// Если таблицы нет - создаем её с актуальной схемой (без balance)
-	if !tableExists {
-		if _, err := db.ExecContext(context.Background(), `
-			CREATE TABLE users (
-				id VARCHAR(20) PRIMARY KEY,
-				trial BOOLEAN NOT NULL DEFAULT FALSE,
-				extra_devices_count INTEGER NOT NULL DEFAULT 0,
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-			)
-		`); err != nil {
-			return fmt.Errorf("failed to create users table: %w", err)
-		}
-	}
-
-	// Добавляем колонку extra_devices_count, если её ещё нет (для старых баз)
-	if _, err := db.ExecContext(context.Background(), `
-		ALTER TABLE users
-		ADD COLUMN IF NOT EXISTS extra_devices_count INTEGER NOT NULL DEFAULT 0
-	`); err != nil {
-		return fmt.Errorf("failed to add extra_devices_count: %w", err)
-	}
-
-	// Создаем таблицу услуг дополнительных устройств, если её еще нет.
-	// Каждая покупка = отдельная строка с собственной датой следующего списания.
-	if _, err := db.ExecContext(context.Background(), `
-		CREATE TABLE IF NOT EXISTS device_addons (
-			id VARCHAR(36) PRIMARY KEY,
-			user_id VARCHAR(20) NOT NULL,
-			next_charge_at TIMESTAMP NOT NULL,
-			active BOOLEAN NOT NULL DEFAULT TRUE,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			CONSTRAINT fk_device_addons_user
-				FOREIGN KEY (user_id)
-				REFERENCES users(id)
-				ON DELETE CASCADE
-				ON UPDATE CASCADE
-		)
-	`); err != nil {
-		return fmt.Errorf("failed to create device_addons: %w", err)
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run up migrations: %w", err)
 	}
 
 	return nil
