@@ -58,7 +58,7 @@ func main() {
 
 	maxRetries := 3
 
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		db, err = sqlx.Connect("postgres", dbURL)
 		if err == nil {
 			break
@@ -309,10 +309,7 @@ func printRegistrationStats(users []models.UserTG) {
 		}
 
 		// Выводим последние 7 дней
-		start := len(days) - 7
-		if start < 0 {
-			start = 0
-		}
+		start := max(len(days)-7, 0)
 
 		for i := start; i < len(days); i++ {
 			fmt.Printf("│ %s: %d пользователей\n", days[i], registrationByDay[days[i]])
