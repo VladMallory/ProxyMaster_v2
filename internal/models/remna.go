@@ -98,7 +98,7 @@ type CreateRequestUserDTO struct {
 	TrojanPassword       string `json:"trojanPassword"`
 	VLessUUID            string `json:"vlessUuid"`
 	SsPassword           string `json:"ssPassword"`
-	TrafficLimitBytes    int    `json:"trafficLimitBytes"`
+	TrafficLimitBytes    int64  `json:"trafficLimitBytes"`
 	TrafficLimitStrategy string `json:"trafficLimitStrategy"`
 	ExpireAt             string `json:"expireAt"`
 	CreatedAt            string `json:"createdAt"`
@@ -107,7 +107,7 @@ type CreateRequestUserDTO struct {
 	// Tag                  *string  `json:"tag"`
 	// TelegramID           *string  `json:"telegramId"`
 	// Email                *string  `json:"email"`
-	HWIDDeviceLimit      int      `json:"hwidDeviceLimit"`
+	HWIDDeviceLimit      *int     `json:"hwidDeviceLimit,omitempty"`
 	ActiveInternalSquads []string `json:"activeInternalSquads"`
 	// UUID                 string   `json:"uuid"`
 	// ExternalSquadUUID    *string  `json:"externalSquadUuid"` доп поля, хз нужны будут или нет

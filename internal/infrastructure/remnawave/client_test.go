@@ -1,4 +1,4 @@
-// nolint: paralleltest, lll, golines, typecheck
+// nolint:paralleltest, lll, golines, typecheck
 package remnawave
 
 import (
@@ -13,9 +13,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
+
+func newTestRemnaClient(baseURL string, logClient logger.Logger) *RemnaClient {
+	// Тестовая конфигурация адаптера: только нужные поля.
+	cfg := RemnaConfig{
+		PanelURL:       baseURL,
+		SecretURLToken: "testToken",
+		APIKey:         "testKey",
+		SquadUUID:      "test-squad-uuid",
+		TrafficLimitGB: 250,
+	}
+
+	// Создаем клиент через новый конструктор.
+	return NewRemnaClient(cfg, logClient)
+}
 
 // TestGetUUIDByUsername самый простой тест для получения UUID.
 // helperSetupClient создает тестовый сервер и клиент для тестов
@@ -23,13 +36,8 @@ import (
 func helperSetupClient(responseHandler http.HandlerFunc) (*RemnaClient, *httptest.Server) { //nolint:golines
 	server := httptest.NewServer(responseHandler)
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	return client, server
 }
@@ -55,13 +63,8 @@ func helperSetupClientWithMethod(expectedMethod string, urlPath string) (*RemnaC
 		}
 	}))
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	return client, server
 }
@@ -99,13 +102,8 @@ func TestGetUUIDByUsername(t *testing.T) {
 	defer server.Close()
 
 	// Настраиваем клиент
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	// Запускаем тест
 	gotUUID, err := client.GetUUIDByUsername(context.Background(), "testUser")
@@ -160,13 +158,8 @@ func TestDeleteUser_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "testUser")
 	if err != nil {
@@ -182,13 +175,8 @@ func TestDeleteUser_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "nonexistent")
 	if err == nil {
@@ -217,14 +205,8 @@ func TestCreateUser_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-		RemnaSquadUUID:      "test-squad-uuid",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
 		Username: "new user",
@@ -251,14 +233,8 @@ func TestCreateUser_duplicate(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-		RemnaSquadUUID:      "test-squad-uuid",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
 		Username: "existing user",
@@ -285,13 +261,8 @@ func TestSetTraffic_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.SetTraffic("testUser", 50)
 	if err != nil {
@@ -355,13 +326,8 @@ func TestEncryptURL_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	gotEncrypted, err := client.EncryptURL("test-url")
 	if err != nil {
@@ -382,13 +348,8 @@ func TestSetDevices_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	devices := uint8(5)
 
@@ -435,13 +396,8 @@ func TestBetterResetTraffic_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.BetterResetTraffic(context.Background(), "testUser")
 	if err != nil {
@@ -525,13 +481,8 @@ func TestAddInternalSquad_error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	squadTitles := []string{"squad1"}
 	err := client.AddInternalSquad(context.Background(), "testUser", squadTitles)
@@ -547,14 +498,8 @@ func TestAddInternalSquad_error(t *testing.T) {
 
 // TestCreateUser_invalidDays тест на ошибку с некорректным количеством дней.
 func TestCreateUser_invalidDays(t *testing.T) {
-	cfg := &config.Config{
-		RemnaPanelURL:       "http://example.com",
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-		RemnaSquadUUID:      "test-squad-uuid",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient("http://example.com", logClient)
 
 	// Должна быть ошибка так как days <= 0
 	dto := CreateUserDTO{
@@ -664,13 +609,8 @@ func TestDisableClient_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DisableClient("test-uuid")
 	if err == nil {
@@ -684,13 +624,8 @@ func TestDisableClient_notFound(t *testing.T) {
 
 // TestSetDevices_nil тест на ошибку при nil значении устройств.
 func TestSetDevices_nil(t *testing.T) {
-	cfg := &config.Config{
-		RemnaPanelURL:       "http://example.com",
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient("http://example.com", logClient)
 
 	err := client.SetDevices(context.Background(), "testUser", nil)
 	if err == nil {
@@ -712,13 +647,8 @@ func TestBetterResetTraffic_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.BetterResetTraffic(context.Background(), "nonexistent")
 	if err == nil {
@@ -755,13 +685,8 @@ func TestBetterResetTraffic_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.BetterResetTraffic(context.Background(), "testUser")
 	if err == nil {
@@ -780,13 +705,8 @@ func TestGetUserInfo_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("nonexistent-uuid")
 	if err == nil {
@@ -805,13 +725,8 @@ func TestGetUserInfo_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("invalid-uuid")
 	if err == nil {
@@ -830,13 +745,8 @@ func TestGetUserInfo_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("test-uuid")
 	if err == nil {
@@ -855,13 +765,8 @@ func TestGetUserStatus_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserStatus("nonexistent-uuid")
 	if err == nil {
@@ -880,13 +785,8 @@ func TestGetUUIDByUsername_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "nonexistent")
 	if err == nil {
@@ -915,13 +815,8 @@ func TestGetUUIDByUsername_emptyResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
 	if err == nil {
@@ -935,13 +830,8 @@ func TestGetUUIDByUsername_emptyResponse(t *testing.T) {
 
 // TestDeleteUser_emptyUsername тест на ошибку при пустом username.
 func TestDeleteUser_emptyUsername(t *testing.T) {
-	cfg := &config.Config{
-		RemnaPanelURL:       "http://example.com",
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient("http://example.com", logClient)
 
 	err := client.DeleteUser(context.Background(), "")
 	if err == nil {
@@ -963,13 +853,8 @@ func TestDeleteDeviceHWID_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteDeviceHWID(context.Background(), "nonexistent")
 	if err == nil {
@@ -979,13 +864,8 @@ func TestDeleteDeviceHWID_notFound(t *testing.T) {
 
 // TestNewRemnaClient проверяет создание клиента.
 func TestNewRemnaClient(t *testing.T) {
-	cfg := &config.Config{
-		RemnaPanelURL:       "http://example.com",
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient("http://example.com", logClient)
 
 	if client.httpClient == nil {
 		t.Error("HTTP клиент не должен быть nil")
@@ -1005,14 +885,8 @@ func TestCreateUser_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-		RemnaSquadUUID:      "test-squad-uuid",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
 		Username: "testUser",
@@ -1037,14 +911,8 @@ func TestCreateUser_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-		RemnaSquadUUID:      "test-squad-uuid",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
 		Username: "testUser",
@@ -1081,13 +949,8 @@ func TestDeleteUser_unauthorized(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "testUser")
 	if err == nil {
@@ -1120,13 +983,8 @@ func TestDeleteUser_unexpectedStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "testUser")
 	if err == nil {
@@ -1143,13 +1001,8 @@ func TestGetUUIDByUsername_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
 	if err == nil {
@@ -1175,13 +1028,8 @@ func TestGetUUIDByUsername_invalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
 	if err == nil {
@@ -1200,13 +1048,8 @@ func TestSetDevices_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	devices := uint8(5)
 
@@ -1224,13 +1067,8 @@ func TestAddInternalSquad_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	squadTitles := []string{"squad1"}
 	err := client.AddInternalSquad(context.Background(), "nonexistent", squadTitles)
@@ -1252,13 +1090,8 @@ func TestEnableClient_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.EnableClient("test-uuid")
 	if err == nil {
@@ -1279,13 +1112,8 @@ func TestDisableClient_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DisableClient("test-uuid")
 	if err == nil {
@@ -1311,13 +1139,8 @@ func TestGetUserInfo_unmarshalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("test-uuid")
 	if err == nil {
@@ -1340,13 +1163,8 @@ func TestExtendClientSubscription_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.ExtendClientSubscription("test-uuid", "testUser", 30)
 	// Примечание: ExtendClientSubscription возвращает nil для всех не-200 статусов (баг в реализации)
@@ -1363,13 +1181,8 @@ func TestExtendClientSubscription_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.ExtendClientSubscription("test-uuid", "testUser", 30)
 	// Примечание: ExtendClientSubscription возвращает nil для всех не-200 статусов (баг в реализации)
@@ -1385,13 +1198,8 @@ func TestEnableClient_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.EnableClient("nonexistent-uuid")
 	if err == nil {
@@ -1412,13 +1220,8 @@ func TestEnableClient_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.EnableClient("test-uuid")
 	if err == nil {
@@ -1439,13 +1242,8 @@ func TestDisableClient_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DisableClient("test-uuid")
 	if err == nil {
@@ -1466,13 +1264,8 @@ func TestSetTraffic_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.SetTraffic("testUser", 50)
 	if err != nil {
@@ -1489,13 +1282,8 @@ func TestAddInternalSquad_emptyList(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	squadTitles := []string{}
 	err := client.AddInternalSquad(context.Background(), "testUser", squadTitles)
@@ -1526,13 +1314,8 @@ func TestDeleteDeviceHWID_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteDeviceHWID(context.Background(), "testUser")
 	if err == nil {
@@ -1548,13 +1331,8 @@ func TestContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -1609,13 +1387,8 @@ func TestGetUserInfo_statusCodes(t *testing.T) {
 			}))
 			defer server.Close()
 
-			cfg := &config.Config{
-				RemnaPanelURL:       server.URL,
-				RemnaSecretURLToken: "testToken",
-				RemnaKey:            "testKey",
-			}
 			logClient, _ := logger.NewZap("debug")
-			client := NewRemnaClient(cfg, logClient)
+			client := newTestRemnaClient(server.URL, logClient)
 
 			_, err := client.GetUserInfo("test-uuid")
 			if tt.wantErr != nil {
@@ -1631,13 +1404,8 @@ func TestGetUserInfo_statusCodes(t *testing.T) {
 
 // TestGetUUIDByUsername_networkError тест на сетевую ошибку (connection refused).
 func TestGetUUIDByUsername_networkError(t *testing.T) {
-	cfg := &config.Config{
-		RemnaPanelURL:       "http://localhost:9999",
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient("http://localhost:9999", logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
 	if err == nil {
@@ -1657,14 +1425,8 @@ func TestCreateUser_requestBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-		RemnaSquadUUID:      "test-squad-uuid",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
 		Username: "testUser",
@@ -1702,13 +1464,8 @@ func TestGetUserStatus_differentStatuses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			cfg := &config.Config{
-				RemnaPanelURL:       server.URL,
-				RemnaSecretURLToken: "testToken",
-				RemnaKey:            "testKey",
-			}
 			logClient, _ := logger.NewZap("debug")
-			client := NewRemnaClient(cfg, logClient)
+			client := newTestRemnaClient(server.URL, logClient)
 
 			gotStatus, err := client.GetUserStatus("test-uuid")
 			if err != nil {
@@ -1741,13 +1498,8 @@ func TestSetDevices_boundaryValues(t *testing.T) {
 			}))
 			defer server.Close()
 
-			cfg := &config.Config{
-				RemnaPanelURL:       server.URL,
-				RemnaSecretURLToken: "testToken",
-				RemnaKey:            "testKey",
-			}
 			logClient, _ := logger.NewZap("debug")
-			client := NewRemnaClient(cfg, logClient)
+			client := newTestRemnaClient(server.URL, logClient)
 
 			err := client.SetDevices(context.Background(), "testUser", &tt.devices)
 			if (err != nil) != tt.wantErr {
@@ -1776,13 +1528,8 @@ func TestRequestHeaders(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, _ = client.GetUUIDByUsername(context.Background(), "testUser")
 
@@ -1843,13 +1590,8 @@ func TestSetTraffic_boundaryValues(t *testing.T) {
 			}))
 			defer server.Close()
 
-			cfg := &config.Config{
-				RemnaPanelURL:       server.URL,
-				RemnaSecretURLToken: "testToken",
-				RemnaKey:            "testKey",
-			}
 			logClient, _ := logger.NewZap("debug")
-			client := NewRemnaClient(cfg, logClient)
+			client := newTestRemnaClient(server.URL, logClient)
 
 			_ = client.SetTraffic("testUser", tt.gb)
 
@@ -1878,13 +1620,8 @@ func TestURLContainsToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
-		RemnaPanelURL:       server.URL,
-		RemnaSecretURLToken: "testToken",
-		RemnaKey:            "testKey",
-	}
 	logClient, _ := logger.NewZap("debug")
-	client := NewRemnaClient(cfg, logClient)
+	client := newTestRemnaClient(server.URL, logClient)
 
 	_, _ = client.GetUUIDByUsername(context.Background(), "testUser")
 
