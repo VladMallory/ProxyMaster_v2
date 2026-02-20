@@ -18,10 +18,11 @@ import (
 
 // CreateUserDTO для передачи данных при создании пользователя.
 type CreateUserDTO struct {
-	Username string // Имя пользователя в панели
-	Days     int    // Количество дней подписки
-	FullName string // Полное имя пользователя
-	Telegram string // @ телеграм пользователя
+	Username    string // Имя пользователя в панели
+	Days        int    // Количество дней подписки
+	FullName    string // Полное имя пользователя
+	Telegram    string // @ телеграм пользователя
+	DeviceLimit *int   // Лимит устройств (HWID). nil = из конфига
 }
 
 // CreateUser создает пользователя в панели.
@@ -32,14 +33,19 @@ func (c *RemnaClient) CreateUser(dto CreateUserDTO) error {
 		return ErrDaysNotNill
 	}
 
+	// Определяем лимит устройств: если nil, отправляем nil в JSON
+	var deviceLimit *int
+	if dto.DeviceLimit != nil {
+		deviceLimit = dto.DeviceLimit
+	}
+
 	description := fmt.Sprintf("Created via ProxyMaster | %s | @%s", dto.FullName, dto.Telegram)
 
 	now := time.Now().UTC()
 
 	// указываем лимиты трафика
-	const oneGb int = 1024 * 1024 * 1024
-	// лимит 100 gb
-	trafficLimit := 100 * oneGb
+	const oneGb int64 = 1024 * 1024 * 1024
+	trafficLimit := c.cfg.TrafficLimitGB * oneGb
 
 	// Заполняем структуру для remnawave, чтобы она указала параметры в панели.
 	userData := &models.CreateRequestUserDTO{
@@ -55,11 +61,12 @@ func (c *RemnaClient) CreateUser(dto CreateUserDTO) error {
 		CreatedAt:            now.Format(time.RFC3339),
 		LastTrafficResetAt:   now.Format(time.RFC3339),
 		Description:          description,
-		ActiveInternalSquads: []string{c.cfg.RemnaSquadUUID},
+		HWIDDeviceLimit:      deviceLimit, // Устанавливаем лимит устройств.
+		ActiveInternalSquads: []string{c.cfg.SquadUUID},
 	}
 
 	// формируем строку куда идет запрос
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.PanelURL, c.cfg.SecretURLToken)
 
 	resp, err := c.doRequest(context.Background(), http.MethodPost, url, userData)
 	if err != nil {
@@ -90,8 +97,8 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days i
 
 	url := fmt.Sprintf(
 		"%s/api/users/bulk/extend-expiration-date?%s",
-		c.cfg.RemnaPanelURL,
-		c.cfg.RemnaSecretURLToken,
+		c.cfg.PanelURL,
+		c.cfg.SecretURLToken,
 	)
 
 	payload := models.BulkExtendRequest{
@@ -121,7 +128,12 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days i
 		return err
 	}
 
-	return c.wrapErr(nil, "Failed to increase subscription period", username)
+	return c.wrapErr(
+		fmt.Errorf("неизвестный статус: %d", resp.StatusCode),
+		"Failed to increase subscription period",
+		username,
+		url,
+	)
 }
 
 // EnableClient включает клиента в панели remnawave.
@@ -152,7 +164,7 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
 	defer c.logDuration("GetUserInfo")()
 
-	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, uuid, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.PanelURL, uuid, c.cfg.SecretURLToken)
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
@@ -162,7 +174,7 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 		)
 	}
 
-	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+	req.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -219,9 +231,9 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 	// /api/users/by-username/{username}
 	url := fmt.Sprintf(
 		"%s/api/users/by-username/%s?%s",
-		c.cfg.RemnaPanelURL,
+		c.cfg.PanelURL,
 		username,
-		c.cfg.RemnaSecretURLToken,
+		c.cfg.SecretURLToken,
 	)
 
 	var userData models.GetUUIDByUsernameResponse
@@ -298,7 +310,7 @@ func (c *RemnaClient) DeleteUser(ctx context.Context, username string) error {
 	}
 
 	// Формируем URL для удаления пользователя (не забываем добавить секретный токен)
-	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.RemnaPanelURL, UUID, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.PanelURL, UUID, c.cfg.SecretURLToken)
 
 	resp, err := c.doRequest(ctx, http.MethodDelete, url, nil)
 	if err != nil {

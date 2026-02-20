@@ -3,7 +3,7 @@
 package config
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -42,6 +42,7 @@ type Config struct {
 	// Настройки
 	PricePerMonth string // оплата за месяц
 	DeviceLimit   int    // базовый лимит устройств
+	TrafficLimit  int64  // int64 для 32 битных систем, там лимит 2 gb
 
 	// Logger
 	LoggerLevel string
@@ -56,7 +57,7 @@ func New() (*Config, error) {
 
 	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	if databaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL не установлен")
+		return nil, errors.New("DATABASE_URL не установлен")
 	}
 
 	// Читаем базовый лимит устройств
@@ -65,6 +66,12 @@ func New() (*Config, error) {
 
 	if err != nil || deviceLimit < 1 {
 		log.Fatalln("укажите в env лимит устройств")
+	}
+
+	TrafficLimitStr := os.Getenv("TRAFFIC_LIMIT")
+	TrafficLimit, err := strconv.ParseInt(TrafficLimitStr, 10, 64)
+	if err != nil || TrafficLimit <= 1 {
+		log.Fatalln("укажите в env лимит трафика")
 	}
 
 	return &Config{
@@ -86,5 +93,6 @@ func New() (*Config, error) {
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
 		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
 		DeviceLimit:         deviceLimit,
+		TrafficLimit:        TrafficLimit,
 	}, nil
 }
