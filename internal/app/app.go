@@ -59,7 +59,17 @@ func New() (Application, error) {
 	restAPILogger := loggerClient.Named("restAPI")
 	databaseLogger := loggerClient.Named("database")
 
-	remnawaveClient := remnawave.NewRemnaClient(cfg, remnawaveLogger)
+	// Берем глобальный cfg и передаем только нужные поля
+	remnaCfg := remnawave.RemnaConfig{
+		PanelURL:       cfg.RemnaPanelURL,
+		SecretURLToken: cfg.RemnaSecretURLToken,
+		APIKey:         cfg.RemnaKey,
+		SquadUUID:      cfg.RemnaSquadUUID,
+		TrafficLimitGB: cfg.TrafficLimit,
+		DeviceLimit:    cfg.DeviceLimit,
+	}
+
+	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)
 
 	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {

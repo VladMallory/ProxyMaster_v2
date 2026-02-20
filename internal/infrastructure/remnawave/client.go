@@ -14,21 +14,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
 
+// RemnaConfig хранит важные *config данные из env.
+type RemnaConfig struct {
+	PanelURL       string
+	SecretURLToken string
+	APIKey         string
+	SquadUUID      string
+	TrafficLimitGB int64
+	DeviceLimit    int // Лимит устройств по умолчанию
+}
+
 // RemnaClient описывает то что нужно для работы remnawave.
 type RemnaClient struct {
-	cfg        *config.Config
+	cfg        RemnaConfig
 	httpClient *http.Client
 	// Храним логгер здесь для обращения к нему
 	logger logger.Logger
 }
 
 // NewRemnaClient конструктор для создания клиента.
-func NewRemnaClient(cfg *config.Config, l logger.Logger) *RemnaClient {
+func NewRemnaClient(cfg RemnaConfig, l logger.Logger) *RemnaClient {
 	return &RemnaClient{
 		cfg: cfg,
 		httpClient: &http.Client{
@@ -179,7 +188,7 @@ func (c *RemnaClient) doRequest(
 	// для всех запросов к API remnawave
 	request.Header.Add("Content-Type", "application/json")
 	// Обязательно добавляем ключ RemnaKey чтобы панель пропустила
-	request.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+	request.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
 
 	// Выполняет запрос
 	response, err := c.httpClient.Do(request)
@@ -461,7 +470,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 		return fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
 	}
 
-	req.Header.Add("Authorization", "Bearer "+c.cfg.RemnaKey)
+	req.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -540,10 +549,10 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 // actionURL отдаем методам строку, чтобы избежать дублирование кода в методах.
 func (c *RemnaClient) actionURL(userUUID string, action string) string {
 	return fmt.Sprintf("%s/api/users/%s/actions/%s?%s",
-		c.cfg.RemnaPanelURL,
+		c.cfg.PanelURL,
 		userUUID,
 		action,
-		c.cfg.RemnaSecretURLToken,
+		c.cfg.SecretURLToken,
 	)
 }
 

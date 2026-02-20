@@ -26,9 +26,9 @@ func (c *RemnaClient) BetterResetTraffic(ctx context.Context, username string) e
 
 	url := fmt.Sprintf(
 		"%s/api/users/%s/actions/reset-traffic?%s",
-		c.cfg.RemnaPanelURL,
+		c.cfg.PanelURL,
 		UUID,
-		c.cfg.RemnaSecretURLToken,
+		c.cfg.SecretURLToken,
 	)
 
 	resp, err := c.doRequest(ctx, http.MethodPost, url, nil)
@@ -69,8 +69,8 @@ func (c *RemnaClient) SetTraffic(username string, gb uint64) error {
 
 	url := fmt.Sprintf(
 		"%s/api/users?%s",
-		c.cfg.RemnaPanelURL,
-		c.cfg.RemnaSecretURLToken,
+		c.cfg.PanelURL,
+		c.cfg.SecretURLToken,
 	)
 
 	resp, err := c.doRequest(context.Background(), http.MethodPatch, url, userData)
