@@ -24,7 +24,7 @@ func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *
 		HwidDeviceLimit: devices,
 	}
 
-	url := fmt.Sprintf("%s/api/users?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf("%s/api/users?%s", c.cfg.PanelURL, c.cfg.SecretURLToken)
 
 	response, err := c.doRequest(ctx, http.MethodPatch, url, userData)
 	if err != nil {
@@ -63,8 +63,8 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 
 	// URL для удаления устройств
 	url := fmt.Sprintf("%s/api/hwid/devices/delete-all?%s",
-		c.cfg.RemnaPanelURL,
-		c.cfg.RemnaSecretURLToken,
+		c.cfg.PanelURL,
+		c.cfg.SecretURLToken,
 	)
 
 	// JSON запрос с UUID пользователя

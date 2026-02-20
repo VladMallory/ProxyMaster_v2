@@ -14,7 +14,7 @@ func (c *RemnaClient) AddInternalSquad(
 	squadTitles []string,
 ) error {
 	c.logDuration("AddInternalSquad")()
-	url := fmt.Sprintf("%s/api/users/?%s", c.cfg.RemnaPanelURL, c.cfg.RemnaSecretURLToken)
+	url := fmt.Sprintf("%s/api/users/?%s", c.cfg.PanelURL, c.cfg.SecretURLToken)
 
 	data := &models.UpdateUserRequest{
 		Username:             &username,
