@@ -69,6 +69,7 @@ func New() (Application, error) {
 		DeviceLimit:    cfg.DeviceLimit,
 	}
 
+	//
 	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)
 
 	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
