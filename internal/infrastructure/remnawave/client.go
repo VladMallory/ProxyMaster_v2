@@ -247,7 +247,7 @@ func (c *RemnaClient) parseJSON(data string, target any) error {
 			logger.Field{Key: "response_body", Value: data},
 		)
 
-		return fmt.Errorf("%w: %w", ErrFailedToUnmarshal, err)
+		return fmt.Errorf("%w: %w", ErrUnmarshal, err)
 	}
 
 	return nil
@@ -459,91 +459,29 @@ func (c *RemnaClient) wrapErr(err error, msg, username string, url ...string) er
 func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	url := c.actionURL(userUUID, action)
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, url, http.NoBody)
+	resp, err := c.doRequest(context.Background(), http.MethodPut, url, nil)
 	if err != nil {
-		c.logger.Error(
-			"failed to create doRequest for action",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
+		return err
 	}
-
-	req.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		c.logger.Error(
-			"failed to execute action doRequest",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "err_msg", Value: err},
-		)
-
-		return fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
-	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			return
-		}
-	}()
+	defer c.closeBody(resp)
 
 	// Читаем тело ответа для логирования
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := c.readBody(resp)
 
-	c.logger.Debug(
-		"action response",
-		logger.Field{Key: "action", Value: action},
-		logger.Field{Key: "status_code", Value: resp.StatusCode},
-		logger.Field{Key: "response_body", Value: string(body)},
+	_, err = c.handleUpdate(resp, body)
+	if err != nil {
+		if errors.Is(err, ErrBadRequest) {
+			return ErrBadRequestUUID
+		}
+
+		return err
+	}
+	c.logger.Info(
+		"метод включения/выключения клиента успешно отработал",
+		logger.Field{Key: "userUUID", Value: userUUID},
 	)
 
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusNoContent:
-		c.logger.Info(
-			"action executed successfully",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "userUUID", Value: userUUID},
-		)
-
-		return nil
-	case http.StatusNotFound:
-		c.logger.Warn(
-			"user not found for action",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "userUUID", Value: userUUID},
-		)
-
-		return ErrNotFound
-	case http.StatusInternalServerError:
-		c.logger.Error(
-			"internal server error for action",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "userUUID", Value: userUUID},
-		)
-
-		return ErrInternalServerError
-	case http.StatusBadRequest:
-		c.logger.Warn(
-			"bad doRequest for action",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "userUUID", Value: userUUID},
-			logger.Field{Key: "response_body", Value: string(body)},
-		)
-
-		return ErrBadRequestUUID
-	default:
-		c.logger.Warn(
-			"unexpected status code for action",
-			logger.Field{Key: "action", Value: action},
-			logger.Field{Key: "userUUID", Value: userUUID},
-			logger.Field{Key: "status_code", Value: resp.StatusCode},
-			logger.Field{Key: "response_body", Value: string(body)},
-		)
-
-		return fmt.Errorf("unexpected status code %d for action %s", resp.StatusCode, action)
-	}
+	return nil
 }
 
 // actionURL отдаем методам строку, чтобы избежать дублирование кода в методах.

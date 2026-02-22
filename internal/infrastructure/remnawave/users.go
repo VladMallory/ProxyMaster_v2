@@ -2,11 +2,8 @@ package remnawave
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -144,7 +141,10 @@ func (c *RemnaClient) EnableClient(userUUID string) error {
 		return err
 	}
 
-	slog.Info("Пользователь успешно включен")
+	c.logger.Info(
+		"пользователь успешно включен",
+		logger.Field{Key: "userUUID", Value: userUUID},
+	)
 
 	return nil
 }
@@ -155,7 +155,10 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 		return err
 	}
 
-	slog.Info("Пользователь успешно выключен")
+	c.logger.Info(
+		"пользователь успешно выключен",
+		logger.Field{Key: "userUUID", Value: userUUID},
+	)
 
 	return nil
 }
@@ -166,61 +169,40 @@ func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, erro
 
 	url := fmt.Sprintf("%s/api/users/%s?%s", c.cfg.PanelURL, uuid, c.cfg.SecretURLToken)
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	resp, err := c.doRequest(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf(
-			"remnaClient.GetUserInfo: NewRequestError: %w",
-			err,
-		)
+		return models.GetUserInfoResponse{}, err
 	}
 
-	req.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return models.GetUserInfoResponse{}, fmt.Errorf(
-			"remnaClient.GetUserInfo: GetResponseError: %w",
-			err,
-		)
-	}
-
-	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			return
-		}
-	}()
+	defer c.closeBody(resp)
 
 	switch resp.StatusCode {
-	case http.StatusNotFound:
-		slog.Error(ErrNotFound.Error())
+	case http.StatusOK:
+		var userInfo models.GetUserInfoResponse
 
+		body, err := c.readBody(resp)
+		if err != nil {
+			return models.GetUserInfoResponse{}, err
+		}
+
+		if err := c.parseJSON(body, &userInfo); err != nil {
+			return models.GetUserInfoResponse{}, err
+		}
+
+		return userInfo, nil
+
+	case http.StatusNotFound:
 		return models.GetUserInfoResponse{}, ErrNotFound
 
-	case http.StatusInternalServerError:
-		slog.Error(ErrInternalServerError.Error())
+	case http.StatusBadRequest:
+		return models.GetUserInfoResponse{}, ErrBadRequestUUID
 
+	case http.StatusInternalServerError:
 		return models.GetUserInfoResponse{}, ErrInternalServerError
 
-	case http.StatusBadRequest:
-		slog.Error(ErrBadRequestUUID.Error())
-
-		return models.GetUserInfoResponse{}, ErrBadRequestUUID
+	default:
+		return models.GetUserInfoResponse{}, fmt.Errorf("%w: %d", ErrUndefined, resp.StatusCode)
 	}
-
-	var userInfo models.GetUserInfoResponse
-
-	// возвращение пустой структуры и ошибки
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return models.GetUserInfoResponse{}, ErrReadBody
-	}
-
-	// возвращение пустой структуры и ошибки
-	if err := json.Unmarshal(body, &userInfo); err != nil {
-		return models.GetUserInfoResponse{}, ErrUnmarshal
-	}
-
-	return userInfo, nil
 }
 
 // GetUUIDByUsername - метод нахождения пользователя через username.

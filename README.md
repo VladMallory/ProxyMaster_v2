@@ -36,6 +36,7 @@ YOUKASSA_RETURN_URL=https://google.com
 
 PRICE_PER_MONTH=100 # стоимость подписки за один месяц
 DEVICE_LIMIT=2 # указать количество которое указан в дефолте remnawave
+TRAFFIC_LIMIT=250 # количесвто гигабайт клиенту на месяц
 
 # Logger. Можно ставить info, debug, warn, error.
 LOGGER_LEVEL=info
