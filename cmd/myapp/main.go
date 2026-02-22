@@ -10,8 +10,8 @@ import (
 func main() {
 	// сборка приложения
 	var myApp app.Application
-	myApp, err := app.New()
 
+	myApp, err := app.New()
 	if err != nil {
 		log.Fatal("ошибка сборки приложения", err)
 	}

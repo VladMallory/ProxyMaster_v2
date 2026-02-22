@@ -42,7 +42,7 @@ func (s *UserStorage) logDuration(method string) func() {
 	}
 }
 
-// CreateUser создает пользователя в DB
+// CreateUser создает пользователя в DB.
 func (s *UserStorage) CreateUser(userData models.CreateUserTGDTO) (*models.UserTG, error) {
 	defer s.logDuration("CreateUser")()
 
