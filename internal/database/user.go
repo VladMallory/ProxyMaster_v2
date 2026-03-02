@@ -113,13 +113,11 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 
 	if err := s.db.Get(&user, query, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Error(
+			s.logger.Info(
 				"user not found",
 				logger.Field{Key: "id", Value: id},
-				logger.Field{Key: "err_msg", Value: err},
 			)
 
-			// Возвращем ошибку о том что пользователя нет в DB
 			return nil, domain.ErrUserNotFound
 		}
 
