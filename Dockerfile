@@ -7,6 +7,12 @@ WORKDIR /app
 # зависимости для сборки
 RUN apk add --no-cache git ca-certificates
 
+# Директория для кеша сборок
+RUN mkdir -p /go-cache
+
+ENV GOCACHE=/go-cache/build-cache
+ENV GOMODCACHE=/go-cache/mod-cache
+
 # копируем go.mod и go.sum
 COPY go.mod go.sum ./
 RUN go mod download
