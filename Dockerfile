@@ -1,4 +1,5 @@
-FROM golang:1.25.7-alpine AS builder
+# syntax=docker/dockerfile:1.4
+FROM golang:1-alpine AS builder
 #FROM golang:1.26rc3-alpine AS builder
 
 # устанавливаем рабочую директорию
@@ -7,21 +8,21 @@ WORKDIR /app
 # зависимости для сборки
 RUN apk add --no-cache git ca-certificates
 
-# Директория для кеша сборок
-RUN mkdir -p /go-cache
-
-ENV GOCACHE=/go-cache/build-cache
-ENV GOMODCACHE=/go-cache/mod-cache
-
 # копируем go.mod и go.sum
 COPY go.mod go.sum ./
-RUN go mod download
+
+# Скачиваем зависимости с кэшированием через BuildKit
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
 
 # копируем исходный код
 COPY . .
 
-# собираем бинарник
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o app ./cmd/myapp/main.go
+# Собираем бинарник с кэшированием
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o app ./cmd/myapp/main.go
 
 # запускаем на alpine
 FROM alpine:latest
