@@ -157,7 +157,7 @@ func (c *Client) ShowView(
 	case domain.ViewTypeProfile:
 		text, keyboard = c.handleProfileView(data)
 	case domain.ViewTypeDeviceLimits:
-		text, keyboard = c.handleDeviceLimitsView()
+		text, keyboard = c.handleDeviceLimitsView(data)
 	case domain.ViewTypeTrafficLimits:
 		text, keyboard = c.handleTrafficLimitsView()
 	case domain.ViewTypeConnect:
@@ -271,8 +271,11 @@ func (c *Client) handleConnectView(data string) (string, tgbotapi.InlineKeyboard
 
 // handleDeviceLimitsView отображает меню для управления лимитами устройств.
 // Позволяет пользователю выбрать между просмотром профиля или возвратом в главное меню.
-func (c *Client) handleDeviceLimitsView() (string, tgbotapi.InlineKeyboardMarkup) {
-	text := "В этом меню вы можете увеличить количество дополнительных устройств и увеличить лимиты трафика."
+func (c *Client) handleDeviceLimitsView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
+	text := data
+	if text == "" {
+		text = "📱 <b>Управление устройствами и сброс трафика</b>\n\nЗдесь вы можете увеличить количество дополнительных устройств и сбросить намотанные гигабайты."
+	}
 
 	return text, c.deviceLimitsKeyboard()
 }
