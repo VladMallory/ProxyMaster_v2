@@ -614,8 +614,6 @@ func ProcessCallback(sender MessageSender,
 
 		return nil
 	}
-
-	return nil
 }
 
 type paymentPurpose string
