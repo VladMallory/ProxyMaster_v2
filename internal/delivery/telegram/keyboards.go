@@ -107,7 +107,7 @@ func (c *Client) profileKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(
-				"🔌 Сбросить устройства от подписки",
+				"🔌 Отвязать устройства от подписки",
 				"btn_reset_devices",
 			),
 		),

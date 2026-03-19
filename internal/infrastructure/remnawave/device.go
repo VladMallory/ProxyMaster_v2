@@ -5,10 +5,73 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
+
+type HWIDDevice struct {
+	HWID        string     `json:"hwid"`
+	UserUUID    string     `json:"userUuid"`
+	Platform    *string    `json:"platform"`
+	OSVersion   *string    `json:"osVersion"`
+	DeviceModel *string    `json:"deviceModel"`
+	UserAgent   *string    `json:"userAgent"`
+	CreatedAt   *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
+}
+
+type GetUserDevicesResponse struct {
+	Response struct {
+		Total   int          `json:"total"`
+		Devices []HWIDDevice `json:"devices"`
+	} `json:"response"`
+}
+
+func (c *RemnaClient) GetUserDevice(
+	ctx context.Context,
+	username string,
+) ([]HWIDDevice, error) {
+	defer c.logDuration("GetUserDevice")()
+
+	userUUID, err := c.GetUUIDByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf(
+		"%s/api/hwid/devices/%s?%s",
+		c.cfg.PanelURL,
+		userUUID,
+		c.cfg.SecretURLToken,
+	)
+
+	resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer c.closeBody(resp)
+
+	body, err := c.readBody(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	var response GetUserDevicesResponse
+	if err := c.parseJSON(body, &response); err != nil {
+		return nil, err
+	}
+
+	c.logger.Info(
+		"устройства пользователя успешно получены",
+		logger.Field{Key: "username", Value: username},
+		logger.Field{Key: "user_uuid", Value: userUUID},
+		logger.Field{Key: "devices_count", Value: len(response.Response.Devices)},
+	)
+
+	return response.Response.Devices, nil
+}
 
 // SetDevices устанавилвает кол-во устройств пользователя.
 func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *uint8) error {
@@ -53,7 +116,7 @@ func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *
 }
 
 func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) error {
-	defer c.logDuration("DeleteDeviceHWID")
+	defer c.logDuration("DeleteDeviceHWID")()
 
 	// Получаем UUID
 	UUID, err := c.GetUUIDByUsername(ctx, username)

@@ -1296,7 +1296,7 @@ func TestAddInternalSquad_emptyList(t *testing.T) {
 func TestDeleteDeviceHWID_internalError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/users/by-username/testUser" {
-			response := map[string]interface{}{
+			response := map[string]any{
 				"response": map[string]string{
 					"uuid":     "test-uuid",
 					"username": "testUser",
@@ -1305,6 +1305,7 @@ func TestDeleteDeviceHWID_internalError(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(response)
+
 			return
 		}
 

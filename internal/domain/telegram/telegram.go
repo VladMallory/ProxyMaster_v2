@@ -234,7 +234,39 @@ func ProcessCallback(sender MessageSender,
 	case "btn_ios_menu":
 		return showView(domain.ViewTypeIosRegion, "", "ошибка отображения меню iOS")
 	case "btn_unlimits":
-		return showView(domain.ViewTypeDeviceLimits, "", "ошибка отображения лимитов устройств")
+		userID := strconv.FormatInt(chatID, 10)
+
+		devices, err := remnawaveClient.GetUserDevice(context.Background(), userID)
+		if err != nil {
+			log.Printf("Ошибка получения устройств пользователя %s: %v", userID, err)
+
+			return showView(
+				domain.ViewTypeDeviceLimits,
+				"❌ Не удалось получить список устройств.\nПопробуйте позже.",
+				"ошибка отображения лимитов устройств",
+			)
+		}
+
+		var builder strings.Builder
+
+		if len(devices) == 0 {
+			builder.WriteString("К подписке пока не привязано ни одного устройства.")
+		} else {
+			builder.WriteString("📋 <b>Привязанные устройства:</b>\n\n")
+
+			for i, device := range devices {
+				builder.WriteString(fmt.Sprintf("— <b>Устройство %d</b>\n", i+1))
+				builder.WriteString(fmt.Sprintf("Платформа: <code>%s</code>\n", valueOrDash(device.Platform)))
+				builder.WriteString(fmt.Sprintf("Версия ОС: <code>%s</code>\n", valueOrDash(device.OSVersion)))
+				builder.WriteString(fmt.Sprintf("Модель: <code>%s</code>\n\n", valueOrDash(device.DeviceModel)))
+			}
+		}
+
+		return showView(
+			domain.ViewTypeDeviceLimits,
+			builder.String(),
+			"ошибка отображения лимитов устройств",
+		)
 	case "btn_traffic_limits":
 		return showView(domain.ViewTypeTrafficLimits, "", "ошибка отображения лимитов трафика")
 	case "btn_profile":
@@ -1288,6 +1320,14 @@ func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClie
 	}
 
 	return "—❌ Подписка не активна\n—📱 Лимит устройств: " + strconv.Itoa(deviceLimit)
+}
+
+func valueOrDash(value *string) string {
+	if value == nil || *value == "" {
+		return "-"
+	}
+
+	return *value
 }
 
 func formatRussianDate(t time.Time) string {
