@@ -71,7 +71,7 @@ func (l *slogLogger) Sync() error {
 	return nil // slog пишет сразу, sync не нужен
 }
 
-// args преобразует []Field в []any для slog
+// args преобразует []Field в []any для slog.
 func (l *slogLogger) args(fields []Field) []any {
 	args := make([]any, 0, len(fields)*2)
 	for _, f := range fields {

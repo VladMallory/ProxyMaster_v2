@@ -233,26 +233,10 @@ func ProcessCallback(sender MessageSender,
 		return showView(domain.ViewTypeDownloadApp, "", "ошибка отображения меню загрузки")
 	case "btn_ios_menu":
 		return showView(domain.ViewTypeIosRegion, "", "ошибка отображения меню iOS")
-	// case "btn_back_download_app":
-	// 	return showView(domain.ViewTypeDownloadApp, "", "ошибка возврата к меню загрузки")
 	case "btn_unlimits":
 		return showView(domain.ViewTypeDeviceLimits, "", "ошибка отображения лимитов устройств")
 	case "btn_traffic_limits":
 		return showView(domain.ViewTypeTrafficLimits, "", "ошибка отображения лимитов трафика")
-	// case "btn_reset_traffic":
-	// 	userID := strconv.Itoa(int(chatID))
-	// 	if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
-	// 		// заменить логгер
-	// 		log.Printf("не удалось сбросить трафик у пользователя %s, %v", userID, err)
-	// 		return sender.SendMessage(chatID, "Не удалось сбросить трафик")
-	// 	}
-	//
-	// 	profileData, err := buildProfileData(userID)
-	// 	if err != nil {
-	// 		return sender.SendMessage(chatID, "Ошибка получения данных профиля")
-	// 	}
-	//
-	// 	return sender.ShowView(chatID, messageID, domain.ViewTypeProfile, profileData)
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -545,57 +529,25 @@ func ProcessCallback(sender MessageSender,
 	case "btn_reset_devices":
 		userID := strconv.FormatInt(chatID, 10)
 
-		if err := subscriptionService.ResetPaidDevices(userID); err != nil {
-			log.Printf("Ошибка сброса платных устройств для %s: %v", userID, err)
-			if sendErr := sender.SendMessage(chatID, "❌ Ошибка сброса услуги."); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сброса устройств: %w",
-					sendErr,
-				)
+		err := remnawaveClient.DeleteDeviceHWID(context.Background(), userID)
+		if err != nil {
+			// Отправка пользователю что не вышло
+			if errSend := sender.SendMessage(
+				chatID,
+				"Не удалось отключить устройства от подписки. Обратитесь к администратору",
+			); errSend != nil {
+				return fmt.Errorf("не удалось отправить пользователю сообщение об ошибке %w: ", err)
 			}
-			return nil
+
+			return fmt.Errorf("не удалось удалить устройства с подписки")
 		}
 
-		profileData, err := buildProfileData(userID)
-		if err != nil {
-			log.Printf("Ошибка сборки данных профиля после сброса устройств: %v", err)
-			if sendErr := sender.SendMessage(
-				chatID,
-				"Ошибка получения данных профиля",
-			); sendErr != nil {
-				return fmt.Errorf(
-					"не удалось отправить сообщение об ошибке сборки профиля: %w",
-					sendErr,
-				)
-			}
-			return nil
-		}
 		return showView(
-			domain.ViewTypeProfile,
-			profileData,
-			"ошибка отображения профиля после сброса устройств",
+			domain.ViewTypeSubscriptionResult,
+			"Устройства успешно сброшены ✅",
+			"Ошибка отображения главного меню после сброса устройств",
 		)
-	// case "btn_connect":
-	// 	username := strconv.FormatInt(chatID, 10)
-	// 	url, err := subscriptionService.GetURLSubscription(username)
-	// 	if err != nil {
-	// 		log.Printf("Ошибка получения URL подписки для %s: %v", username, err)
-	// 		return showView(
-	// 			domain.ViewTypeConnect,
-	// 			"Ошибка получения ссылки. Убедитесь, что подписка активна, или обратитесь в поддержку.",
-	// 			"ошибка отображения сообщения об ошибке подключения",
-	// 		)
-	// 	}
-	//
-	// 	if url == "" {
-	// 		return showView(
-	// 			domain.ViewTypeConnect,
-	// 			"Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.",
-	// 			"ошибка отображения сообщения о пустой ссылке",
-	// 		)
-	// 	}
-	//
-	// 	return showView(domain.ViewTypeConnect, url, "ошибка отображения ссылки на подключение")
+
 	case "btn_connect_error":
 		return showView(
 			domain.ViewTypeConnect,
@@ -630,6 +582,8 @@ func ProcessCallback(sender MessageSender,
 
 		return nil
 	}
+
+	return nil
 }
 
 type paymentPurpose string
