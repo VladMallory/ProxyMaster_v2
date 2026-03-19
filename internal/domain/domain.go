@@ -57,6 +57,7 @@ type RemnawaveClient interface {
 	SetDevices(ctx context.Context, username string, devices *uint8) error
 	SetTraffic(username string, gb uint64) error
 	BetterResetTraffic(ctx context.Context, username string) error
+	DeleteDeviceHWID(ctx context.Context, username string) error
 }
 
 type UserRepository interface {
