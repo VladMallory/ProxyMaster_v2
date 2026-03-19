@@ -1,45 +1,42 @@
 # syntax=docker/dockerfile:1.4
-FROM golang:1-alpine AS builder
-#FROM golang:1.26rc3-alpine AS builder
 
-# устанавливаем рабочую директорию
+FROM golang:1.26.1-alpine AS builder
+
 WORKDIR /app
 
 # зависимости для сборки
 RUN apk add --no-cache git ca-certificates
 
-# копируем go.mod и go.sum
+# сначала зависимости (для кеша)
 COPY go.mod go.sum ./
 
-# Скачиваем зависимости с кэшированием через BuildKit
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download
 
-# копируем исходный код
+# копируем исходники
 COPY . .
 
-# Собираем бинарник с кэшированием
+# сборка бинарника
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o app ./cmd/myapp/main.go
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o app ./cmd/myapp/main.go
 
-# запускаем на alpine
-FROM alpine:latest
 
-# сертификаты для htpp запросов
-RUN apk add --no-cache ca-certificates
+# минимальный runtime образ
+FROM scratch
 
-# копируем бинарник из builder
-COPY --from=builder /app/app .
+WORKDIR /
 
-# копируем папку с ресурсами
-COPY --from=builder /app/assets ./assets
+# сертификаты для HTTPS
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# копируем папку с миграциями
-COPY --from=builder /app/migrations ./migrations
+# бинарник
+COPY --from=builder /app/app /app
 
-# копируем .env файл
-COPY --from=builder /app/.env .
+# ресурсы
+COPY --from=builder /app/assets /assets
+COPY --from=builder /app/migrations /migrations
 
-CMD ["./app"]
+ENTRYPOINT ["/app"]
