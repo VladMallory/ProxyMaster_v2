@@ -18,8 +18,8 @@ type UserTG struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
-// CreateUserTGDTO описывает данные для создания пользователя.
-type CreateUserTGDTO struct {
+// CreateUserDTO описывает данные для создания пользователя.
+type CreateUserDTO struct {
 	ID    string `db:"id"`
 	Trial bool   `db:"trial"`
 }

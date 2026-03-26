@@ -62,7 +62,7 @@ type RemnawaveClient interface {
 }
 
 type UserRepository interface {
-	CreateUser(models.CreateUserTGDTO) (*models.UserTG, error)
+	CreateUser(models.CreateUserDTO) (*models.UserTG, error)
 	GetAllUsers() ([]models.UserTG, error)
 	GetActiveUserIDs() ([]string, error)
 	GetUserByID(id string) (*models.UserTG, error)
@@ -72,22 +72,21 @@ type UserRepository interface {
 // SubscriptionService - бизнес логика управления подписками.
 type SubscriptionService interface {
 	// ActivateSubscription обрабатывает логику создания или
-	// продления подписки
-	// принимает телеграм id и на сколько месяцев нужно
-	ActivateSubscription(telegramID int64, months int) (string, error)
+	// продления подписки, принимает userID и на сколько месяцев нужно
+	ActivateSubscription(userID string, months int) (string, error)
 
 	// AddDevice добавляет 1 устройство пользователю
-	AddDevice(username string) error
+	AddDevice(userID string) error
 
 	// AddPaidDevice покупает 1 дополнительные устройство за 50₽/мес
-	AddPaidDevice(username string) error
+	AddPaidDevice(userID string) error
 
 	// ResetPaidDevices сбрасывает дополнительные устройства до 0
-	ResetPaidDevices(username string) error
+	ResetPaidDevices(userID string) error
 
-	PrepayPaidDevices(username string) (int, error)
+	PrepayPaidDevices(userID string) (int, error)
 
-	GetURLSubscription(username string) (string, error)
+	GetURLSubscription(userID string) (string, error)
 }
 
 // TrialService бизнес логика пробного периода.
