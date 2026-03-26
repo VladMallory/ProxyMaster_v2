@@ -288,7 +288,7 @@ func ProcessCallback(sender MessageSender,
 				return nil
 			}
 			// Если пользователь не найден, создаем нового
-			if _, err = userRepo.CreateUser(models.CreateUserTGDTO{
+			if _, err = userRepo.CreateUser(models.CreateUserDTO{
 				ID:    userID,
 				Trial: false,
 			}); err != nil {
@@ -1099,7 +1099,8 @@ func handleSubscriptionFromBalance(
 	messageID int,
 	months int,
 ) error {
-	result, err := subscriptionService.ActivateSubscription(chatID, months)
+	userID := strconv.FormatInt(chatID, 10)
+	result, err := subscriptionService.ActivateSubscription(userID, months)
 	if err != nil {
 		errorMsg := "Произошла ошибка при оформлении подписки"
 		if errors.Is(err, domain.ErrInsufficientFunds) {
@@ -1171,7 +1172,7 @@ func ProcessCommand(
 		if err != nil {
 			if errors.Is(err, domain.ErrUserNotFound) {
 				// Создаем пользователя, если не найден
-				if _, err = userRepo.CreateUser(models.CreateUserTGDTO{
+				if _, err = userRepo.CreateUser(models.CreateUserDTO{
 					ID:    userID,
 					Trial: false,
 				}); err != nil {
@@ -1251,7 +1252,7 @@ func buildMainViewText(
 	if err != nil {
 		// Если пользователя нету, создаем его в базе
 		if errors.Is(err, domain.ErrUserNotFound) {
-			_, createErr := userRepo.CreateUser(models.CreateUserTGDTO{
+			_, createErr := userRepo.CreateUser(models.CreateUserDTO{
 				ID:    username,
 				Trial: false,
 			})
