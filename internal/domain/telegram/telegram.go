@@ -752,9 +752,9 @@ func startAutoPaymentCheck(
 		// Ждем 15 секунд перед первой проверкой (даем время на оплату)
 		time.Sleep(15 * time.Second)
 
-		// Проверяем каждые 5 секунд в течение 20 минут
+		// Проверяем каждые 30 секунд в течение 20 минут
 		deadline := time.Now().Add(20 * time.Minute)
-		checkInterval := 5 * time.Second
+		checkInterval := 30 * time.Second
 
 		for time.Now().Before(deadline) {
 			log.Printf("[АВТОПРОВЕРКА] Проверяем статус транзакции %s", transactionID)
