@@ -26,13 +26,8 @@ type Application interface {
 
 // App зависимости приложения.
 type app struct {
-	remnawaveClient     domain.RemnawaveClient
-	paymentGateway      domain.PaymentGateway
-	subscriptionService domain.SubscriptionService
-	telegramClient      *telegram.Client
-	userRepo            *database.UserStorage
-	restAPI             domain.ServerAPI
-	telegramAdminID     int64
+	telegramClient *telegram.Client
+	restAPI        domain.ServerAPI
 }
 
 // New собирает приложение.
@@ -95,8 +90,23 @@ func New() (Application, error) {
 		youkassaLogger,
 	)
 
+	// Парсим TelegramAdminID с проверкой ошибки
+	telegramAdminID, err := strconv.ParseInt(cfg.TelegramAdminID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("неверный TelegramAdminID: %w", err)
+	}
+
 	// ===telegram bot===
-	telegramClient, err := telegram.NewTelegramClient(cfg.TelegramToken, cfg, loggerClient)
+	telegramClient, err := telegram.NewTelegramClient(
+		cfg.TelegramToken,
+		cfg,
+		loggerClient,
+		remnawaveClient,
+		subService,
+		youkassaClient,
+		userRepo,
+		telegramAdminID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
@@ -105,33 +115,16 @@ func New() (Application, error) {
 	handler := restapi.NewHandler(remnawaveClient, subService)
 	restAPI := restapi.New(handler, restAPILogger)
 
-	// Парсим TelegramAdminID с проверкой ошибки
-	telegramAdminID, err := strconv.ParseInt(cfg.TelegramAdminID, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("неверный TelegramAdminID: %w", err)
-	}
-
 	return &app{
-		remnawaveClient:     remnawaveClient,
-		paymentGateway:      youkassaClient,
-		subscriptionService: subService,
-		telegramClient:      telegramClient,
-		userRepo:            userRepo,
-		restAPI:             restAPI,
-		telegramAdminID:     telegramAdminID,
+		telegramClient: telegramClient,
+		restAPI:        restAPI,
 	}, nil
 }
 
 // Run запуск приложения.
 func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
-	go a.telegramClient.Start(
-		a.remnawaveClient,
-		a.subscriptionService,
-		a.paymentGateway,
-		a.userRepo,
-		a.telegramAdminID,
-	)
+	go a.telegramClient.Start()
 
 	// запускаем restAPI
 	go func() {
