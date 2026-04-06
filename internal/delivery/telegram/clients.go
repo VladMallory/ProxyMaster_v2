@@ -27,12 +27,23 @@ type Client struct {
 	logger              logger.Logger
 	remnawaveClient     domain.RemnawaveClient
 	subscriptionService domain.SubscriptionService
+	paymentGateway      domain.PaymentGateway
+	userRepo            *database.UserStorage
+	adminID             int64
 	cfg                 *config.Config
 }
 
 // NewTelegramClient создает нового клиента для Telegram.
-// token: токен бота, который мы получили от BotFather.
-func NewTelegramClient(token string, cfg *config.Config, logger logger.Logger) (*Client, error) {
+func NewTelegramClient(
+	token string,
+	cfg *config.Config,
+	logger logger.Logger,
+	remnawaveClient domain.RemnawaveClient,
+	subscriptionService domain.SubscriptionService,
+	paymentGateway domain.PaymentGateway,
+	userRepo *database.UserStorage,
+	adminID int64,
+) (*Client, error) {
 	// Инициализируем библиотеку с токеном
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
@@ -40,24 +51,21 @@ func NewTelegramClient(token string, cfg *config.Config, logger logger.Logger) (
 	}
 
 	return &Client{
-		api:    api,
-		cfg:    cfg,
-		logger: logger.Named("telegram"),
+		api:                 api,
+		cfg:                 cfg,
+		logger:              logger.Named("telegram"),
+		remnawaveClient:     remnawaveClient,
+		subscriptionService: subscriptionService,
+		paymentGateway:      paymentGateway,
+		userRepo:            userRepo,
+		adminID:             adminID,
 	}, nil
 }
 
 // Start это "сердце" бота. Метод запускает бесконечный цикл,
 // который слушает обновления от Telegram (сообщения, нажатия кнопок)
 // и передает их в бизнес-логику (domain).
-func (c *Client) Start(
-	remnawaveClient domain.RemnawaveClient,
-	subscriptionService domain.SubscriptionService,
-	paymentGateway domain.PaymentGateway,
-	userRepo *database.UserStorage,
-	adminID int64,
-) {
-	c.remnawaveClient = remnawaveClient
-	c.subscriptionService = subscriptionService
+func (c *Client) Start() {
 	// Настраиваем конфигурацию получения обновлений
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60 // Ждем 60 секунд новых сообщений (long polling)
@@ -81,10 +89,10 @@ func (c *Client) Start(
 				update.CallbackQuery.Message.MessageID,
 				update.CallbackQuery.Data,
 				update.CallbackQuery.From.FirstName,
-				remnawaveClient,
-				subscriptionService,
-				paymentGateway,
-				userRepo,
+				c.remnawaveClient,
+				c.subscriptionService,
+				c.paymentGateway,
+				c.userRepo,
 				c.cfg,
 			)
 			if err != nil {
@@ -118,10 +126,10 @@ func (c *Client) Start(
 				update.Message.Text,
 				firstName,
 				telegramUsername,
-				remnawaveClient,
-				userRepo,
+				c.remnawaveClient,
+				c.userRepo,
 				c.logger,
-				adminID)
+				c.adminID)
 			if err != nil {
 				c.logger.Error("Ошибка обработки команды", logger.Field{Key: "error", Value: err})
 			}

@@ -16,13 +16,13 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// UserStorage structure for working with users table
+// UserStorage structure for working with users table.
 type UserStorage struct {
 	db     *sqlx.DB
 	logger logger.Logger
 }
 
-// NewUserStorage is constructor for UserStorage struct
+// NewUserStorage is constructor for UserStorage struct.
 func NewUserStorage(db *sqlx.DB, logger logger.Logger) *UserStorage {
 	return &UserStorage{
 		db:     db,
