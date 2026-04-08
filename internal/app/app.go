@@ -12,7 +12,6 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
 	restapi "github.com/VladMallory/ProxyMaster_v2/internal/delivery/restAPI"
 	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/telegram"
-	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payments/youkassa"
 	"github.com/VladMallory/ProxyMaster_v2/internal/service"
@@ -24,10 +23,20 @@ type Application interface {
 	Run()
 }
 
+// BotRunner для запуска бота.
+type BotRunner interface {
+	Start()
+}
+
+type ServerRunner interface {
+	Serve(addr string) error
+}
+
 // App зависимости приложения.
 type app struct {
-	telegramClient *telegram.Client
-	restAPI        domain.ServerAPI
+	bot       BotRunner
+	server    ServerRunner
+	serverURL string
 }
 
 // New собирает приложение.
@@ -116,19 +125,20 @@ func New() (Application, error) {
 	restAPI := restapi.New(handler, restAPILogger)
 
 	return &app{
-		telegramClient: telegramClient,
-		restAPI:        restAPI,
+		bot:       telegramClient,
+		server:    restAPI,
+		serverURL: ":8080",
 	}, nil
 }
 
 // Run запуск приложения.
 func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
-	go a.telegramClient.Start()
+	go a.bot.Start()
 
 	// запускаем restAPI
 	go func() {
-		if err := a.restAPI.Serve(":8080"); err != nil {
+		if err := a.server.Serve(a.serverURL); err != nil {
 			log.Fatal(err)
 		}
 	}()
