@@ -46,6 +46,12 @@ type Config struct {
 
 	// Logger
 	LoggerLevel string
+
+	// SOCKS5
+	SOCKS5Host     string
+	SOCKS5Port     string
+	SOCKS5Username string
+	SOCKS5Password string
 }
 
 // New создает новый экземпляр конфигурации env.
@@ -94,5 +100,9 @@ func New() (*Config, error) {
 		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
 		DeviceLimit:         deviceLimit,
 		TrafficLimit:        TrafficLimit,
+		SOCKS5Host:          os.Getenv("SOCKS5_HOST"),
+		SOCKS5Port:          os.Getenv("SOCKS5_PORT"),
+		SOCKS5Username:      os.Getenv("SOCKS5_USER"),
+		SOCKS5Password:      os.Getenv("SOCKS5_PASS"),
 	}, nil
 }
