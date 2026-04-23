@@ -5,9 +5,13 @@ package telegram
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
@@ -19,6 +23,31 @@ import (
 
 // Чтобы линтер не жаловался на дублирование кода.
 const parseModeHTML = "HTML"
+
+// createProxyClient создает HTTPClient с настроенным SOCKS5 прокси.
+// Если прокси не настроен в конфиге - возвращает стандартный клиент.
+func createProxyClient(cfg *config.Config) *http.Client {
+	// Если прокси не настроен - возвращаем стандартный клиент
+	if cfg.SOCKS5Host == "" || cfg.SOCKS5Port == "" {
+		return &http.Client{}
+	}
+
+	// Формируем URL прокси: socks5://user:pass@host:port
+	proxyURL := &url.URL{
+		Scheme: "socks5",
+		User:   url.UserPassword(cfg.SOCKS5Username, cfg.SOCKS5Password),
+		Host:   net.JoinHostPort(cfg.SOCKS5Host, cfg.SOCKS5Port),
+	}
+
+	transport := &http.Transport{
+		Proxy: http.ProxyURL(proxyURL),
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+	}
+}
 
 // Client это обертка над стандартной библиотекой tgbotapi.
 // Он хранит в себе подключение к API и умеет отправлять сообщения.
@@ -44,8 +73,11 @@ func NewTelegramClient(
 	userRepo *database.UserStorage,
 	adminID int64,
 ) (*Client, error) {
-	// Инициализируем библиотеку с токеном
-	api, err := tgbotapi.NewBotAPI(token)
+	// Создаем HTTPClient с прокси (если настроен)
+	httpClient := createProxyClient(cfg)
+
+	// Инициализируем библиотеку с токеном и кастомным HTTPClient
+	api, err := tgbotapi.NewBotAPIWithClient(token, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
