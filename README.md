@@ -35,8 +35,8 @@ YOUKASSA_BASE_URL=https://api.youkassa.ru
 YOUKASSA_RETURN_URL=https://google.com
 
 # SOCKS5
-SOCKS5_HOST=64.188.93.230
-SOCKS5_PORT=1080
+# SOCKS5_HOST=
+# SOCKS5_PORT=
 
 PRICE_PER_MONTH=100 # стоимость подписки за один месяц
 DEVICE_LIMIT=2 # указать количество которое указан в дефолте remnawave
