@@ -53,6 +53,9 @@ ehthumbs.db
 *.sqlite
 *.sqlite3
 
+# Secrets
+secrets/
+
 # Backups
 backup/
 backups/

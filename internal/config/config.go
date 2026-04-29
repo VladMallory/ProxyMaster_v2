@@ -4,6 +4,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -12,53 +13,44 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config хранит глобальные настройки для панели.
 type Config struct {
-	// remnawave
-	RemnaPanelURL       string // Страница панели.
-	RemnaSecretURLToken string // Секретный токен для подключения.
-	RemnaLogin          string // логин
-	RemnaPass           string // пароль
-	RemnaKey            string // Ключ для разработчика.
-	RemnaSquadUUID      string // ID squad.
+	RemnaPanelURL       string
+	RemnaSecretURLToken string
+	RemnaLogin          string
+	RemnaPass           string
+	RemnaKey            string
+	RemnaSquadUUID      string
 	RemnaDefaultGb      string
 
-	// telegram
 	TelegramToken   string
-	TelegramSupport string // Поддержка телеграмм при ошибках сервиса.
+	TelegramSupport string
 	TelegramAdminID string
 
-	// database
 	DatabaseURL string
 
-	// platega
 	PlategaAPIKey string
 
-	// youkassa
 	YouKassaShopID    string
 	YouKassaSecretKey string
 	YouKassaReturnURL string
 
-	// Настройки
-	PricePerMonth string // оплата за месяц
-	DeviceLimit   int    // базовый лимит устройств
-	TrafficLimit  int64  // int64 для 32 битных систем, там лимит 2 gb
+	PricePerMonth string
+	DeviceLimit   int
+	TrafficLimit  int64
 
-	// Logger
 	LoggerLevel string
 
-	// SOCKS5
 	SOCKS5Host     string
 	SOCKS5Port     string
 	SOCKS5Username string
 	SOCKS5Password string
 }
 
-// New создает новый экземпляр конфигурации env.
 func New() (*Config, error) {
-	// Загружаем переменные окружения из файла .env.
-	if err := godotenv.Load(); err != nil {
-		log.Println("не удалось загрузить .env")
+	_ = godotenv.Load()
+
+	if err := injectVaultSecrets(); err != nil {
+		return nil, fmt.Errorf("vault: %w", err)
 	}
 
 	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
@@ -66,18 +58,16 @@ func New() (*Config, error) {
 		return nil, errors.New("DATABASE_URL не установлен")
 	}
 
-	// Читаем базовый лимит устройств
 	deviceLimitStr := os.Getenv("DEVICE_LIMIT")
 	deviceLimit, err := strconv.Atoi(deviceLimitStr)
-
 	if err != nil || deviceLimit < 1 {
-		log.Fatalln("укажите в env лимит устройств")
+		log.Fatalln("укажите лимит устройств (DEVICE_LIMIT)")
 	}
 
-	TrafficLimitStr := os.Getenv("TRAFFIC_LIMIT")
-	TrafficLimit, err := strconv.ParseInt(TrafficLimitStr, 10, 64)
-	if err != nil || TrafficLimit <= 1 {
-		log.Fatalln("укажите в env лимит трафика")
+	trafficLimitStr := os.Getenv("TRAFFIC_LIMIT")
+	trafficLimit, err := strconv.ParseInt(trafficLimitStr, 10, 64)
+	if err != nil || trafficLimit <= 1 {
+		log.Fatalln("укажите лимит трафика (TRAFFIC_LIMIT)")
 	}
 
 	return &Config{
@@ -99,10 +89,67 @@ func New() (*Config, error) {
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
 		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
 		DeviceLimit:         deviceLimit,
-		TrafficLimit:        TrafficLimit,
+		TrafficLimit:        trafficLimit,
 		SOCKS5Host:          os.Getenv("SOCKS5_HOST"),
 		SOCKS5Port:          os.Getenv("SOCKS5_PORT"),
 		SOCKS5Username:      os.Getenv("SOCKS5_USER"),
 		SOCKS5Password:      os.Getenv("SOCKS5_PASS"),
 	}, nil
+}
+
+func injectVaultSecrets() error {
+	if os.Getenv("VAULT") != "enable" {
+		return nil
+	}
+
+	addr := os.Getenv("VAULT_ADDRESS")
+	if addr == "" {
+		return fmt.Errorf("VAULT=enable, но VAULT_ADDRESS не указан")
+	}
+
+	roleID := os.Getenv("VAULT_ROLE_ID")
+	secretID := os.Getenv("VAULT_SECRET_ID")
+	secretIDFile := os.Getenv("VAULT_SECRET_ID_FILE")
+	path := os.Getenv("VAULT_SECRET_PATH")
+
+	if path == "" {
+		path = "secret/data/proxymaster"
+	}
+
+	if roleID != "" {
+		if secretID == "" && secretIDFile != "" {
+			secretID = readSecretIDFromFile(secretIDFile)
+		}
+		if secretID == "" {
+			return fmt.Errorf("VAULT=enable и VAULT_ROLE_ID указан, но не задан VAULT_SECRET_ID (или VAULT_SECRET_ID_FILE)")
+		}
+		secrets, err := LoadFromVaultAppRole(addr, roleID, secretID, path)
+		if err != nil {
+			return err
+		}
+		for k, v := range secrets {
+			os.Setenv(k, v)
+		}
+
+		return nil
+	}
+
+	token := os.Getenv("VAULT_TOKEN")
+	if token != "" {
+		secrets, err := LoadFromVault(VaultConfig{
+			Address:    addr,
+			Token:      token,
+			SecretPath: path,
+		})
+		if err != nil {
+			return err
+		}
+		for k, v := range secrets {
+			os.Setenv(k, v)
+		}
+
+		return nil
+	}
+
+	return nil
 }
