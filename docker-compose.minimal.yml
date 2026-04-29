@@ -10,6 +10,7 @@ services:
     environment:
       - DATABASE_URL=postgres://user:userspass@postgres:5432/usersdb?sslmode=disable
       - TZ=Asia/Vladivostok
+      - VAULT_SECRET_ID=${VAULT_SECRET_ID}
     restart: always
     logging:
       driver: "json-file"
@@ -37,5 +38,21 @@ services:
       timeout: 5s
       retries: 5
 
+  vault:
+    image: hashicorp/vault:1.18.4
+    container_name: vault
+    user: root
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_LOCAL_CONFIG: '{"storage": {"file": {"path": "/vault/data"}}, "listener": [{"tcp": {"address": "0.0.0.0:8200", "tls_disable": true}}], "ui": true, "disable_mlock": true}'
+    ports:
+      - "127.0.0.1:8200:8200"
+    volumes:
+      - vault_data:/vault/data
+    command: server
+    restart: always
+
 volumes:
   postgres_data:
+  vault_data:
