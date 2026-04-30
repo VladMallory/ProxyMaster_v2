@@ -47,7 +47,10 @@ type Config struct {
 }
 
 func New() (*Config, error) {
-	_ = godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		return nil, err
+	}
 
 	if err := injectVaultSecrets(); err != nil {
 		return nil, fmt.Errorf("vault: %w", err)
@@ -104,7 +107,7 @@ func injectVaultSecrets() error {
 
 	addr := os.Getenv("VAULT_ADDRESS")
 	if addr == "" {
-		return fmt.Errorf("VAULT=enable, но VAULT_ADDRESS не указан")
+		return errors.New("VAULT=enable, но VAULT_ADDRESS не указан, http://vault:8200")
 	}
 
 	roleID := os.Getenv("VAULT_ROLE_ID")
@@ -121,7 +124,9 @@ func injectVaultSecrets() error {
 			secretID = readSecretIDFromFile(secretIDFile)
 		}
 		if secretID == "" {
-			return fmt.Errorf("VAULT=enable и VAULT_ROLE_ID указан, но не задан VAULT_SECRET_ID (или VAULT_SECRET_ID_FILE)")
+			return errors.New(
+				"VAULT=enable и VAULT_ROLE_ID указан, но не задан VAULT_SECRET_ID (или VAULT_SECRET_ID_FILE)",
+			)
 		}
 		secrets, err := LoadFromVaultAppRole(addr, roleID, secretID, path)
 		if err != nil {
