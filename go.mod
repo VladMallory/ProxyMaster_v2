@@ -14,6 +14,7 @@ require (
 	github.com/docker/docker v28.4.0+incompatible // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -40,9 +41,9 @@ require (
 )
 
 require (
+	github.com/a-h/templ v0.3.1001
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.12.3

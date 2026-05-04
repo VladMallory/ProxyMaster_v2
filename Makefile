@@ -1,4 +1,4 @@
-.PHONY: run windows run2 backup-db backup-db-gz backup-list backup-info backup-restore backup-restore-clean backup-cleanup db-only db-stop docker-build docker dc dcd dev dev-stop docker-build-linux docker-linux gosec list vault-status vault-init vault-unseal vault-put-secrets vault-approle-setup
+.PHONY: run windows run2 backup-db backup-db-gz backup-list backup-info backup-restore backup-restore-clean backup-cleanup db-only db-stop docker-build docker dc dcd dev dev-stop docker-build-linux docker-linux gosec list vault-status vault-init vault-unseal vault-put-secrets vault-approle-setup site-pay
 binary=ProxyMaster_v2
 cmdMacosAndLinux=./cmd/myapp/main.go
 cmdWindows=.\cmd\myapp\main.go
@@ -9,6 +9,12 @@ run:
 
 windows:
 	go run $(cmdWindows)
+
+site-pay:
+	caddy validate --config cmd/restAPITest/Caddyfile
+	caddy start --config cmd/restAPITest/Caddyfile --adapter caddyfile
+	trap 'caddy stop' EXIT INT TERM; \
+	go run ./cmd/restAPITest
 
 # ==================
 # БЕКАПЫ БАЗЫ ДАННЫХ

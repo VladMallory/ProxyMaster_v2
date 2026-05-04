@@ -5,12 +5,10 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
-	restapi "github.com/VladMallory/ProxyMaster_v2/internal/delivery/restAPI"
 	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payments/youkassa"
@@ -28,15 +26,9 @@ type BotRunner interface {
 	Start()
 }
 
-type ServerRunner interface {
-	Serve(addr string) error
-}
-
 // App зависимости приложения.
 type app struct {
-	bot       BotRunner
-	server    ServerRunner
-	serverURL string
+	bot BotRunner
 }
 
 // New собирает приложение.
@@ -60,7 +52,6 @@ func New() (Application, error) {
 	remnawaveLogger := loggerClient.Named("remnawave")
 	subscriptionLogger := loggerClient.Named("subscription")
 	youkassaLogger := loggerClient.Named("youkassa")
-	restAPILogger := loggerClient.Named("restAPI")
 	databaseLogger := loggerClient.Named("database")
 
 	// Берем глобальный cfg и передаем только нужные поля
@@ -120,14 +111,8 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
 
-	// ===restAPI===
-	handler := restapi.NewHandler(remnawaveClient, subService)
-	restAPI := restapi.New(handler, restAPILogger)
-
 	return &app{
-		bot:       telegramClient,
-		server:    restAPI,
-		serverURL: ":8080",
+		bot: telegramClient,
 	}, nil
 }
 
@@ -135,13 +120,6 @@ func New() (Application, error) {
 func (a *app) Run() {
 	// Запускаем Telegram бота в горутине
 	go a.bot.Start()
-
-	// запускаем restAPI
-	go func() {
-		if err := a.server.Serve(a.serverURL); err != nil {
-			log.Fatal(err)
-		}
-	}()
 
 	println("программа запущена")
 

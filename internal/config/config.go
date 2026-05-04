@@ -47,10 +47,7 @@ type Config struct {
 }
 
 func New() (*Config, error) {
-	err := godotenv.Load()
-	if err != nil {
-		return nil, err
-	}
+	_ = godotenv.Load()
 
 	if err := injectVaultSecrets(); err != nil {
 		return nil, fmt.Errorf("vault: %w", err)

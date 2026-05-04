@@ -1,0 +1,78 @@
+package sitev01
+
+// PayPage рендерит страницу оплаты.
+templ PayPage() {
+	<!doctype html>
+	<html lang="ru">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>Пополнение баланса</title>
+			<link rel="stylesheet" href="/styles.css?v=2"/>
+		</head>
+		<body>
+			<main class="page">
+				<section class="card" aria-labelledby="top-up-title">
+					<div class="badge">ShadowFade</div>
+
+					<h1 class="title" id="top-up-title">Пополнение баланса</h1>
+
+					<p class="subtitle">Укажите username и выберите срок подписки.</p>
+
+					<form class="form" action="/" method="post">
+						<label class="field">
+							<span class="label">Username</span>
+							<input
+								class="input"
+								type="text"
+								name="username"
+								placeholder="Например: 123456789"
+								required
+							/>
+						</label>
+
+						<fieldset class="field tariff-field">
+							<legend class="label">Срок подписки</legend>
+
+							<span class="tariff-grid">
+								@tariffOption("200", "1 месяц")
+								@tariffOption("400", "2 месяца")
+								@tariffOption("600", "3 месяца")
+								@tariffOption("800", "4 месяца")
+								@tariffOption("1000", "5 месяцев")
+							</span>
+						</fieldset>
+
+						<button class="button" type="submit">Пополнить</button>
+					</form>
+
+					<a class="help-link" href="#username-help">Не знаете какой у вас username в Happ?</a>
+				</section>
+
+				<section class="photo-modal" id="username-help" aria-label="Где найти username в Happ">
+					<a class="modal-backdrop" href="#" aria-label="Закрыть подсказку"></a>
+
+					<div class="modal-card">
+						<a class="modal-close" href="#" aria-label="Закрыть подсказку">×</a>
+
+						<img
+							class="modal-image"
+							src="/assets/photo-01.jpg"
+							alt="Инструкция где найти username в Happ"
+						/>
+					</div>
+				</section>
+			</main>
+		</body>
+	</html>
+}
+
+// tariffOption рендерит один допустимый вариант оплаты.
+templ tariffOption(amount string, title string) {
+	<label class="tariff-option">
+		<input class="tariff-input" type="radio" name="amount" value={ amount } required/>
+		<span class="tariff-card">
+			<span class="tariff-time">{ title }</span>
+		</span>
+	</label>
+}
