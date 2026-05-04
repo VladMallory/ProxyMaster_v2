@@ -12,8 +12,7 @@ windows:
 
 site-pay:
 	caddy validate --config cmd/restAPITest/Caddyfile
-	caddy start --config cmd/restAPITest/Caddyfile --adapter caddyfile
-	trap 'caddy stop' EXIT INT TERM; \
+	caddy reload --config cmd/restAPITest/Caddyfile --adapter caddyfile
 	go run ./cmd/restAPITest
 
 # ==================
