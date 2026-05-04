@@ -1,0 +1,28 @@
+# Собираем отдельный сайт оплаты.
+FROM golang:1.23-alpine AS builder
+# Рабочая директория внутри контейнера.
+WORKDIR /app
+# Устанавливаем сертификаты, чтобы Go мог ходить во внешние HTTPS API.
+RUN apk add --no-cache ca-certificates
+# Копируем go.mod и go.sum отдельно, чтобы Docker кешировал зависимости.
+COPY go.mod go.sum ./
+# Скачиваем зависимости проекта.
+RUN go mod download
+# Копируем весь проект, потому что сайт использует внутренние пакеты и frontend.
+COPY . .
+# Собираем только cmd/restAPITest.
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o site-pay ./cmd/restAPITest
+# Минимальный runtime-образ.
+FROM alpine:3.20
+# Рабочая директория приложения.
+WORKDIR /app
+# Сертификаты нужны для HTTPS-запросов к ЮKassa, Remnawave и другим API.
+RUN apk add --no-cache ca-certificates
+# Копируем бинарник сайта.
+COPY --from=builder /app/site-pay /app/site-pay
+# Копируем frontend, потому что код отдает ./frontend/site_v01/styles.css и assets.
+COPY --from=builder /app/frontend /app/frontend
+# Сайт внутри контейнера слушает 8080.
+EXPOSE 8080
+# Запускаем сайт.
+CMD ["/app/site-pay"]

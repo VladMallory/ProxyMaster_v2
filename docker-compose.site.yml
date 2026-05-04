@@ -1,0 +1,13 @@
+services:
+  site-pay:
+    build:
+      context: .
+      dockerfile: Dockerfile.site
+    container_name: site_pay
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Vladivostok
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
