@@ -1,17 +1,23 @@
+# syntax=docker/dockerfile:1.4
+
 # Собираем отдельный сайт оплаты.
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26.2-alpine AS builder
 # Рабочая директория внутри контейнера.
 WORKDIR /app
 # Устанавливаем сертификаты, чтобы Go мог ходить во внешние HTTPS API.
 RUN apk add --no-cache ca-certificates
 # Копируем go.mod и go.sum отдельно, чтобы Docker кешировал зависимости.
 COPY go.mod go.sum ./
-# Скачиваем зависимости проекта.
-RUN go mod download
+# Скачиваем зависимости проекта с кешем модулей.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 # Копируем весь проект, потому что сайт использует внутренние пакеты и frontend.
 COPY . .
-# Собираем только cmd/restAPITest.
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o site-pay ./cmd/restAPITest
+# Собираем только cmd/restAPITest с кешем компиляции Go.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o site-pay ./cmd/restAPITest
 # Минимальный runtime-образ.
 FROM alpine:3.20
 # Рабочая директория приложения.
