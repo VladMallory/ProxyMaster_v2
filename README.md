@@ -11,6 +11,10 @@ vi .env # или nano вместо vi, как удобно
 ```
 
 ```bash
+# VAULT
+## Не трогай если не знаешь для чего это
+VAULT=disable
+
 # REMNAWAVE
 REMNA_PANEL=https://panel.domen.ru/auth/login?REMNA_SECRET_TOKEN
 REMNA_BASE_PANEL=https://panel.domen.ru
