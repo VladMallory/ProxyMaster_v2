@@ -13,7 +13,8 @@ windows:
 site-pay:
 	caddy validate --config cmd/restAPITest/Caddyfile
 	caddy reload --config cmd/restAPITest/Caddyfile --adapter caddyfile
-	go run ./cmd/restAPITest
+	docker compose -f docker-compose.site.yml up -d --build
+	docker logs -f site_pay
 
 # ==================
 # БЕКАПЫ БАЗЫ ДАННЫХ
