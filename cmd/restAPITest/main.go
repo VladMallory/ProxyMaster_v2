@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	youkassa2 "github.com/VladMallory/ProxyMaster_v2/cmd/restAPITest/youkassa"
@@ -25,8 +27,15 @@ type YooKassaWebhook struct {
 // payHandler создает платеж и отправляет пользователя на страницу оплаты.
 func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa2.YooKassaClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		username := r.FormValue("username")
+		username := strings.TrimSpace(r.FormValue("username"))
 		amountRaw := r.FormValue("amount")
+
+		if username == "" {
+			fmt.Println("пустой username при создании платежа")
+			http.Error(w, "укажите username", http.StatusBadRequest)
+
+			return
+		}
 
 		amount, err := strconv.ParseInt(amountRaw, 10, 64)
 		if err != nil {
@@ -40,6 +49,22 @@ func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa
 		if !ok {
 			fmt.Println("недопустимая сумма оплаты:", amount)
 			http.Error(w, "можно оплатить только 200, 400, 600, 800 или 1000 рублей", http.StatusBadRequest)
+
+			return
+		}
+
+		// Проверяем пользователя до создания платежа, чтобы не принимать оплату для несуществующего клиента.
+		_, err = remnawaveClient.GetUUIDByUsername(r.Context(), username)
+		if err != nil {
+			fmt.Println("ошибка проверки пользователя перед оплатой:", username, err)
+
+			if errors.Is(err, remnawave.ErrNotFound) {
+				http.Error(w, "такой пользователь не найден в панели", http.StatusBadRequest)
+
+				return
+			}
+
+			http.Error(w, "ошибка проверки пользователя в панели", http.StatusInternalServerError)
 
 			return
 		}
