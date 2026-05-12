@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 // BulkExtendRequest структура для запроса в апи remnawave.
 type BulkExtendRequest struct {
@@ -59,18 +61,32 @@ type LoginResponse struct {
 type UsersResponse struct {
 	Response struct {
 		Total int    `json:"total"`
-		Users []user `json:"users"`
+		Users []User `json:"users"`
 	} `json:"response"`
 }
 
-// User описывает данные одного пользователя.
-type user struct {
-	ID          int         `json:"id"`
-	Username    string      `json:"username"`
-	Status      string      `json:"status"`
-	UserTraffic UserTraffic `json:"UserTraffic"`
-	// Можно добавить остальные поля по необходимости
+type User struct {
+	UUID              string      `json:"uuid"`
+	ID                int         `json:"id"`
+	Username          string      `json:"username"`
+	Status            string      `json:"status"`
+	TrafficLimitBytes uint64      `json:"trafficLimitBytes"`
+	UsedTrafficBytes  uint64      `json:"usedTrafficBytes"`
+	HWIDDeviceLimit   int         `json:"hwidDeviceLimit"`
+	ExpireAt          *time.Time  `json:"expireAt"`
+	CreatedAt         time.Time   `json:"createdAt"`
+	UpdatedAt         time.Time   `json:"updatedAt"`
+	UserTraffic       UserTraffic `json:"UserTraffic"`
 }
+
+// User описывает данные одного пользователя.
+// type user struct {
+// 	ID          int         `json:"id"`
+// 	Username    string      `json:"username"`
+// 	Status      string      `json:"status"`
+// 	UserTraffic UserTraffic `json:"UserTraffic"`
+// 	// Можно добавить остальные поля по необходимости
+// }
 
 // ==========================================
 // Configuration (Слой конфигурации)

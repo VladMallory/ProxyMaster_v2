@@ -51,20 +51,16 @@ type RemnawaveClient interface {
 	CreateUser(dto remnawave.CreateUserDTO) error
 	DeleteUser(ctx context.Context, username string) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
-	EnableClient(userUUID string) error
-	DisableClient(userUUID string) error
 	GetUserInfo(uuid string) (models.GetUserInfoResponse, error)
 	GetUserDevice(ctx context.Context, username string) ([]remnawave.HWIDDevice, error)
 	SetDevices(ctx context.Context, username string, devices *uint8) error
-	SetTraffic(username string, gb uint64) error
 	BetterResetTraffic(ctx context.Context, username string) error
 	DeleteDeviceHWID(ctx context.Context, username string) error
 }
 
 type UserRepository interface {
-	CreateUser(models.CreateUserDTO) (*models.UserTG, error)
-	GetAllUsers() ([]models.UserTG, error)
-	GetActiveUserIDs() ([]string, error)
+	CreateUser(userData models.CreateUserDTO) (*models.UserTG, error)
+	GetAllUsers(ctx context.Context) ([]models.User, error)
 	GetUserByID(id string) (*models.UserTG, error)
 	UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error)
 }

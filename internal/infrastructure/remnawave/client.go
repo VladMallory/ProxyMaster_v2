@@ -146,7 +146,7 @@ func (c *RemnaClient) doRequest(
 ) (*http.Response, error) {
 	var bodyReader io.Reader
 
-	// Преобразуем запрос в JSON чтобы дать
+	// Преобразуем запрос в JSON чтобы отправить
 	// его на сервер в привычном виде
 	if body != nil {
 		jsonData, err := json.Marshal(body)

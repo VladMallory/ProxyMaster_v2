@@ -163,6 +163,68 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 	return nil
 }
 
+// GetAllUsers получение подробных данных о каждом пользователи в панели.
+func (c *RemnaClient) GetAllUsers(ctx context.Context) ([]models.User, error) {
+	defer c.logDuration("GetAllUsers")()
+
+	const pageSize = 100
+
+	var allUsers []models.User
+
+	for start := 0; ; start += pageSize {
+		url := fmt.Sprintf(
+			"%s/api/users?start=%d&size=%d&%s",
+			c.cfg.PanelURL,
+			start,
+			pageSize,
+			c.cfg.SecretURLToken,
+		)
+
+		resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		body, err := c.readBody(resp)
+		c.closeBody(resp)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, c.wrapErr(
+				fmt.Errorf("%w: %d", ErrBadStatusCode, resp.StatusCode),
+				"ошибка получения всех пользователей",
+				"all_users",
+				url,
+			)
+		}
+
+		var userResponse models.UsersResponse
+
+		if err := c.parseJSON(body, &userResponse); err != nil {
+			return nil, err
+		}
+
+		allUsers = append(allUsers, userResponse.Response.Users...)
+		if userResponse.Response.Total > 0 && len(allUsers) >= userResponse.Response.Total {
+			break
+		}
+
+		if len(userResponse.Response.Users) < pageSize {
+			break
+		}
+	}
+
+	c.logger.Info(
+		"список пользователей RemnaWave успешно получен",
+		logger.Field{Key: "users_total", Value: len(allUsers)},
+	)
+
+	return allUsers, nil
+}
+
 // GetUserInfo - возвращает информацию.
 func (c *RemnaClient) GetUserInfo(uuid string) (models.GetUserInfoResponse, error) {
 	defer c.logDuration("GetUserInfo")()
