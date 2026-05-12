@@ -4,6 +4,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -21,6 +22,10 @@ type Application interface {
 	Run()
 }
 
+type ReminderRunner interface {
+	RunDay(ctx context.Context)
+}
+
 // BotRunner для запуска бота.
 type BotRunner interface {
 	Start()
@@ -28,7 +33,8 @@ type BotRunner interface {
 
 // App зависимости приложения.
 type app struct {
-	bot BotRunner
+	bot      BotRunner
+	reminder ReminderRunner
 }
 
 // New собирает приложение.
@@ -50,6 +56,7 @@ func New() (Application, error) {
 
 	// Создаем под каждый сервис логгер.
 	remnawaveLogger := loggerClient.Named("remnawave")
+	subscriptionReminderServiceLogger := loggerClient.Named("subscription_reminder")
 	subscriptionLogger := loggerClient.Named("subscription")
 	youkassaLogger := loggerClient.Named("youkassa")
 	databaseLogger := loggerClient.Named("database")
@@ -111,15 +118,27 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
 
+	subscriptionReminderService := service.NewSubscriptionReminderService(
+		remnawaveClient,
+		telegramClient,
+		subscriptionReminderServiceLogger,
+	)
+
 	return &app{
-		bot: telegramClient,
+		bot:      telegramClient,
+		reminder: subscriptionReminderService,
 	}, nil
 }
 
 // Run запуск приложения.
 func (a *app) Run() {
+	ctx := context.Background()
+
 	// Запускаем Telegram бота в горутине
 	go a.bot.Start()
+
+	// Сервис о напоминии об оплате
+	go a.reminder.RunDay(ctx)
 
 	println("программа запущена")
 

@@ -48,6 +48,7 @@ var (
 // RemnawaveClient то как мы хотим получать информацию.
 type RemnawaveClient interface {
 	GetUUIDByUsername(ctx context.Context, username string) (string, error)
+	GetAllUsers(ctx context.Context) ([]models.User, error)
 	CreateUser(dto remnawave.CreateUserDTO) error
 	DeleteUser(ctx context.Context, username string) error
 	ExtendClientSubscription(userUUID string, username string, days int) error
@@ -60,7 +61,6 @@ type RemnawaveClient interface {
 
 type UserRepository interface {
 	CreateUser(userData models.CreateUserDTO) (*models.UserTG, error)
-	GetAllUsers(ctx context.Context) ([]models.User, error)
 	GetUserByID(id string) (*models.UserTG, error)
 	UpdateUser(id string, updateData models.UpdateUserTGDTO) (*models.UserTG, error)
 }
