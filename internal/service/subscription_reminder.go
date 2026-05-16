@@ -43,7 +43,7 @@ func NewSubscriptionReminderService(
 
 func (s *SubscriptionReminderService) RunDay(ctx context.Context) {
 	// Запускаем проверку при запуске приложения
-	// s.Process(ctx)
+	s.Process(ctx)
 
 	ticker := time.NewTicker(subscriptionReminderPeriod)
 	defer ticker.Stop()
@@ -102,7 +102,7 @@ func (s *SubscriptionReminderService) Process(ctx context.Context) {
 
 		// Проверка окна от 48 часов до 72 часов
 		// Сообщение уйдет примерно за 3 дня, и не будет отправляться до окончания подписки
-		if remaining > subscriptionReminderBefore || remaining <= subscriptionReminderAfter {
+		if remaining > subscriptionReminderBefore || remaining <= 0 {
 			continue
 		}
 
