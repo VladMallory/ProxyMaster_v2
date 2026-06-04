@@ -28,7 +28,9 @@ type Config struct {
 
 	DatabaseURL string
 
-	PlategaAPIKey string
+	PlategaMerchantID string
+	PlategaAPIKey     string
+	PlategaReturnURL  string
 
 	YouKassaShopID    string
 	YouKassaSecretKey string
@@ -82,7 +84,9 @@ func New() (*Config, error) {
 		TelegramSupport:     os.Getenv("TELEGRAM_SUPPORT"),
 		TelegramAdminID:     os.Getenv("TELEGRAM_ADMIN_ID"),
 		DatabaseURL:         databaseURL,
+		PlategaMerchantID:   os.Getenv("PLATEGA_MERCHANT_ID"),
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),
+		PlategaReturnURL:    os.Getenv("PLATEGA_RETURN_URL"),
 		LoggerLevel:         os.Getenv("LOGGER_LEVEL"),
 		YouKassaShopID:      os.Getenv("YOUKASSA_SHOP_ID"),
 		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),

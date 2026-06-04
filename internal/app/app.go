@@ -12,7 +12,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
 	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
-	"github.com/VladMallory/ProxyMaster_v2/internal/payments/youkassa"
+	"github.com/VladMallory/ProxyMaster_v2/internal/payments/platega"
 	"github.com/VladMallory/ProxyMaster_v2/internal/service"
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 )
@@ -58,7 +58,7 @@ func New() (Application, error) {
 	remnawaveLogger := loggerClient.Named("remnawave")
 	subscriptionReminderServiceLogger := loggerClient.Named("subscription_reminder")
 	subscriptionLogger := loggerClient.Named("subscription")
-	youkassaLogger := loggerClient.Named("youkassa")
+	plategaLogger := loggerClient.Named("platega")
 	databaseLogger := loggerClient.Named("database")
 
 	// Берем глобальный cfg и передаем только нужные поля
@@ -89,12 +89,12 @@ func New() (Application, error) {
 		cfg.DeviceLimit,
 	)
 
-	// ===youkassa===
-	youkassaClient := youkassa.NewClient(
-		cfg.YouKassaShopID,
-		cfg.YouKassaSecretKey,
-		cfg.YouKassaReturnURL,
-		youkassaLogger,
+	// ===platega===
+	plategaClient := platega.NewClient(
+		cfg.PlategaMerchantID,
+		cfg.PlategaAPIKey,
+		cfg.PlategaReturnURL,
+		plategaLogger,
 	)
 
 	// Парсим TelegramAdminID с проверкой ошибки
@@ -110,7 +110,7 @@ func New() (Application, error) {
 		loggerClient,
 		remnawaveClient,
 		subService,
-		youkassaClient,
+		plategaClient,
 		userRepo,
 		telegramAdminID,
 	)

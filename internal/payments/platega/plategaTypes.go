@@ -28,31 +28,43 @@ const (
 	USDT Currency = "USDT"
 )
 
-// CreateTransactionRequest запрос на создание транзакции.
+// CreateTransactionRequest запрос на создание транзакции с заданным методом оплаты (v1).
 type CreateTransactionRequest struct {
 	PaymentMethod  int            `json:"paymentMethod"`
 	PaymentDetails PaymentDetails `json:"paymentDetails"`
 	Description    string         `json:"description"`
 	ReturnURL      string         `json:"return"`
 	FailedURL      string         `json:"failedUrl"`
-	Payload        string         `json:"payload"`
+	Payload        string         `json:"payload,omitempty"`
+}
+
+// CreateTransactionV2Request запрос на создание транзакции без метода оплаты (v2).
+// Пользователь сам выбирает способ на странице Platega.
+type CreateTransactionV2Request struct {
+	PaymentDetails PaymentDetails `json:"paymentDetails"`
+	Description    string         `json:"description"`
+	ReturnURL      string         `json:"return,omitempty"`
+	FailedURL      string         `json:"failedUrl,omitempty"`
+	Payload        string         `json:"payload,omitempty"`
 }
 
 // PaymentDetails детали оплаты.
 type PaymentDetails struct {
-	Amount   int    `json:"amount,string"` // мб можно и флоат64? Илья: не можно
-	Currency string `json:"currency"`
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
 }
 
 // Client что нужно для работы с platega.
 type Client struct {
 	baseURL    string
+	merchantID string
 	apiKey     string
+	returnURL  string
 	httpClient *http.Client
 	logger     logger.Logger
 }
 
-// CreateTransactionResponse то что возвращает platega при создании транзакции.
+// CreateTransactionResponse то что возвращает platega при создании транзакции (v1).
 type CreateTransactionResponse struct {
 	PaymentMethod  string  `json:"paymentMethod"`
 	TransactionID  string  `json:"transactionId"`
@@ -66,6 +78,15 @@ type CreateTransactionResponse struct {
 	CryptoAmount   float64 `json:"cryptoAmount"`
 }
 
+// CreateTransactionV2Response то что возвращает platega при создании транзакции без метода (v2).
+type CreateTransactionV2Response struct {
+	TransactionID string  `json:"transactionId"`
+	Status        string  `json:"status"`
+	URL           string  `json:"url"`
+	ExpiresIn     string  `json:"expiresIn"`
+	Rate          float64 `json:"rate"`
+}
+
 // TransactionInfoResponse ответ с информацией о транзакции.
 type TransactionInfoResponse struct {
 	ID             string `json:"id"`
@@ -76,4 +97,6 @@ type TransactionInfoResponse struct {
 		Currency string  `json:"currency"`
 	} `json:"paymentDetails"`
 	Description string `json:"description"`
+	Payload     string `json:"payload"`
+	ExternalID  string `json:"externalId"`
 }

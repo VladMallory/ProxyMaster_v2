@@ -4,11 +4,15 @@ package platega
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
@@ -16,22 +20,49 @@ import (
 )
 
 // NewClient создает новый экземпляр клиента Platega.
-// func NewClient(apiKey string, l logger.Logger) *Client {
-// 	return &Client{
-// 		baseURL: "https://app.platega.io",
-// 		apiKey:  apiKey,
-// 		httpClient: &http.Client{
-// 			Timeout: 30 * time.Second,
-// 		},
-// 		logger: l,
-// 	}
-// }
+// Если параметры пустые — подставляет из переменных окружения.
+func NewClient(merchantID, apiKey, returnURL string, l logger.Logger) *Client {
+	if merchantID == "" {
+		merchantID = strings.TrimSpace(os.Getenv("PLATEGA_MERCHANT_ID"))
+	}
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(os.Getenv("PLATEGA_API_KEY"))
+	}
+	if returnURL == "" {
+		returnURL = strings.TrimSpace(os.Getenv("PLATEGA_RETURN_URL"))
+	}
 
-// logDuration логирует время выполнения метода.
-func (c *Client) logDuration(method string) func() {
+	c := &Client{
+		baseURL:    "https://app.platega.io",
+		merchantID: merchantID,
+		apiKey:     apiKey,
+		returnURL:  returnURL,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		logger:     l,
+	}
+
+	if v := strings.TrimSpace(os.Getenv("PLATEGA_BASE_URL")); v != "" {
+		c.baseURL = v
+	}
+
+	return c
+}
+
+// logDuration логирует время выполнения и ошибку (если была).
+func (c *Client) logDuration(method string, err *error) func() {
 	start := time.Now()
 
 	return func() {
+		if *err != nil {
+			c.logger.Error("вызов метода завершен ошибкой",
+				logger.Field{Key: "method", Value: method},
+				logger.Field{Key: "err", Value: (*err).Error()},
+				logger.Field{Key: "duration", Value: time.Since(start)},
+			)
+
+			return
+		}
+
 		c.logger.Info("вызов метода завершен",
 			logger.Field{Key: "method", Value: method},
 			logger.Field{Key: "duration", Value: time.Since(start)},
@@ -39,187 +70,265 @@ func (c *Client) logDuration(method string) func() {
 	}
 }
 
-// CreateTransaction - создает новую транзакцию в Platega
-//
-//	paymentMethod - метод оплаты, типа PaymentMethod(RUB, USDT, etc...)
-//	amount        - цена услуги int
-//	currency      - валюта, типа  Currency
-//	description   - "Оплата мешков картошки клиенту №293" string
-//	payload       - инфа которую можно дополнительно оставить (как я понял) ни на что не влияет,   можно "" string
-//
-//nolint:cyclop, funlen
-func (c *Client) CreateTransaction(
-	ctx context.Context,
-	paymentMethod PaymentMethod,
-	amount int,
-	currency Currency,
-	description, payload string,
-) (URL, ID string, err error) {
-	defer c.logDuration("CreateTransaction")
-
-	merchantID := os.Getenv("PLATEGA_MERCHANT_ID")
-	if merchantID == "" {
-		return "", "", fmt.Errorf("platega.CreateTransaction: MERCHANT_ID не установлен в .env")
+// newIdempotenceKey генерирует уникальный ключ идемпотентности для Platega.
+func newIdempotenceKey(orderID string) (string, error) {
+	rnd := make([]byte, 16)
+	if _, err := rand.Read(rnd); err != nil {
+		return "", fmt.Errorf("platega.newIdempotenceKey: %w", err)
 	}
 
-	plategaAPIKey := c.apiKey
-	if plategaAPIKey == "" {
-		plategaAPIKey = os.Getenv("PLATEGA_API_KEY")
+	rndHex := hex.EncodeToString(rnd)
+
+	orderID = strings.TrimSpace(orderID)
+	if orderID == "" {
+		return rndHex, nil
 	}
 
-	if plategaAPIKey == "" {
-		return "",
-			"",
-			fmt.Errorf("platega.CreateTransaction: PLATEGA_API_KEY не установлен (ни в клиенте, ни в .env)") //nolint:golines
+	orderID = strings.ReplaceAll(orderID, " ", "_")
+	if len(orderID) > 32 {
+		orderID = orderID[:32]
 	}
 
-	// сборка. URL
-	plategaBaseURL := c.baseURL
-	if plategaBaseURL == "" {
-		plategaBaseURL = os.Getenv("PLATEGA_BASE_URL")
+	key := orderID + "-" + rndHex
+	if len(key) > 64 {
+		key = key[:64]
 	}
 
-	if plategaBaseURL == "" {
-		return "", "", fmt.Errorf("platega.CreateTransaction: PLATEGA_BASE_URL не установлен (ни в клиенте, ни в .env)") //nolint:lll,golines
-	}
+	return key, nil
+}
 
-	plategaTotalURL := plategaBaseURL + "/transaction/process"
-
-	// сборка реквеста
-	reqBody := CreateTransactionRequest{
-		PaymentMethod: int(paymentMethod),
-		PaymentDetails: PaymentDetails{
-			Amount:   amount,
-			Currency: string(currency),
-		},
-		Description: description,
-		ReturnURL:   "https://google.com/success", // TODO: уточнить значение URL успеха
-		FailedURL:   "https://google.com/fail",    // TODO: уточнить значение URL ошибки
-		Payload:     payload,
-	}
-
-	// маршалинг реквеста
-	jsonData, err := json.Marshal(reqBody)
+// doRequest выполняет HTTP запрос и возвращает статус-код и тело ответа.
+func (c *Client) doRequest(
+	ctx context.Context, method, url string,
+	headers map[string]string, body []byte,
+) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(body))
 	if err != nil {
-		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка маршалинга: %w", err)
+		return 0, nil, fmt.Errorf("ошибка создания запроса: %w", err)
 	}
 
-	// запрос к апи platega
-	req, err := http.NewRequestWithContext(ctx, "POST", plategaTotalURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка создания запроса: %w", err)
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
-
-	req.Header.Set("X-MerchantId", merchantID)
-	req.Header.Set("X-Secret", plategaAPIKey)
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка получения ответа: %w", err)
+		return 0, nil, fmt.Errorf("ошибка запроса: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return 0, nil, fmt.Errorf("ошибка чтения ответа: %w", readErr)
 	}
 
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			c.logger.Error(
-				"ошибка про закрытии тела ответа",
-				logger.Field{Key: "method", Value: "CreateTransaction"},
-				logger.Field{Key: "err_msg", Value: err},
-			)
-		}
-	}()
+	return resp.StatusCode, respBody, nil
+}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка чтения тела ответа: %w", err)
+// CreateTransaction создает платеж в Platega и возвращает ссылку для оплаты и ID транзакции.
+//
+//nolint:cyclop,funlen
+func (c *Client) CreateTransaction(
+	ctx context.Context,
+	amount float64,
+	orderID string,
+) (paymentURL, externalID string, err error) {
+	defer c.logDuration("CreateTransaction", &err)()
+
+	if amount <= 0 {
+		err = errors.New("platega.CreateTransaction: amount должен быть > 0")
+
+		return
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("platega.CreateTransaction: код статуса: %v\nОшибка: %s", resp.StatusCode, string(respBody)) //nolint:lll,golines
+	merchantID, apiKey, returnURL, appErr := c.resolveCredentials()
+	if appErr != nil {
+		err = appErr
+
+		return
 	}
 
-	var CreateTransactionResponse CreateTransactionResponse
+	jsonData, marshalErr := json.Marshal(CreateTransactionV2Request{
+		PaymentDetails: PaymentDetails{Amount: amount, Currency: "RUB"},
+		Description:    orderID,
+		ReturnURL:      returnURL,
+	})
+	if marshalErr != nil {
+		err = fmt.Errorf("platega.CreateTransaction: ошибка маршалинга: %w", marshalErr)
 
-	err = json.Unmarshal(respBody, &CreateTransactionResponse)
-	if err != nil {
-		return "", "", fmt.Errorf("platega.CreateTransaction: ошибка анмаршалинга ответа: %w", err)
+		return
 	}
 
-	URL = CreateTransactionResponse.Redirect
-	ID = CreateTransactionResponse.TransactionID
+	idempotenceKey, keyErr := newIdempotenceKey(orderID)
+	if keyErr != nil {
+		err = fmt.Errorf("platega.CreateTransaction: %w", keyErr)
 
-	return URL, ID, nil
+		return
+	}
+
+	url := strings.TrimRight(c.baseURL, "/") + "/v2/transaction/process"
+
+	statusCode, respBody, reqErr := c.doRequest(ctx, http.MethodPost, url, map[string]string{
+		"X-MerchantId":    merchantID,
+		"X-Secret":        apiKey,
+		"Content-Type":    "application/json",
+		"Idempotence-Key": idempotenceKey,
+	}, jsonData)
+	if reqErr != nil {
+		err = fmt.Errorf("platega.CreateTransaction: %w", reqErr)
+
+		return
+	}
+
+	if statusCode != http.StatusOK && statusCode != http.StatusCreated {
+		err = fmt.Errorf("platega.CreateTransaction: статус %d, ответ: %s",
+			statusCode, string(respBody))
+
+		return
+	}
+
+	var txResp CreateTransactionV2Response
+	if unmarshalErr := json.Unmarshal(respBody, &txResp); unmarshalErr != nil {
+		err = fmt.Errorf("platega.CreateTransaction: ошибка парсинга ответа: %w", unmarshalErr)
+
+		return
+	}
+
+	if txResp.URL == "" || txResp.TransactionID == "" {
+		err = errors.New("platega.CreateTransaction: пустой url или transactionId в ответе")
+
+		return
+	}
+
+	paymentURL = txResp.URL
+	externalID = txResp.TransactionID
+
+	return
 }
 
 // CheckStatus проверяет статус транзакции.
-func (c *Client) CheckStatus(ctx context.Context, transactionID string) (domain.PaymentStatus, error) { //nolint:golines
-	defer c.logDuration("CheckStatus")
+func (c *Client) CheckStatus(
+	ctx context.Context, transactionID string,
+) (_ domain.PaymentStatus, err error) {
+	defer c.logDuration("CheckStatus", &err)()
 
-	// Получаем инфу о транзакции, чтобы узнать статус
-	info, err := c.GetTransactionInfo(ctx, transactionID)
-	if err != nil {
-		return "", err
+	info, getErr := c.GetTransactionInfo(ctx, transactionID)
+	if getErr != nil {
+		err = getErr
+
+		return
 	}
 
-	status := info.GetStatus()
-
-	switch status {
-	case "success", "paid":
+	switch info.GetStatus() {
+	case "CONFIRMED":
 		return domain.PaymentStatusSuccess, nil
-	case "pending", "process":
+	case "PENDING":
 		return domain.PaymentStatusPending, nil
-	case "failed", "error":
+	case "CANCELED", "CHARGEBACKED":
 		return domain.PaymentStatusFailed, nil
 	default:
 		return domain.PaymentStatusPending, nil
 	}
 }
 
-// GetTransactionInfo получает информацию о транзакции.
-func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (domain.TransactionInfo, error) { //nolint:lll,golines
-	defer c.logDuration("GetTransactionInfo")
+// WaitForPayment блокирует выполнение до подтверждения/отмены платежа или таймаута.
+// Первые 5 минут проверяет каждые 10 секунд, затем до 20 минут — каждые 60 секунд.
+func (c *Client) WaitForPayment(
+	ctx context.Context, transactionID string,
+) (_ domain.PaymentStatus, err error) {
+	defer c.logDuration("WaitForPayment", &err)()
 
-	plategaBaseURL := c.baseURL
-	if plategaBaseURL == "" {
-		plategaBaseURL = os.Getenv("PLATEGA_BASE_URL")
+	if strings.TrimSpace(transactionID) == "" {
+		err = errors.New("platega.WaitForPayment: transactionID пустой")
+
+		return
 	}
 
-	// Предполагаемый эндпоинт для проверки статуса (нужно уточнить в документации Platega)
-	// Обычно это GET /transaction/{id} или POST /transaction/status
-	// Используем GET для примера, если документации нет под рукой
-	url := fmt.Sprintf("%s/transaction/%s", plategaBaseURL, transactionID)
+	const (
+		frequentInterval = 10 * time.Second
+		sparseInterval   = 60 * time.Second
+		frequentDuration = 5 * time.Minute
+		totalDuration    = 20 * time.Minute
+	)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка создания запроса: %w", err)
-	}
+	deadline := time.Now().Add(totalDuration)
+	frequentDeadline := time.Now().Add(frequentDuration)
 
-	req.Header.Set("X-MerchantId", os.Getenv("PLATEGA_MERCHANT_ID"))
-	req.Header.Set("X-Secret", c.apiKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка выполнения запроса: %w", err)
-	}
-
-	defer func() {
-		if err = resp.Body.Close(); err != nil {
-			return
+	for time.Now().Before(deadline) {
+		status, checkErr := c.CheckStatus(ctx, transactionID)
+		if checkErr != nil {
+			c.logger.Error("WaitForPayment: ошибка проверки статуса",
+				logger.Field{Key: "transactionID", Value: transactionID},
+				logger.Field{Key: "err", Value: checkErr.Error()},
+			)
+		} else if status == domain.PaymentStatusSuccess || status == domain.PaymentStatusFailed {
+			return status, nil
 		}
-	}()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка чтения ответа: %w", err)
+		var interval time.Duration
+		if time.Now().Before(frequentDeadline) {
+			interval = frequentInterval
+		} else {
+			interval = sparseInterval
+		}
+
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+
+			return
+		case <-time.After(interval):
+		}
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("platega.GetTransactionInfo: статус %d, ответ: %s", resp.StatusCode, string(body)) //nolint:lll,golines
+	err = errors.New("platega.WaitForPayment: таймаут ожидания платежа")
+
+	return
+}
+
+// GetTransactionInfo получает информацию о транзакции по её ID.
+func (c *Client) GetTransactionInfo(
+	ctx context.Context, transactionID string,
+) (_ domain.TransactionInfo, err error) {
+	defer c.logDuration("GetTransactionInfo", &err)()
+
+	if strings.TrimSpace(transactionID) == "" {
+		err = errors.New("platega.GetTransactionInfo: transactionID пустой")
+
+		return
+	}
+
+	merchantID, apiKey, _, appErr := c.resolveCredentials()
+	if appErr != nil {
+		err = appErr
+
+		return
+	}
+
+	url := fmt.Sprintf("%s/transaction/%s", strings.TrimRight(c.baseURL, "/"), transactionID)
+
+	statusCode, body, reqErr := c.doRequest(ctx, http.MethodGet, url, map[string]string{
+		"X-MerchantId": merchantID,
+		"X-Secret":     apiKey,
+	}, nil)
+	if reqErr != nil {
+		err = fmt.Errorf("platega.GetTransactionInfo: %w", reqErr)
+
+		return
+	}
+
+	if statusCode != http.StatusOK {
+		err = fmt.Errorf("platega.GetTransactionInfo: статус %d, ответ: %s",
+			statusCode, string(body))
+
+		return
 	}
 
 	var txInfo TransactionInfoResponse
-	if err := json.Unmarshal(body, &txInfo); err != nil {
-		return nil, fmt.Errorf("platega.GetTransactionInfo: ошибка парсинга JSON: %w", err)
+	if unmarshalErr := json.Unmarshal(body, &txInfo); unmarshalErr != nil {
+		err = fmt.Errorf("platega.GetTransactionInfo: ошибка парсинга JSON: %w", unmarshalErr)
+
+		return
 	}
 
 	return &txInfo, nil
@@ -241,4 +350,26 @@ func (t *TransactionInfoResponse) GetStatus() string {
 
 func (t *TransactionInfoResponse) GetRawResponse() any {
 	return t
+}
+
+// resolveCredentials возвращает merchantID, apiKey, returnURL.
+// Все значения уже проставлены в конструкторе или берутся из env в нём же.
+func (c *Client) resolveCredentials() (merchantID, apiKey, returnURL string, err error) {
+	merchantID = strings.TrimSpace(c.merchantID)
+	apiKey = strings.TrimSpace(c.apiKey)
+	returnURL = strings.TrimSpace(c.returnURL)
+
+	if merchantID == "" {
+		return "", "", "", errors.New("platega: не задан merchantID")
+	}
+
+	if apiKey == "" {
+		return "", "", "", errors.New("platega: не задан apiKey")
+	}
+
+	if returnURL == "" {
+		return "", "", "", errors.New("platega: не задан returnURL")
+	}
+
+	return merchantID, apiKey, returnURL, nil
 }
