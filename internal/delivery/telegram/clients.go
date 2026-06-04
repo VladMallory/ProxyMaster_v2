@@ -295,7 +295,7 @@ func (c *Client) handleIosRegionView() (string, tgbotapi.InlineKeyboardMarkup) {
 // }
 
 func (c *Client) handleTopUpView() (string, tgbotapi.InlineKeyboardMarkup) {
-	return "ВНИМАНИЕ. На данный момент YooKassa принимает платежи через раз, если вдруг после пополнения у вас в течении часа не продлилась подписка, напишите в поддержку, я всегда вам помогу. Скоро платежная система изменится на другую 💰 Выберите сумму для пополнения баланса:", c.topUpKeyboard()
+	return "💰 Выберите сумму для пополнения баланса:", c.topUpKeyboard()
 }
 
 func (c *Client) handleConnectView(data string) (string, tgbotapi.InlineKeyboardMarkup) {
