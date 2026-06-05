@@ -390,6 +390,24 @@ func (s *SubscriptionService) ActivateSubscription(
 
 	s.logger.Info("пользователь найден", logger.Field{Key: "user_id", Value: userID})
 
+	// Получаем информацию о пользователе, чтобы проверить expireAt
+	userInfo, err := s.remna.GetUserInfo(userUUID)
+	if err != nil {
+		return "", s.logError(
+			"ошибка получения информации о пользователе",
+			err,
+			logger.Field{Key: "user_id", Value: userID},
+		)
+	}
+
+	// Если подписка истекла добавляем дни просрочки к totalDays.
+	// Это нужно, чтобы RemnaWave добавил дни к старому expireAt,
+	// и в итоге новый expireAt оказался = now + оплаченные дни.
+	if userInfo.Response.ExpireAt.Before(time.Now()) {
+		daysSinceExpiry := int(time.Since(userInfo.Response.ExpireAt).Hours()/24) + 1
+		totalDays += daysSinceExpiry
+	}
+
 	err = s.remna.ExtendClientSubscription(userUUID, userID, totalDays)
 	if err != nil {
 		return "", s.logError(
