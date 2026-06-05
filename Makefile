@@ -112,7 +112,7 @@ dcd:
 # только app + postgres
 # Если используешь Vault с AppRole — передай SecretID:
 #   VAULT_SECRET_ID=xxx make dcm
-dcm: dcdm
+dcm:
 	docker compose -f docker-compose.minimal.yml up -d --build
 	docker compose logs -f
 
