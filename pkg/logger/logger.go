@@ -1,23 +1,29 @@
-// Package logger предоставляет абстракцию для структурированного логирования.
-// Он скрывает реализацию (zap) за интерфейсом
 package logger
 
-// Field описывает поле лога (ключ-значение).
-type Field struct {
-	Key   string
-	Value any
-}
+import (
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
 
-// Logger интерфейс для логирования.
-// Позволяет внедрять зависимости и менять реализацию логгера.
-// Если захотим сменить логгер на другой, то нужно будет
-// переписать этот один файл.
-type Logger interface {
-	Debug(msg string, fields ...Field)
-	Info(msg string, fields ...Field)
-	Warn(msg string, fields ...Field)
-	Error(msg string, fields ...Field)
-	With(fields ...Field) Logger
-	Named(name string) Logger
-	Sync() error
+// New создаёт *zap.Logger, настроенный для продакшена.
+// Логи в JSON с ISO8601 таймстемпом — Grafana парсит корректно.
+func New(level string) (*zap.Logger, error) {
+	cfg := zap.NewProductionConfig()
+
+	if level != "" {
+		lvl, err := zap.ParseAtomicLevel(level)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Level = lvl
+	}
+
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	cfg.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
+	cfg.EncoderConfig.TimeKey = "timestamp"
+	cfg.EncoderConfig.LevelKey = "level"
+	cfg.EncoderConfig.CallerKey = "caller"
+	cfg.EncoderConfig.MessageKey = "message"
+
+	return cfg.Build()
 }

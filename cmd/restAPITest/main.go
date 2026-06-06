@@ -227,7 +227,7 @@ func main() {
 		HTTPClient: http.DefaultClient,
 	}
 
-	loggerClient, err := logger.NewZap("info")
+	loggerClient, err := logger.New("info")
 	if err != nil {
 		return
 	}

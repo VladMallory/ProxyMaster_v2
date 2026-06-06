@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type HWIDDevice struct {
@@ -65,9 +65,9 @@ func (c *RemnaClient) GetUserDevice(
 
 	c.logger.Info(
 		"устройства пользователя успешно получены",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "user_uuid", Value: userUUID},
-		logger.Field{Key: "devices_count", Value: len(response.Response.Devices)},
+		zap.String("username", username),
+		zap.String("user_uuid", userUUID),
+		zap.Int("devices_count", len(response.Response.Devices)),
 	)
 
 	return response.Response.Devices, nil
@@ -107,9 +107,9 @@ func (c *RemnaClient) SetDevices(ctx context.Context, username string, devices *
 	// Метод успешно отработал
 	c.logger.Info(
 		"успешное измение количества устройств",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "devices", Value: *devices},
-		logger.Field{Key: "status_code", Value: response.StatusCode},
+		zap.String("username", username),
+		zap.Uint8("devices", *devices),
+		zap.Int("status_code", response.StatusCode),
 	)
 
 	return nil

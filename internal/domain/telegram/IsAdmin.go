@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 // Distribution Админские команды.
@@ -25,7 +25,7 @@ func isAdmin(sender MessageSender,
 	adminID int64,
 	userRepo *database.UserStorage,
 
-	l logger.Logger,
+	l *zap.Logger,
 ) (bool, error) {
 	command = strings.TrimSpace(command)
 
@@ -51,16 +51,16 @@ func isAdmin(sender MessageSender,
 	if chatID != adminID {
 		if err := sender.SendMessage(chatID, "У вас нет прав для этой команды."); err != nil {
 			l.Error("Ошибка отправки сообщения о нехватке прав доступа",
-				logger.Field{Key: "ChatID", Value: chatID},
-				logger.Field{Key: "error", Value: err},
+				zap.Int64("ChatID", chatID),
+				zap.Error(err),
 			)
 
 			return false, fmt.Errorf("ошибка отправки сообщения о нехватке прав доступа: %w", err)
 		}
 
 		l.Info("У пользователя нет прав доступа к админской команде",
-			logger.Field{Key: "ChatID", Value: chatID},
-			logger.Field{Key: "Command", Value: command})
+			zap.Int64("ChatID", chatID),
+			zap.String("Command", command))
 
 		return true, nil
 	}
@@ -71,15 +71,15 @@ func isAdmin(sender MessageSender,
 	message := strings.TrimSpace(strings.TrimPrefix(command, Distribution))
 	if message == "" {
 		l.Warn("Админ отправил команду /distribution без текста сообщения",
-			logger.Field{Key: "ChatID", Value: chatID})
+			zap.Int64("ChatID", chatID))
 
 		if err := sender.SendMessage(
 			chatID,
 			"Пожалуйста, введите сообщение для рассылки.",
 		); err != nil {
 			l.Error("Ошибка отправки сообщения с просьбой ввести текст",
-				logger.Field{Key: "ChatID", Value: chatID},
-				logger.Field{Key: "error", Value: err})
+				zap.Int64("ChatID", chatID),
+				zap.Error(err))
 
 			return false, fmt.Errorf("ошибка отправки сообщения с просьбой ввести текст: %w", err)
 		}
@@ -91,16 +91,16 @@ func isAdmin(sender MessageSender,
 	userIDs, err := userRepo.GetActiveUserIDs()
 	if err != nil {
 		l.Error("Ошибка получения ID пользователей для рассылки",
-			logger.Field{Key: "ChatID", Value: chatID},
-			logger.Field{Key: "error", Value: err})
+			zap.Int64("ChatID", chatID),
+			zap.Error(err))
 
 		if sendErr := sender.SendMessage(
 			chatID,
 			"Не удалось получить список пользователей для рассылки.",
 		); sendErr != nil {
 			l.Error("Ошибка отправки сообщения об ошибке получения пользователей",
-				logger.Field{Key: "ChatID", Value: chatID},
-				logger.Field{Key: "error", Value: sendErr})
+				zap.Int64("ChatID", chatID),
+				zap.Error(sendErr))
 
 			return false, fmt.Errorf(
 				"ошибка отправки сообщения о неудаче получения списка пользователей: %w",
@@ -114,8 +114,8 @@ func isAdmin(sender MessageSender,
 	// Запускаем рассылку в отдельной горутине, чтобы не блокировать основной поток.
 	// Это важно для асинхронной обработки и позволяет боту оставаться отзывчивым.
 	l.Info("Начало рассылки сообщения",
-		logger.Field{Key: "ChatID", Value: chatID},
-		logger.Field{Key: "TotalUsers", Value: len(userIDs)})
+		zap.Int64("ChatID", chatID),
+		zap.Int("TotalUsers", len(userIDs)))
 
 	go func() {
 		successCount := 0
@@ -124,16 +124,16 @@ func isAdmin(sender MessageSender,
 			userID, err := strconv.ParseInt(userIDStr, 10, 64)
 			if err != nil {
 				l.Error("Ошибка конвертации ID пользователя",
-					logger.Field{Key: "UserIDStr", Value: userIDStr},
-					logger.Field{Key: "error", Value: err})
+					zap.String("UserIDStr", userIDStr),
+					zap.Error(err))
 
 				continue
 			}
 			// Отправляем сообщение каждому пользователю.
 			if err := sender.SendMessage(userID, message); err != nil {
 				l.Error("Ошибка отправки сообщения пользователю при рассылке",
-					logger.Field{Key: "UserID", Value: userID},
-					logger.Field{Key: "error", Value: err})
+					zap.Int64("UserID", userID),
+					zap.Error(err))
 			} else {
 				successCount++
 			}
@@ -143,23 +143,23 @@ func isAdmin(sender MessageSender,
 		}
 
 		l.Info("Рассылка завершена",
-			logger.Field{Key: "ChatID", Value: chatID},
-			logger.Field{Key: "SuccessCount", Value: successCount},
-			logger.Field{Key: "TotalCount", Value: len(userIDs)})
+			zap.Int64("ChatID", chatID),
+			zap.Int("SuccessCount", successCount),
+			zap.Int("TotalCount", len(userIDs)))
 	}()
 
 	// Сообщаем администратору, что рассылка успешно запущена.
 	l.Info("Администратор запустил рассылку",
-		logger.Field{Key: "ChatID", Value: chatID},
-		logger.Field{Key: "UserCount", Value: len(userIDs)})
+		zap.Int64("ChatID", chatID),
+		zap.Int("UserCount", len(userIDs)))
 
 	if err := sender.SendMessage(
 		chatID,
 		fmt.Sprintf("✅ Рассылка запущена для %d пользователей.", len(userIDs)),
 	); err != nil {
 		l.Error("Ошибка отправки подтверждения о запуске рассылки",
-			logger.Field{Key: "ChatID", Value: chatID},
-			logger.Field{Key: "error", Value: err})
+				zap.Int64("ChatID", chatID),
+				zap.Error(err))
 
 		return false, fmt.Errorf("ошибка отправки подтверждения о запуске рассылки: %w", err)
 	}

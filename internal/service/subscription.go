@@ -12,7 +12,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 type SubscriptionService struct {
 	remna           domain.RemnawaveClient
 	dbRepo          *database.UserStorage
-	logger          logger.Logger
+	logger          *zap.Logger
 	baseDeviceLimit int // Базовый лимит устройств (из DEVICE_LIMIT)
 }
 
@@ -32,7 +32,7 @@ type SubscriptionService struct {
 func NewSubscriptionService(
 	remna domain.RemnawaveClient,
 	dbRepo *database.UserStorage,
-	l logger.Logger,
+	l *zap.Logger,
 	baseDeviceLimit int,
 ) *SubscriptionService {
 	svc := &SubscriptionService{
@@ -72,16 +72,16 @@ func (s *SubscriptionService) logDuration(method string) func() {
 
 	return func() {
 		s.logger.Info("вызов метода завершен",
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "duration", Value: time.Since(start)},
+			zap.String("method", method),
+			zap.Duration("duration", time.Since(start)),
 		)
 	}
 }
 
 // logError логирует ошибку и возвращает её обернутую.
-func (s *SubscriptionService) logError(msg string, err error, fields ...logger.Field) error {
+func (s *SubscriptionService) logError(msg string, err error, fields ...zap.Field) error {
 	// Добавляем ошибку к полям
-	allFields := append([]logger.Field{{Key: "error", Value: err}}, fields...)
+	allFields := append([]zap.Field{zap.Error(err)}, fields...)
 	s.logger.Error(msg, allFields...)
 
 	return fmt.Errorf("%s: %w", msg, err)
@@ -99,7 +99,7 @@ func (s *SubscriptionService) AddPaidDevice(userID string) error {
 		return s.logError(
 			"пользователь не найден",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -109,7 +109,7 @@ func (s *SubscriptionService) AddPaidDevice(userID string) error {
 		if errors.Is(err, remnawave.ErrNotFound) {
 			s.logger.Info(
 				"пользователь не найден в RemnaWave при покупке устройства, создаем нового",
-				logger.Field{Key: "user_id", Value: userID},
+				zap.String("user_id", userID),
 			)
 
 			dto := remnawave.CreateUserDTO{
@@ -122,14 +122,14 @@ func (s *SubscriptionService) AddPaidDevice(userID string) error {
 				return s.logError(
 					"ошибка создания пользователя в RemnaWave при покупке устройства",
 					err,
-					logger.Field{Key: "user_id", Value: userID},
+					zap.String("user_id", userID),
 				)
 			}
 		} else {
 			return s.logError(
 				"ошибка поиска пользователя в RemnaWave при покупке устройства",
 				err,
-				logger.Field{Key: "user_id", Value: userID},
+				zap.String("user_id", userID),
 			)
 		}
 	}
@@ -146,8 +146,8 @@ func (s *SubscriptionService) AddPaidDevice(userID string) error {
 	if err != nil {
 		if errors.Is(err, domain.ErrMaxDevices) || errors.Is(err, domain.ErrInsufficientFunds) {
 			s.logger.Error("ошибка добавления доп. устройства",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "error", Value: err},
+				zap.String("user_id", userID),
+				zap.Error(err),
 			)
 
 			return fmt.Errorf("ошибка добавления доп устройст: %w", err)
@@ -156,7 +156,7 @@ func (s *SubscriptionService) AddPaidDevice(userID string) error {
 		return s.logError(
 			"ошибка добавления доп. устройства",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -166,7 +166,7 @@ func (s *SubscriptionService) AddPaidDevice(userID string) error {
 		return s.logError(
 			"ошибка установки устройств в remnawave",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -180,9 +180,9 @@ func (s *SubscriptionService) ResetPaidDevices(userID string) error {
 	// Отключаем все купленные услуги.
 	if err := s.dbRepo.DeactivateAllDeviceAddons(userID); err != nil {
 		return s.logError(
-			"ошибка сброса услуг доп. устройств",
+			"ошибка установки устройств в remnawave",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -192,9 +192,9 @@ func (s *SubscriptionService) ResetPaidDevices(userID string) error {
 	_, err := s.dbRepo.UpdateUser(userID, models.UpdateUserTGDTO{ExtraDevicesCount: &zero})
 	if err != nil {
 		return s.logError(
-			"ошибка обновления счетчика доп. устройств",
+			"ошибка сброса услуг доп. устройств",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -204,7 +204,7 @@ func (s *SubscriptionService) ResetPaidDevices(userID string) error {
 		return s.logError(
 			"ошибка установки устройств в remnawave",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -223,8 +223,8 @@ func (s *SubscriptionService) PrepayPaidDevices(userID string) (int, error) {
 		if errors.Is(err, domain.ErrInsufficientFunds) ||
 			errors.Is(err, domain.ErrNoActiveDeviceAddons) {
 			s.logger.Error("ошибка предоплаты доп. устройств",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "error", Value: err},
+				zap.String("user_id", userID),
+				zap.Error(err),
 			)
 
 			return 0, fmt.Errorf("ошибка предоплаты доп устройств: %w", err)
@@ -233,7 +233,7 @@ func (s *SubscriptionService) PrepayPaidDevices(userID string) (int, error) {
 		return 0, s.logError(
 			"ошибка предоплаты доп. устройств",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -260,7 +260,7 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 		30*24*time.Hour,
 	)
 	if err != nil {
-		s.logger.Error("ошибка биллинга доп. устройств", logger.Field{Key: "err_msg", Value: err})
+		s.logger.Error("ошибка биллинга доп. устройств", zap.Error(err))
 
 		return
 	}
@@ -271,9 +271,9 @@ func (s *SubscriptionService) processExtraDevicesBilling(now time.Time) {
 		if err := s.remna.SetDevices(context.Background(), userID, &devices); err != nil {
 			s.logger.Error(
 				"ошибка установки лимита устройств в remnawave",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "devices", Value: devices},
-				logger.Field{Key: "err_msg", Value: err},
+				zap.String("user_id", userID),
+				zap.Uint8("devices", devices),
+				zap.Error(err),
 			)
 		}
 	}
@@ -295,7 +295,7 @@ func (s *SubscriptionService) processSubscriptionBilling() {
 	if err != nil {
 		s.logger.Error(
 			"ошибка получения пользователей для автопродления",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return
@@ -305,8 +305,8 @@ func (s *SubscriptionService) processSubscriptionBilling() {
 		if renewErr := s.tryAutoRenewSubscription(userID); renewErr != nil {
 			s.logger.Error(
 				"ошибка автопродления подписки",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "err_msg", Value: renewErr},
+				zap.String("user_id", userID),
+				zap.Error(renewErr),
 			)
 		}
 	}
@@ -318,7 +318,7 @@ func (s *SubscriptionService) tryAutoRenewSubscription(userID string) error {
 		if errors.Is(err, domain.ErrInsufficientFunds) {
 			s.logger.Info(
 				"недостаточно средств для автопродления",
-				logger.Field{Key: "user_id", Value: userID},
+				zap.String("user_id", userID),
 			)
 
 			return nil
@@ -344,11 +344,11 @@ func (s *SubscriptionService) ActivateSubscription(
 		return "", s.logError(
 			"пользователь не найден в DB",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
-	s.logger.Info("пользователь найден", logger.Field{Key: "user_id", Value: userID})
+	s.logger.Info("пользователь найден", zap.String("user_id", userID))
 
 	// Вычисляем на сколько дней клиенту нужна подписка
 	totalDays := months * 30
@@ -361,7 +361,7 @@ func (s *SubscriptionService) ActivateSubscription(
 		if errors.Is(err, remnawave.ErrNotFound) {
 			s.logger.Info(
 				"пользователь не найден, создаем нового",
-				logger.Field{Key: "user_id", Value: userID},
+				zap.String("user_id", userID),
 			)
 
 			dto := remnawave.CreateUserDTO{
@@ -371,11 +371,11 @@ func (s *SubscriptionService) ActivateSubscription(
 
 			err = s.remna.CreateUser(dto)
 			if err != nil {
-				return "", s.logError(
-					"ошибка создания пользователя",
-					err,
-					logger.Field{Key: "user_id", Value: userID},
-				)
+			return "", s.logError(
+				"ошибка создания пользователя",
+				err,
+				zap.String("user_id", userID),
+			)
 			}
 
 			return fmt.Sprintf("пользователь %s создан на %d дней", userID, totalDays), nil
@@ -384,11 +384,11 @@ func (s *SubscriptionService) ActivateSubscription(
 		return "", s.logError(
 			"ошибка поиска пользователя",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
-	s.logger.Info("пользователь найден", logger.Field{Key: "user_id", Value: userID})
+	s.logger.Info("пользователь найден", zap.String("user_id", userID))
 
 	// Получаем информацию о пользователе, чтобы проверить expireAt
 	userInfo, err := s.remna.GetUserInfo(userUUID)
@@ -396,7 +396,7 @@ func (s *SubscriptionService) ActivateSubscription(
 		return "", s.logError(
 			"ошибка получения информации о пользователе",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
@@ -413,13 +413,13 @@ func (s *SubscriptionService) ActivateSubscription(
 		return "", s.logError(
 			"ошибка продления подписки",
 			err,
-			logger.Field{Key: "user_id", Value: userID},
+			zap.String("user_id", userID),
 		)
 	}
 
 	s.logger.Info("подписка продлена",
-		logger.Field{Key: "user_id", Value: userID},
-		logger.Field{Key: "days", Value: totalDays},
+		zap.String("user_id", userID),
+		zap.Int("days", totalDays),
 	)
 
 	return "подписка для пользователя " + userID + " продлена на " + strconv.Itoa(
@@ -435,7 +435,7 @@ func (s *SubscriptionService) AddDevice(userID string) error {
 	if err != nil {
 		s.logger.Error(
 			"failed to get user UUID",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return fmt.Errorf("failed to get user: %w", err)
@@ -445,7 +445,7 @@ func (s *SubscriptionService) AddDevice(userID string) error {
 	if err != nil {
 		s.logger.Error(
 			"failed to user by UUID",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return fmt.Errorf("failed to get user info: %w", err)
@@ -455,7 +455,7 @@ func (s *SubscriptionService) AddDevice(userID string) error {
 	if user.Response.HWIDDeviceLimit >= 5 {
 		s.logger.Info(
 			"у клиента уже максимальное количество устройств",
-			logger.Field{Key: "user", Value: userID},
+			zap.String("user", userID),
 		)
 
 		return fmt.Errorf(
@@ -469,7 +469,7 @@ func (s *SubscriptionService) AddDevice(userID string) error {
 	if err := s.remna.SetDevices(context.Background(), userID, &devices); err != nil {
 		s.logger.Error(
 			"failed to set device limit",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return fmt.Errorf("failed to set devices: %w", err)
@@ -477,8 +477,8 @@ func (s *SubscriptionService) AddDevice(userID string) error {
 
 	s.logger.Info(
 		"успешное добавление устройства в подписку клиента",
-		logger.Field{Key: "user", Value: userID},
-		logger.Field{Key: "devices", Value: devices},
+		zap.String("user", userID),
+		zap.Uint8("devices", devices),
 	)
 
 	return nil

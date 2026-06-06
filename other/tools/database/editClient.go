@@ -2,42 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
-
-type consoleLogger struct{}
-
-func (c *consoleLogger) Debug(string, ...logger.Field) {}
-func (c *consoleLogger) Info(string, ...logger.Field)  {}
-func (c *consoleLogger) Warn(string, ...logger.Field)  {}
-
-func (c *consoleLogger) Error(msg string, fields ...logger.Field) {
-	for _, f := range fields {
-		log.Fatalf("%s=%v", f.Key, f.Value)
-	}
-
-	log.Fatalln(msg)
-}
-
-func (c *consoleLogger) With(...logger.Field) logger.Logger {
-	return c // игнорируем поля для простоты
-}
-
-func (c *consoleLogger) Named(string) logger.Logger {
-	return c // игнорируем имя для простоты
-}
-
-func (c *consoleLogger) Sync() error {
-	return nil
-}
 
 // AI: писала нейронка.
 //
@@ -98,7 +71,7 @@ func main() {
 	fmt.Println("✅ Подключение к базе данных установлено")
 
 	// Создаем логгер клиент
-	loggerClient := &consoleLogger{}
+	loggerClient := zap.NewNop()
 
 	// Создаем хранилище пользователей
 	userStorage := database.NewUserStorage(db, loggerClient)

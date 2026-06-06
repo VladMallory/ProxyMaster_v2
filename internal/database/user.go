@@ -12,18 +12,18 @@ import (
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 // UserStorage structure for working with users table.
 type UserStorage struct {
 	db     *sqlx.DB
-	logger logger.Logger
+	logger *zap.Logger
 }
 
 // NewUserStorage is constructor for UserStorage struct.
-func NewUserStorage(db *sqlx.DB, logger logger.Logger) *UserStorage {
+func NewUserStorage(db *sqlx.DB, logger *zap.Logger) *UserStorage {
 	return &UserStorage{
 		db:     db,
 		logger: logger,
@@ -36,8 +36,8 @@ func (s *UserStorage) logDuration(method string) func() {
 
 	return func() {
 		s.logger.Info("вызов метода завершен",
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "duration", Value: time.Since(start)},
+			zap.String("method", method),
+			zap.Duration("duration", time.Since(start)),
 		)
 	}
 }
@@ -65,8 +65,8 @@ func (s *UserStorage) CreateUser(userData models.CreateUserDTO) (*models.UserTG,
 
 	if err != nil {
 		s.logger.Error("failed to create user",
-			logger.Field{Key: "user_id", Value: user.ID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", user.ID),
+			zap.Error(err),
 		)
 
 		return nil, fmt.Errorf("failed to scan struct: %w", err)
@@ -89,9 +89,7 @@ func (s *UserStorage) GetAllUsers() ([]models.UserTG, error) {
 
 	if err := s.db.Select(&users, query); err != nil {
 
-		s.logger.Error("failed to get all users",
-			logger.Field{Key: "err_msg", Value: err},
-		)
+		s.logger.Error("failed to get all users", zap.Error(err))
 
 		return nil, fmt.Errorf("failed to get all users: %w", err)
 	}
@@ -113,17 +111,14 @@ func (s *UserStorage) GetUserByID(id string) (*models.UserTG, error) {
 
 	if err := s.db.Get(&user, query, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Info(
-				"user not found",
-				logger.Field{Key: "id", Value: id},
-			)
+			s.logger.Info("user not found", zap.String("id", id))
 
 			return nil, domain.ErrUserNotFound
 		}
 
 		s.logger.Error("failed to get user",
-			logger.Field{Key: "id", Value: id},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("id", id),
+			zap.Error(err),
 		)
 
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -169,8 +164,8 @@ func (s *UserStorage) UpdateUser(
 	).StructScan(&updatedUser); err != nil {
 
 		s.logger.Error("failed to update user",
-			logger.Field{Key: "updateData", Value: updateData},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Any("updateData", updateData),
+			zap.Error(err),
 		)
 
 		return nil, fmt.Errorf("failed to update user: %w", err)
@@ -185,7 +180,9 @@ func (s *UserStorage) GetActiveUserIDs() ([]string, error) {
 	var userIDs []string
 	query := `SELECT id FROM users`
 	if err := s.db.Select(&userIDs, query); err != nil {
-		s.logger.Error("failed to get all user IDs", logger.Field{Key: "err_msg", Value: err})
+		s.logger.Error("failed to get all user IDs",
+			zap.Error(err),
+		)
 		return nil, fmt.Errorf("failed to get all user IDs: %w", err)
 	}
 	return userIDs, nil

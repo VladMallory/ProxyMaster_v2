@@ -17,8 +17,8 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/database"
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	domainTelegram "github.com/VladMallory/ProxyMaster_v2/internal/domain/telegram"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"go.uber.org/zap"
 )
 
 // Чтобы линтер не жаловался на дублирование кода.
@@ -53,7 +53,7 @@ func createProxyClient(cfg *config.Config) *http.Client {
 // Он хранит в себе подключение к API и умеет отправлять сообщения.
 type Client struct {
 	api                 *tgbotapi.BotAPI
-	logger              logger.Logger
+	logger              *zap.Logger
 	remnawaveClient     domain.RemnawaveClient
 	subscriptionService domain.SubscriptionService
 	paymentGateway      domain.PaymentGateway
@@ -66,7 +66,7 @@ type Client struct {
 func NewTelegramClient(
 	token string,
 	cfg *config.Config,
-	logger logger.Logger,
+	logger *zap.Logger,
 	remnawaveClient domain.RemnawaveClient,
 	subscriptionService domain.SubscriptionService,
 	paymentGateway domain.PaymentGateway,
@@ -105,7 +105,7 @@ func (c *Client) Start() {
 	// Получаем канал, в который будут падать обновления
 	updates, err := c.api.GetUpdatesChan(u)
 	if err != nil {
-		c.logger.Error("Ошибка получения обновлений", logger.Field{Key: "error", Value: err})
+		c.logger.Error("Ошибка получения обновлений", zap.Error(err))
 
 		return
 	}
@@ -128,14 +128,14 @@ func (c *Client) Start() {
 				c.cfg,
 			)
 			if err != nil {
-				c.logger.Error("Ошибка обработки callback", logger.Field{Key: "error", Value: err})
+				c.logger.Error("Ошибка обработки callback", zap.Error(err))
 			}
 
 			// Обязательно отвечаем Telegram, что мы приняли нажатие (иначе у юзера будет крутиться "часики")
 			cd := tgbotapi.NewCallback(update.CallbackQuery.ID, "")
 			if _, err := c.api.AnswerCallbackQuery(cd); err != nil {
 				c.logger.Error("Ошибка ответа на callback query",
-					logger.Field{Key: "error", Value: err},
+					zap.Error(err),
 				)
 			}
 
@@ -163,7 +163,7 @@ func (c *Client) Start() {
 				c.logger,
 				c.adminID)
 			if err != nil {
-				c.logger.Error("Ошибка обработки команды", logger.Field{Key: "error", Value: err})
+				c.logger.Error("Ошибка обработки команды", zap.Error(err))
 			}
 		}
 	}
@@ -398,8 +398,8 @@ func (c *Client) handlePrivacyPolicyView() (string, tgbotapi.InlineKeyboardMarku
 	content, err := os.ReadFile("assets/police.txt")
 	if err != nil {
 		c.logger.Error("ошибка чтения файла",
-			logger.Field{Key: "file", Value: content},
-			logger.Field{Key: "error", Value: err},
+			zap.ByteString("file", content),
+			zap.Error(err),
 		)
 
 		text := "не удалось загрузить файл политики конфиденциальности"
@@ -418,8 +418,8 @@ func (c *Client) handleUserAgreementView() (string, tgbotapi.InlineKeyboardMarku
 	content, err := os.ReadFile("assets/user_agreement.txt")
 	if err != nil {
 		c.logger.Error("ошибка чтения файла",
-			logger.Field{Key: "file", Value: "assets/user_agreement.txt"},
-			logger.Field{Key: "error", Value: err},
+			zap.String("file", "assets/user_agreement.txt"),
+			zap.Error(err),
 		)
 
 		text := "не удалось загрузить файл пользовательского соглашения"

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 // RemnaConfig хранит важные *config данные из env.
@@ -33,11 +33,11 @@ type RemnaClient struct {
 	cfg        RemnaConfig
 	httpClient *http.Client
 	// Храним логгер здесь для обращения к нему
-	logger logger.Logger
+	logger *zap.Logger
 }
 
 // NewRemnaClient конструктор для создания клиента.
-func NewRemnaClient(cfg RemnaConfig, l logger.Logger) *RemnaClient {
+func NewRemnaClient(cfg RemnaConfig, l *zap.Logger) *RemnaClient {
 	return &RemnaClient{
 		cfg: cfg,
 		httpClient: &http.Client{
@@ -62,7 +62,7 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	if err != nil {
 		c.logger.Error(
 			"failed to marshal json",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return "", fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
@@ -79,7 +79,7 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	if err != nil {
 		c.logger.Error(
 			"failed to make doRequest",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return "", fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
@@ -91,7 +91,7 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 		c.wrapErr(err, "Do", username, url)
 		c.logger.Error(
 			"failed to get response",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return "", fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
@@ -107,8 +107,8 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 
 		c.logger.Error(
 			"плохой status code",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: body},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", body),
 		)
 
 		return "", fmt.Errorf("%w: %d", ErrBadStatusCode, response.StatusCode)
@@ -129,7 +129,7 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 	if encResponse.EncryptedLink == "" {
 		c.logger.Error(
 			"ошибка получения зашифрванной подписки",
-			logger.Field{Key: "response_body", Value: string(body)},
+			zap.String("response_body", body),
 		)
 
 		return "", ErrEmptyURL
@@ -153,9 +153,9 @@ func (c *RemnaClient) doRequest(
 		if err != nil {
 			c.logger.Error(
 				"ошибка парсинга json",
-				logger.Field{Key: "err_msg", Value: err},
-				logger.Field{Key: "method", Value: method},
-				logger.Field{Key: "url", Value: url},
+				zap.Error(err),
+				zap.String("method", method),
+				zap.String("url", url),
 			)
 
 			return nil, fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
@@ -176,9 +176,9 @@ func (c *RemnaClient) doRequest(
 	if err != nil {
 		c.logger.Error(
 			"ошибка создания запроса",
-			logger.Field{Key: "err_msg", Value: err},
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "url", Value: url},
+			zap.Error(err),
+			zap.String("method", method),
+			zap.String("url", url),
 		)
 
 		return nil, fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
@@ -195,9 +195,9 @@ func (c *RemnaClient) doRequest(
 	if err != nil {
 		c.logger.Error(
 			"failed to execute doRequest",
-			logger.Field{Key: "err_msg", Value: err},
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "url", Value: url},
+			zap.Error(err),
+			zap.String("method", method),
+			zap.String("url", url),
 		)
 
 		return nil, fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
@@ -212,8 +212,8 @@ func (c *RemnaClient) readBody(resp *http.Response) (string, error) {
 	if err != nil {
 		c.logger.Error(
 			"failed to read response body",
-			logger.Field{Key: "error", Value: err.Error()},
-			logger.Field{Key: "status_code", Value: resp.StatusCode},
+			zap.String("error", err.Error()),
+			zap.Int("status_code", resp.StatusCode),
 		)
 
 		return "", fmt.Errorf("%w: %w", ErrFailedToReadBody, err)
@@ -233,7 +233,7 @@ func (c *RemnaClient) closeBody(resp *http.Response) {
 	if err := resp.Body.Close(); err != nil {
 		c.logger.Error(
 			"failed to close response body",
-			logger.Field{Key: "error", Value: err.Error()},
+			zap.String("error", err.Error()),
 		)
 	}
 }
@@ -243,8 +243,8 @@ func (c *RemnaClient) parseJSON(data string, target any) error {
 	if err := json.Unmarshal([]byte(data), target); err != nil {
 		c.logger.Error(
 			"failed to unmarshal JSON",
-			logger.Field{Key: "error", Value: err.Error()},
-			logger.Field{Key: "response_body", Value: data},
+			zap.String("error", err.Error()),
+			zap.String("response_body", data),
 		)
 
 		return fmt.Errorf("%w: %w", ErrUnmarshal, err)
@@ -286,9 +286,9 @@ func (c *RemnaClient) doRequestAndParse(
 
 		c.logger.Error(
 			"ошибка HTTP ответа",
-			logger.Field{Key: "status_code", Value: resp.StatusCode},
-			logger.Field{Key: "response", Value: respBody},
-			logger.Field{Key: "field", Value: logField},
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response", respBody),
+			zap.String("field", logField),
 		)
 
 		return ErrInternalServerError
@@ -316,32 +316,32 @@ func (c *RemnaClient) handleUpdate(response *http.Response, bodyStr string) (str
 	case http.StatusBadRequest:
 		c.logger.Error(
 			"bad doRequest while updating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, ErrBadRequest
 	case http.StatusNotFound:
 		c.logger.Error(
 			"not found while updating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, ErrNotFound
 	case http.StatusInternalServerError:
 		c.logger.Error(
 			"internal server error while updating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, ErrInternalServerError
 	default:
 		c.logger.Error(
 			"unexpected status code while updating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, fmt.Errorf("%w: %d", ErrUndefined, response.StatusCode)
@@ -363,24 +363,24 @@ func (c *RemnaClient) handleCreate(response *http.Response, bodyStr string) (str
 
 		c.logger.Error(
 			"bad doRequest while creating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, ErrBadRequestCreate
 	case http.StatusInternalServerError:
 		c.logger.Error(
 			"internal server error while creating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, ErrInternalServerError
 	default:
 		c.logger.Error(
 			"unexpected status code while creating",
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return bodyStr, fmt.Errorf("%w: %d", ErrUndefined, response.StatusCode)
@@ -393,9 +393,9 @@ func (c *RemnaClient) handleDelete(response *http.Response, bodyStr, username, u
 	case http.StatusNoContent, http.StatusOK:
 		c.logger.Info(
 			"user successfully deleted",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "UUID", Value: uuid},
-			logger.Field{Key: "status_code", Value: response.StatusCode},
+			zap.String("username", username),
+			zap.String("UUID", uuid),
+			zap.Int("status_code", response.StatusCode),
 		)
 
 		return nil
@@ -403,10 +403,10 @@ func (c *RemnaClient) handleDelete(response *http.Response, bodyStr, username, u
 	case http.StatusNotFound:
 		c.logger.Warn(
 			"user not found during deletion",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "UUID", Value: uuid},
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.String("username", username),
+			zap.String("UUID", uuid),
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return ErrNotFound
@@ -414,10 +414,10 @@ func (c *RemnaClient) handleDelete(response *http.Response, bodyStr, username, u
 	case http.StatusUnauthorized:
 		c.logger.Error(
 			"authorization failed during user deletion",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "UUID", Value: uuid},
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.String("username", username),
+			zap.String("UUID", uuid),
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return errors.New("authorization error - check authentication token")
@@ -425,10 +425,10 @@ func (c *RemnaClient) handleDelete(response *http.Response, bodyStr, username, u
 	default:
 		c.logger.Error(
 			"unexpected status code during user deletion",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "UUID", Value: uuid},
-			logger.Field{Key: "status_code", Value: response.StatusCode},
-			logger.Field{Key: "response_body", Value: bodyStr},
+			zap.String("username", username),
+			zap.String("UUID", uuid),
+			zap.Int("status_code", response.StatusCode),
+			zap.String("response_body", bodyStr),
 		)
 
 		return fmt.Errorf("unexpected status code: %d", response.StatusCode)
@@ -441,13 +441,13 @@ func (c *RemnaClient) wrapErr(err error, msg, username string, url ...string) er
 		return nil
 	}
 
-	fields := []logger.Field{
-		{Key: "username", Value: username},
-		{Key: "err_msg", Value: err},
+	fields := []zap.Field{
+		zap.String("username", username),
+		zap.Error(err),
 	}
 
 	if len(url) > 0 && url[0] != "" {
-		fields = append(fields, logger.Field{Key: "url", Value: url[0]})
+		fields = append(fields, zap.String("url", url[0]))
 	}
 
 	c.logger.Error(msg, fields...)
@@ -478,7 +478,7 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	}
 	c.logger.Info(
 		"метод включения/выключения клиента успешно отработал",
-		logger.Field{Key: "userUUID", Value: userUUID},
+		zap.String("userUUID", userUUID),
 	)
 
 	return nil
@@ -500,8 +500,8 @@ func (c *RemnaClient) logDuration(method string) func() {
 
 	return func() {
 		c.logger.Info("вызов метода завершен",
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "duration", Value: time.Since(start)},
+			zap.String("method", method),
+			zap.Duration("duration", time.Since(start)),
 		)
 	}
 }

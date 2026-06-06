@@ -16,12 +16,22 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
+
+// Client что нужно для работы с platega.
+type Client struct {
+	baseURL    string
+	merchantID string
+	apiKey     string
+	returnURL  string
+	httpClient *http.Client
+	logger     *zap.Logger
+}
 
 // NewClient создает новый экземпляр клиента Platega.
 // Если параметры пустые — подставляет из переменных окружения.
-func NewClient(merchantID, apiKey, returnURL string, l logger.Logger) *Client {
+func NewClient(merchantID, apiKey, returnURL string, l *zap.Logger) *Client {
 	if merchantID == "" {
 		merchantID = strings.TrimSpace(os.Getenv("PLATEGA_MERCHANT_ID"))
 	}
@@ -55,17 +65,17 @@ func (c *Client) logDuration(method string, err *error) func() {
 	return func() {
 		if *err != nil {
 			c.logger.Error("вызов метода завершен ошибкой",
-				logger.Field{Key: "method", Value: method},
-				logger.Field{Key: "err", Value: (*err).Error()},
-				logger.Field{Key: "duration", Value: time.Since(start)},
+				zap.String("method", method),
+				zap.String("err", (*err).Error()),
+				zap.Duration("duration", time.Since(start)),
 			)
 
 			return
 		}
 
 		c.logger.Info("вызов метода завершен",
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "duration", Value: time.Since(start)},
+			zap.String("method", method),
+			zap.Duration("duration", time.Since(start)),
 		)
 	}
 }
@@ -258,8 +268,8 @@ func (c *Client) WaitForPayment(
 		status, checkErr := c.CheckStatus(ctx, transactionID)
 		if checkErr != nil {
 			c.logger.Error("WaitForPayment: ошибка проверки статуса",
-				logger.Field{Key: "transactionID", Value: transactionID},
-				logger.Field{Key: "err", Value: checkErr.Error()},
+				zap.String("transactionID", transactionID),
+				zap.String("err", checkErr.Error()),
 			)
 		} else if status == domain.PaymentStatusSuccess || status == domain.PaymentStatusFailed {
 			return status, nil

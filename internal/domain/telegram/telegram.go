@@ -21,7 +21,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 // MessageSender — интерфейс, который должен реализовать "отправитель" (в нашем случае Telegram клиент).
@@ -1140,7 +1140,7 @@ func ProcessCommand(
 	telegramUsername string,
 	remnawaveClient domain.RemnawaveClient,
 	userRepo *database.UserStorage,
-	logger logger.Logger,
+	logger *zap.Logger,
 	adminID int64,
 ) error {
 	// проверка на админа

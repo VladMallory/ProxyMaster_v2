@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
-func newTestRemnaClient(baseURL string, logClient logger.Logger) *RemnaClient {
+func newTestRemnaClient(baseURL string, logClient *zap.Logger) *RemnaClient {
 	// Тестовая конфигурация адаптера: только нужные поля.
 	cfg := RemnaConfig{
 		PanelURL:       baseURL,
@@ -36,7 +36,7 @@ func newTestRemnaClient(baseURL string, logClient logger.Logger) *RemnaClient {
 func helperSetupClient(responseHandler http.HandlerFunc) (*RemnaClient, *httptest.Server) { //nolint:golines
 	server := httptest.NewServer(responseHandler)
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	return client, server
@@ -63,7 +63,7 @@ func helperSetupClientWithMethod(expectedMethod string, urlPath string) (*RemnaC
 		}
 	}))
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	return client, server
@@ -102,7 +102,7 @@ func TestGetUUIDByUsername(t *testing.T) {
 	defer server.Close()
 
 	// Настраиваем клиент
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	// Запускаем тест
@@ -158,7 +158,7 @@ func TestDeleteUser_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "testUser")
@@ -175,7 +175,7 @@ func TestDeleteUser_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "nonexistent")
@@ -205,7 +205,7 @@ func TestCreateUser_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
@@ -233,7 +233,7 @@ func TestCreateUser_duplicate(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
@@ -261,7 +261,7 @@ func TestSetTraffic_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.SetTraffic("testUser", 50)
@@ -326,7 +326,7 @@ func TestEncryptURL_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	gotEncrypted, err := client.EncryptURL("test-url")
@@ -348,7 +348,7 @@ func TestSetDevices_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	devices := uint8(5)
@@ -396,7 +396,7 @@ func TestBetterResetTraffic_success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.BetterResetTraffic(context.Background(), "testUser")
@@ -481,7 +481,7 @@ func TestAddInternalSquad_error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	squadTitles := []string{"squad1"}
@@ -498,7 +498,7 @@ func TestAddInternalSquad_error(t *testing.T) {
 
 // TestCreateUser_invalidDays тест на ошибку с некорректным количеством дней.
 func TestCreateUser_invalidDays(t *testing.T) {
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient("http://example.com", logClient)
 
 	// Должна быть ошибка так как days <= 0
@@ -609,7 +609,7 @@ func TestDisableClient_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DisableClient("test-uuid")
@@ -624,7 +624,7 @@ func TestDisableClient_notFound(t *testing.T) {
 
 // TestSetDevices_nil тест на ошибку при nil значении устройств.
 func TestSetDevices_nil(t *testing.T) {
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient("http://example.com", logClient)
 
 	err := client.SetDevices(context.Background(), "testUser", nil)
@@ -647,7 +647,7 @@ func TestBetterResetTraffic_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.BetterResetTraffic(context.Background(), "nonexistent")
@@ -685,7 +685,7 @@ func TestBetterResetTraffic_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.BetterResetTraffic(context.Background(), "testUser")
@@ -705,7 +705,7 @@ func TestGetUserInfo_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("nonexistent-uuid")
@@ -725,7 +725,7 @@ func TestGetUserInfo_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("invalid-uuid")
@@ -745,7 +745,7 @@ func TestGetUserInfo_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("test-uuid")
@@ -765,7 +765,7 @@ func TestGetUserStatus_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserStatus("nonexistent-uuid")
@@ -785,7 +785,7 @@ func TestGetUUIDByUsername_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "nonexistent")
@@ -815,7 +815,7 @@ func TestGetUUIDByUsername_emptyResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
@@ -830,7 +830,7 @@ func TestGetUUIDByUsername_emptyResponse(t *testing.T) {
 
 // TestDeleteUser_emptyUsername тест на ошибку при пустом username.
 func TestDeleteUser_emptyUsername(t *testing.T) {
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient("http://example.com", logClient)
 
 	err := client.DeleteUser(context.Background(), "")
@@ -853,7 +853,7 @@ func TestDeleteDeviceHWID_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteDeviceHWID(context.Background(), "nonexistent")
@@ -864,7 +864,7 @@ func TestDeleteDeviceHWID_notFound(t *testing.T) {
 
 // TestNewRemnaClient проверяет создание клиента.
 func TestNewRemnaClient(t *testing.T) {
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient("http://example.com", logClient)
 
 	if client.httpClient == nil {
@@ -885,7 +885,7 @@ func TestCreateUser_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
@@ -911,7 +911,7 @@ func TestCreateUser_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
@@ -949,7 +949,7 @@ func TestDeleteUser_unauthorized(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "testUser")
@@ -983,7 +983,7 @@ func TestDeleteUser_unexpectedStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteUser(context.Background(), "testUser")
@@ -1001,7 +1001,7 @@ func TestGetUUIDByUsername_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
@@ -1028,7 +1028,7 @@ func TestGetUUIDByUsername_invalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
@@ -1048,7 +1048,7 @@ func TestSetDevices_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	devices := uint8(5)
@@ -1067,7 +1067,7 @@ func TestAddInternalSquad_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	squadTitles := []string{"squad1"}
@@ -1090,7 +1090,7 @@ func TestEnableClient_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.EnableClient("test-uuid")
@@ -1112,7 +1112,7 @@ func TestDisableClient_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DisableClient("test-uuid")
@@ -1139,7 +1139,7 @@ func TestGetUserInfo_unmarshalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, err := client.GetUserInfo("test-uuid")
@@ -1163,7 +1163,7 @@ func TestExtendClientSubscription_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.ExtendClientSubscription("test-uuid", "testUser", 30)
@@ -1181,7 +1181,7 @@ func TestExtendClientSubscription_badRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.ExtendClientSubscription("test-uuid", "testUser", 30)
@@ -1198,7 +1198,7 @@ func TestEnableClient_notFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.EnableClient("nonexistent-uuid")
@@ -1220,7 +1220,7 @@ func TestEnableClient_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.EnableClient("test-uuid")
@@ -1242,7 +1242,7 @@ func TestDisableClient_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DisableClient("test-uuid")
@@ -1264,7 +1264,7 @@ func TestSetTraffic_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.SetTraffic("testUser", 50)
@@ -1282,7 +1282,7 @@ func TestAddInternalSquad_emptyList(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	squadTitles := []string{}
@@ -1315,7 +1315,7 @@ func TestDeleteDeviceHWID_internalError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	err := client.DeleteDeviceHWID(context.Background(), "testUser")
@@ -1332,7 +1332,7 @@ func TestContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -1388,7 +1388,7 @@ func TestGetUserInfo_statusCodes(t *testing.T) {
 			}))
 			defer server.Close()
 
-			logClient, _ := logger.NewZap("debug")
+			logClient := zap.NewNop()
 			client := newTestRemnaClient(server.URL, logClient)
 
 			_, err := client.GetUserInfo("test-uuid")
@@ -1405,7 +1405,7 @@ func TestGetUserInfo_statusCodes(t *testing.T) {
 
 // TestGetUUIDByUsername_networkError тест на сетевую ошибку (connection refused).
 func TestGetUUIDByUsername_networkError(t *testing.T) {
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient("http://localhost:9999", logClient)
 
 	_, err := client.GetUUIDByUsername(context.Background(), "testUser")
@@ -1426,7 +1426,7 @@ func TestCreateUser_requestBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	dto := CreateUserDTO{
@@ -1465,7 +1465,7 @@ func TestGetUserStatus_differentStatuses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			logClient, _ := logger.NewZap("debug")
+			logClient := zap.NewNop()
 			client := newTestRemnaClient(server.URL, logClient)
 
 			gotStatus, err := client.GetUserStatus("test-uuid")
@@ -1499,7 +1499,7 @@ func TestSetDevices_boundaryValues(t *testing.T) {
 			}))
 			defer server.Close()
 
-			logClient, _ := logger.NewZap("debug")
+			logClient := zap.NewNop()
 			client := newTestRemnaClient(server.URL, logClient)
 
 			err := client.SetDevices(context.Background(), "testUser", &tt.devices)
@@ -1529,7 +1529,7 @@ func TestRequestHeaders(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, _ = client.GetUUIDByUsername(context.Background(), "testUser")
@@ -1591,7 +1591,7 @@ func TestSetTraffic_boundaryValues(t *testing.T) {
 			}))
 			defer server.Close()
 
-			logClient, _ := logger.NewZap("debug")
+			logClient := zap.NewNop()
 			client := newTestRemnaClient(server.URL, logClient)
 
 			_ = client.SetTraffic("testUser", tt.gb)
@@ -1621,7 +1621,7 @@ func TestURLContainsToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logClient, _ := logger.NewZap("debug")
+	logClient := zap.NewNop()
 	client := newTestRemnaClient(server.URL, logClient)
 
 	_, _ = client.GetUUIDByUsername(context.Background(), "testUser")

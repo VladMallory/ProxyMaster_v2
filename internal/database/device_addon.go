@@ -9,8 +9,8 @@ import (
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // CreateDeviceAddon создает запись купленной услуги "доп. устройство".
@@ -42,9 +42,9 @@ func (s *UserStorage) CreateDeviceAddon(
 		addon.CreatedAt,
 	).StructScan(addon); err != nil {
 		s.logger.Error("failed to create device addon",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "addon_id", Value: addon.ID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.String("addon_id", addon.ID),
+			zap.Error(err),
 		)
 
 		return nil, fmt.Errorf("failed to create device addon: %w", err)
@@ -65,8 +65,8 @@ func (s *UserStorage) CountActiveDeviceAddons(userID string) (int, error) {
 	var cnt int
 	if err := s.db.QueryRowx(query, userID).Scan(&cnt); err != nil {
 		s.logger.Error("failed to count device addons",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return 0, fmt.Errorf("failed to count device addons: %w", err)
 	}
@@ -86,8 +86,8 @@ func (s *UserStorage) GetNextDeviceAddonChargeAt(userID string) (*time.Time, err
 	var nextChargeAt sql.NullTime
 	if err := s.db.QueryRowx(query, userID).Scan(&nextChargeAt); err != nil {
 		s.logger.Error("failed to get next charge date for device addons",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return nil, fmt.Errorf("failed to get next charge date: %w", err)
 	}
@@ -110,8 +110,8 @@ func (s *UserStorage) DeactivateAllDeviceAddons(userID string) error {
 
 	if _, err := s.db.Exec(query, userID); err != nil {
 		s.logger.Error("failed to deactivate device addons",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return fmt.Errorf("failed to deactivate device addons: %w", err)
 	}
@@ -135,8 +135,8 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	)
 	if err != nil {
 		s.logger.Error("failed to begin transaction for AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -148,14 +148,14 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	if err := tx.QueryRowx(lockQuery, userID).Scan(&lockedID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.logger.Error("user not found when locking for AddDeviceAddonAtomic",
-				logger.Field{Key: "user_id", Value: userID},
-				logger.Field{Key: "err_msg", Value: domain.ErrUserNotFound},
+				zap.String("user_id", userID),
+				zap.Error(domain.ErrUserNotFound),
 			)
 			return 0, domain.ErrUserNotFound
 		}
 		s.logger.Error("failed to lock user for AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return 0, fmt.Errorf("failed to lock user: %w", err)
 	}
@@ -174,8 +174,8 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	var activeAddons int
 	if err := tx.QueryRowx(countQuery, userID).Scan(&activeAddons); err != nil {
 		s.logger.Error("failed to count active addons for AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return 0, fmt.Errorf("failed to count active addons: %w", err)
 	}
@@ -188,10 +188,10 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			baseLimit+activeAddons,
 		)
 		s.logger.Error("max devices limit reached",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "limit", Value: maxLimit},
-			logger.Field{Key: "current", Value: baseLimit + activeAddons},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Int("limit", maxLimit),
+			zap.Int("current", baseLimit+activeAddons),
+			zap.Error(err),
 		)
 		return 0, err
 	}
@@ -205,9 +205,9 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	`
 	if _, err := tx.Exec(insertQuery, addonID, userID, nextChargeAt, time.Now()); err != nil {
 		s.logger.Error("failed to insert device addon in AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "addon_id", Value: addonID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.String("addon_id", addonID),
+			zap.Error(err),
 		)
 		return 0, fmt.Errorf("failed to create device addon: %w", err)
 	}
@@ -216,9 +216,9 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	newCount = activeAddons + 1
 	if err := s.setExtraDevicesCountTx(tx, userID, newCount); err != nil {
 		s.logger.Error("failed to set extra devices count in AddDeviceAddonAtomic",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "new_count", Value: newCount},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Int("new_count", newCount),
+			zap.Error(err),
 		)
 		return 0, err
 	}
@@ -226,8 +226,8 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 	// Коммитим транзакцию.
 	if err := tx.Commit(); err != nil {
 		s.logger.Error("failed to commit AddDeviceAddonAtomic transaction",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Error(err),
 		)
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}

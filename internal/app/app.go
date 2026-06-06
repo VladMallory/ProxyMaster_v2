@@ -13,8 +13,8 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payments/platega"
-	"github.com/VladMallory/ProxyMaster_v2/internal/service"
 	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"github.com/VladMallory/ProxyMaster_v2/internal/service"
 )
 
 // Application главный интерфейс приложения.
@@ -49,7 +49,7 @@ func New() (Application, error) {
 
 	// ===logger===
 	// Инициализируем главный логгер.
-	loggerClient, err := logger.NewZap(cfg.LoggerLevel)
+	loggerClient, err := logger.New(cfg.LoggerLevel)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка инициализации логгера: %w", err)
 	}

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/models"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // CreateUserDTO для передачи данных при создании пользователя.
@@ -82,7 +82,7 @@ func (c *RemnaClient) CreateUser(dto CreateUserDTO) error {
 
 	c.logger.Info(
 		"успешное создание пользователя в панели",
-		logger.Field{Key: "username", Value: dto.Username},
+		zap.String("username", dto.Username),
 	)
 
 	return nil
@@ -112,9 +112,9 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days i
 	if resp.StatusCode == http.StatusOK {
 		c.logger.Info(
 			"Период подписки продлён",
-			logger.Field{Key: "username", Value: username},
-			logger.Field{Key: "user_uuid", Value: userUUID},
-			logger.Field{Key: "days", Value: days},
+			zap.String("username", username),
+			zap.String("user_uuid", userUUID),
+			zap.Int("days", days),
 		)
 
 		return nil
@@ -143,7 +143,7 @@ func (c *RemnaClient) EnableClient(userUUID string) error {
 
 	c.logger.Info(
 		"пользователь успешно включен",
-		logger.Field{Key: "userUUID", Value: userUUID},
+		zap.String("userUUID", userUUID),
 	)
 
 	return nil
@@ -157,7 +157,7 @@ func (c *RemnaClient) DisableClient(userUUID string) error {
 
 	c.logger.Info(
 		"пользователь успешно выключен",
-		logger.Field{Key: "userUUID", Value: userUUID},
+		zap.String("userUUID", userUUID),
 	)
 
 	return nil
@@ -219,7 +219,7 @@ func (c *RemnaClient) GetAllUsers(ctx context.Context) ([]models.User, error) {
 
 	c.logger.Info(
 		"список пользователей RemnaWave успешно получен",
-		logger.Field{Key: "users_total", Value: len(allUsers)},
+		zap.Int("users_total", len(allUsers)),
 	)
 
 	return allUsers, nil
@@ -297,8 +297,8 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 	if userData.Response.UUID == "" || userData.Response.Username == "" {
 		c.logger.Error(
 			"received empty UUID or username in response",
-			logger.Field{Key: "response_uuid", Value: userData.Response.UUID},
-			logger.Field{Key: "response_username", Value: userData.Response.Username},
+			zap.String("response_uuid", userData.Response.UUID),
+			zap.String("response_username", userData.Response.Username),
 		)
 
 		return "", ErrUUIDorUsernameIsNill
@@ -306,8 +306,8 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 
 	c.logger.Info(
 		"получен UUID пользователя",
-		logger.Field{Key: "username", Value: username},
-		logger.Field{Key: "uuid", Value: userData.Response.UUID},
+		zap.String("username", username),
+		zap.String("uuid", userData.Response.UUID),
 	)
 
 	// Возвращаем UUID из структуры

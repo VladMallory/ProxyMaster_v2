@@ -3,9 +3,9 @@ package database
 import (
 	"fmt"
 
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 // setExtraDevicesCountTx устанавливает количество доп. устройств в рамках транзакции.
@@ -18,9 +18,9 @@ func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int
 	`
 	if _, err := tx.Exec(query, cnt, userID); err != nil {
 		s.logger.Error("failed to update extra_devices_count in tx",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "cnt", Value: cnt},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Int("cnt", cnt),
+			zap.Error(err),
 		)
 		return fmt.Errorf("failed to update extra_devices_count: %w", err)
 	}
@@ -37,8 +37,8 @@ func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) e
 	`
 	if _, err := tx.Exec(query, pq.Array(addonIDs)); err != nil {
 		s.logger.Error("failed to deactivate device addons in tx",
-			logger.Field{Key: "addon_ids", Value: addonIDs},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Strings("addon_ids", addonIDs),
+			zap.Error(err),
 		)
 		return fmt.Errorf("failed to deactivate device addons: %w", err)
 	}
@@ -55,9 +55,9 @@ func (s *UserStorage) decrementExtraDevicesCountTx(tx *sqlx.Tx, userID string, a
 	`
 	if _, err := tx.Exec(query, amount, userID); err != nil {
 		s.logger.Error("failed to decrement extra_devices_count in tx",
-			logger.Field{Key: "user_id", Value: userID},
-			logger.Field{Key: "amount", Value: amount},
-			logger.Field{Key: "err_msg", Value: err},
+			zap.String("user_id", userID),
+			zap.Int("amount", amount),
+			zap.Error(err),
 		)
 		return fmt.Errorf("failed to decrement extra_devices_count: %w", err)
 	}

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 // Client хранит настройки и зависимости для общения с API ЮKassa.
@@ -28,16 +28,14 @@ type Client struct {
 	secretKey  string
 	returnURL  string
 	httpClient *http.Client
-	logger     logger.Logger
+	logger     *zap.Logger
 }
 
 // NewClient создает клиент ЮKassa.
 // Если какие-то параметры не переданы (пустые строки), клиент попытается взять их из переменных окружения.
-func NewClient(shopID, secretKey, returnURL string, l logger.Logger) *Client {
-	// В этом проекте логгер везде внедряется зависимостью.
-	// Но чтобы клиент было проще использовать в тестах/черновиках, делаем безопасный fallback.
+func NewClient(shopID, secretKey, returnURL string, l *zap.Logger) *Client {
 	if l == nil {
-		l = nopLogger{}
+		l = zap.NewNop()
 	}
 
 	c := &Client{
@@ -124,8 +122,8 @@ func (c *Client) CreateTransaction(ctx context.Context, amount float64, orderID 
 		if closeErr := httpResp.Body.Close(); closeErr != nil {
 			c.logger.Error(
 				"ошибка при закрытии тела ответа",
-				logger.Field{Key: "method", Value: "CreateTransaction"},
-				logger.Field{Key: "err_msg", Value: closeErr.Error()},
+				zap.String("method", "CreateTransaction"),
+				zap.String("err_msg", closeErr.Error()),
 			)
 		}
 	}()
@@ -268,8 +266,8 @@ func (c *Client) logDuration(method string) func() {
 	return func() {
 		c.logger.Info(
 			"вызов метода завершен",
-			logger.Field{Key: "method", Value: method},
-			logger.Field{Key: "duration", Value: time.Since(start)},
+			zap.String("method", method),
+			zap.Duration("duration", time.Since(start)),
 		)
 	}
 }
@@ -373,23 +371,6 @@ func (p *createPaymentResponse) GetRawResponse() any {
 // nopLogger — безопасный "пустой" логгер на случай, если клиент создают без логгера.
 type nopLogger struct{}
 
-// Debug ничего не делает.
-func (nopLogger) Debug(string, ...logger.Field) {}
-
-// Info ничего не делает.
-func (nopLogger) Info(string, ...logger.Field) {}
-
-// Warn ничего не делает.
-func (nopLogger) Warn(string, ...logger.Field) {}
-
-// Error ничего не делает.
-func (nopLogger) Error(string, ...logger.Field) {}
-
-// With возвращает тот же логгер.
-func (nopLogger) With(...logger.Field) logger.Logger { return nopLogger{} }
-
-// Named возвращает тот же логгер.
-func (nopLogger) Named(string) logger.Logger { return nopLogger{} }
-
-// Sync ничего не делает.
-func (nopLogger) Sync() error { return nil }
+func (nopLogger) Info(string, ...zap.Field)  {}
+func (nopLogger) Error(string, ...zap.Field) {}
+func (nopLogger) Sync() error                { return nil }

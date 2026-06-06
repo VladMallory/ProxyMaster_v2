@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,14 +24,14 @@ type MessageSender interface {
 type SubscriptionReminderService struct {
 	remna  domain.RemnawaveClient
 	sender MessageSender
-	logger logger.Logger
+	logger *zap.Logger
 	now    func() time.Time
 }
 
 func NewSubscriptionReminderService(
 	remna domain.RemnawaveClient,
 	sender MessageSender,
-	logger logger.Logger,
+	logger *zap.Logger,
 ) *SubscriptionReminderService {
 	return &SubscriptionReminderService{
 		remna:  remna,
@@ -65,7 +65,7 @@ func (s *SubscriptionReminderService) Process(ctx context.Context) {
 	users, err := s.remna.GetAllUsers(ctx)
 	if err != nil {
 		s.logger.Error("не удалось получить пользователей RemnaWave",
-			logger.Field{Key: "error", Value: err},
+			zap.Error(err),
 		)
 
 		return
@@ -89,9 +89,9 @@ func (s *SubscriptionReminderService) Process(ctx context.Context) {
 		if err != nil {
 			s.logger.Error(
 				"не удалось преобразовать username в telegram chat id",
-				logger.Field{Key: "username", Value: user.Username},
-				logger.Field{Key: "uuid", Value: user.UUID},
-				logger.Field{Key: "error", Value: err},
+				zap.String("username", user.Username),
+				zap.String("uuid", user.UUID),
+				zap.Error(err),
 			)
 
 			continue
@@ -111,9 +111,9 @@ func (s *SubscriptionReminderService) Process(ctx context.Context) {
 		if err := s.sender.SendMessage(chatID, message); err != nil {
 			s.logger.Error(
 				"не удалось отправить напоминание о подписке",
-				logger.Field{Key: "username", Value: user.Username},
-				logger.Field{Key: "uuid", Value: user.UUID},
-				logger.Field{Key: "error", Value: err},
+				zap.String("username", user.Username),
+				zap.String("uuid", user.UUID),
+				zap.Error(err),
 			)
 
 			continue
@@ -121,7 +121,7 @@ func (s *SubscriptionReminderService) Process(ctx context.Context) {
 
 		s.logger.Info(
 			"Пользователю отправлено сообщение о продлении подписки",
-			logger.Field{Key: "username", Value: chatID},
+			zap.Int64("username", chatID),
 		)
 	}
 }

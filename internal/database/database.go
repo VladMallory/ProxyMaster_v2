@@ -4,20 +4,20 @@ package database
 import (
 	"fmt"
 
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 // Connect is function for database connection.
-func Connect(databaseURL string, l logger.Logger) (*sqlx.DB, error) {
+func Connect(databaseURL string, l *zap.Logger) (*sqlx.DB, error) {
 	// Подключаемся к Postgres.
 	db, err := sqlx.Connect("postgres", databaseURL)
 	if err != nil {
 		l.Error("failed db connection",
-			logger.Field{Key: "err_msg", Value: err},
+			zap.Error(err),
 		)
 
 		return nil, fmt.Errorf("failed database connection: %w", err)
