@@ -106,7 +106,9 @@ logs:
 	docker compose logs -f
 
 ## Остановить докер
+## Останавливает compose-контейнеры и vault (вне compose)
 dcd:
+	docker stop vault 2>/dev/null || true
 	docker compose down
 
 # только app + postgres
