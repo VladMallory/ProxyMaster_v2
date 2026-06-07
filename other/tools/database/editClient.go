@@ -1,3 +1,4 @@
+// nolint
 package main
 
 import (
@@ -5,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/database"
-	"github.com/VladMallory/ProxyMaster_v2/internal/models"
+	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/domain"
+	database "github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
@@ -108,7 +109,7 @@ func main() {
 	}
 
 	// Ищем пользователя в списке
-	var foundUser *models.UserTG
+	var foundUser *domain.UserTG
 
 	for i := range users {
 		if users[i].ID == input {
@@ -183,7 +184,7 @@ func deleteUserByID(db *sqlx.DB, userID string) error {
 }
 
 // printUsersTable выводит таблицу пользователей в красивом формате.
-func printUsersTable(users []models.UserTG) {
+func printUsersTable(users []domain.UserTG) {
 	if len(users) == 0 {
 		fmt.Println("📭 В базе данных нет пользователей")
 	}
@@ -224,7 +225,7 @@ func printUsersTable(users []models.UserTG) {
 }
 
 // printStatistics выводит статистику по пользователям.
-func printStatistics(users []models.UserTG) {
+func printStatistics(users []domain.UserTG) {
 	var trialUsers int
 
 	var totalExtraDevices int
@@ -250,7 +251,7 @@ func printStatistics(users []models.UserTG) {
 }
 
 // printRegistrationStats показывает статистику регистраций по дням.
-func printRegistrationStats(users []models.UserTG) {
+func printRegistrationStats(users []domain.UserTG) {
 	// Группируем по дням
 	registrationByDay := make(map[string]int)
 

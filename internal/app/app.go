@@ -9,12 +9,13 @@ import (
 	"strconv"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
-	"github.com/VladMallory/ProxyMaster_v2/internal/database"
-	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/telegram"
-	"github.com/VladMallory/ProxyMaster_v2/internal/infrastructure/remnawave"
-	"github.com/VladMallory/ProxyMaster_v2/internal/payments/platega"
-	"github.com/VladMallory/ProxyMaster_v2/pkg/logger"
-	"github.com/VladMallory/ProxyMaster_v2/internal/service"
+	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/service"
+	database "github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
+	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/payments/platega"
+	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
+	dbpkg "github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/logger"
+	"github.com/VladMallory/ProxyMaster_v2/internal/transport/telegram"
 )
 
 // Application главный интерфейс приложения.
@@ -73,7 +74,7 @@ func New() (Application, error) {
 
 	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)
 
-	db, err := database.Connect(cfg.DatabaseURL, databaseLogger)
+	db, err := dbpkg.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
 	}

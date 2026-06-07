@@ -101,6 +101,7 @@ func New() (*Config, error) {
 	}, nil
 }
 
+// nolint: cyclop
 func injectVaultSecrets() error {
 	if os.Getenv("VAULT") != "enable" {
 		return nil

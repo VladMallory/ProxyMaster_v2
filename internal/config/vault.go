@@ -44,6 +44,7 @@ func appRoleLogin(client *vault.Client, roleID, secretID string) error {
 	}
 
 	client.SetToken(token)
+
 	return nil
 }
 
@@ -55,7 +56,9 @@ func readSecretIDFromFile(path string) string {
 	if err != nil {
 		log.Fatalf("vault: не могу прочитать %s: %v", path, err)
 	}
-	return strings.TrimSpace(string(data))
+	result := strings.TrimSpace(string(data))
+
+	return result
 }
 
 func readVaultSecrets(client *vault.Client, path string) (map[string]string, error) {
