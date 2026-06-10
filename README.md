@@ -32,11 +32,20 @@ TELEGRAM_SUPPORT=https://t.me/
 TELEGRAM_ADMIN_ID=
 
 # Платежная система
-# YOUKASSA
+##Указать какая у вас платежная система, platega или yookassa
+PAYMENT_PROVIDER=platega
+
+## YOUKASSA
 YOUKASSA_SHOP_ID=
 YOUKASSA_SECRET_KEY=
+YOUKASSA_RETURN_URL=
 YOUKASSA_BASE_URL=https://api.youkassa.ru
-YOUKASSA_RETURN_URL=https://google.com
+
+
+## PLATEGA
+PLATEGA_RETURN_URL=
+PLATEGA_API_KEY=
+PLATEGA_MERCHANT_ID=
 
 # Если используете SOCKS5, то тут можно указать адрес
 # SOCKS5

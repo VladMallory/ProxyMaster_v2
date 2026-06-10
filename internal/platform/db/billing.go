@@ -1,4 +1,5 @@
-package database
+//nolint:cyclop,nlreturn
+package db
 
 import (
 	"context"
@@ -7,12 +8,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	subsDevice "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/device"
 	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
-// PrepayDeviceAddonsAtomic оплачивает все активные дополнительные устройства пользователя.
 func (s *UserStorage) PrepayDeviceAddonsAtomic(
 	userID string,
 	priceRUB int,
@@ -20,32 +21,18 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 ) (count int, err error) {
 	defer s.logDuration("PrepayDeviceAddonsAtomic")()
 	if priceRUB <= 0 {
-		err := fmt.Errorf("priceRUB должен быть > 0")
-		s.logger.Error("invalid priceRUB",
-			zap.Int("priceRUB", priceRUB),
-			zap.Error(err),
-		)
-		return 0, err
+		return 0, errors.New("priceRUB должен быть > 0")
 	}
+
 	if chargePeriod <= 0 {
-		err := fmt.Errorf("chargePeriod должен быть > 0")
-		s.logger.Error("invalid chargePeriod",
-			zap.Duration("chargePeriod", chargePeriod),
-			zap.Error(err),
-		)
-		return 0, err
+		return 0, errors.New("chargePeriod должен быть > 0")
 	}
 
 	tx, err := s.db.BeginTxx(
 		context.Background(),
 		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
 	)
-
 	if err != nil {
-		s.logger.Error("failed to begin transaction for PrepayDeviceAddonsAtomic",
-			zap.String("user_id", userID),
-			zap.Error(err),
-		)
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -54,13 +41,15 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 	var lockedID string
 	if err := tx.QueryRowx(lockQuery, userID).Scan(&lockedID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			s.logger.Error("user not found when locking for PrepayDeviceAddonsAtomic",
+			s.logger.Error(
+				"user not found when locking for PrepayDeviceAddonsAtomic",
 				zap.String("user_id", userID),
 				zap.Error(domain.ErrUserNotFound),
 			)
 			return 0, domain.ErrUserNotFound
 		}
-		s.logger.Error("failed to lock user for PrepayDeviceAddonsAtomic",
+		s.logger.Error(
+			"failed to lock user for PrepayDeviceAddonsAtomic",
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
@@ -75,7 +64,8 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 	`
 	var addonIDs []string
 	if err := tx.Select(&addonIDs, addonsQuery, userID); err != nil {
-		s.logger.Error("failed to select active addons for PrepayDeviceAddonsAtomic",
+		s.logger.Error(
+			"failed to select active addons for PrepayDeviceAddonsAtomic",
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
@@ -83,12 +73,13 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 	}
 	if len(addonIDs) == 0 {
 		if err := tx.Commit(); err != nil {
-			s.logger.Error("failed to commit PrepayDeviceAddonsAtomic with no addons",
+			s.logger.Error(
+				"failed to commit PrepayDeviceAddonsAtomic with no addons",
 				zap.Error(err),
 			)
 			return 0, fmt.Errorf("failed to commit transaction: %w", err)
 		}
-		return 0, domain.ErrNoActiveDeviceAddons
+		return 0, subsDevice.ErrNoActiveDeviceAddons
 	}
 
 	seconds := int64(chargePeriod.Seconds())
@@ -98,7 +89,8 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 	WHERE id = ANY($2)
 	`
 	if _, err := tx.Exec(updateQuery, seconds, pq.Array(addonIDs)); err != nil {
-		s.logger.Error("failed to update next_charge_at for PrepayDeviceAddonsAtomic",
+		s.logger.Error(
+			"failed to update next_charge_at for PrepayDeviceAddonsAtomic",
 			zap.Strings("addon_ids", addonIDs),
 			zap.Error(err),
 		)
@@ -106,7 +98,8 @@ func (s *UserStorage) PrepayDeviceAddonsAtomic(
 	}
 
 	if err := tx.Commit(); err != nil {
-		s.logger.Error("failed to commit PrepayDeviceAddonsAtomic transaction",
+		s.logger.Error(
+			"failed to commit PrepayDeviceAddonsAtomic transaction",
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
@@ -121,9 +114,6 @@ type dueDeviceAddonRow struct {
 	UserID string `db:"user_id"`
 }
 
-// ProcessDueDeviceAddonsBilling обрабатывает биллинг просроченных дополнительных устройств.
-// Находит истекшие device_addons и деактивирует их, обновляя счетчик users.extra_devices_count.
-// Возвращает map[userID]activeCount - количество активных доп. устройств после деактивации.
 func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	now time.Time,
 	limit int,
@@ -135,20 +125,10 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		limit = 200
 	}
 	if priceRUB <= 0 {
-		err := fmt.Errorf("priceRUB должен быть > 0")
-		s.logger.Error("invalid priceRUB",
-			zap.Int("priceRUB", priceRUB),
-			zap.Error(err),
-		)
-		return nil, err
+		return nil, errors.New("priceRUB должен быть > 0")
 	}
 	if chargePeriod <= 0 {
-		err := fmt.Errorf("chargePeriod должен быть > 0")
-		s.logger.Error("invalid chargePeriod",
-			zap.Duration("chargePeriod", chargePeriod),
-			zap.Error(err),
-		)
-		return nil, err
+		return nil, errors.New("chargePeriod должен быть > 0")
 	}
 
 	tx, err := s.db.BeginTxx(
@@ -156,7 +136,8 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
 	)
 	if err != nil {
-		s.logger.Error("failed to begin transaction",
+		s.logger.Error(
+			"failed to begin transaction",
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -174,7 +155,8 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 
 	var due []dueDeviceAddonRow
 	if err := tx.Select(&due, selectDueQuery, now, limit); err != nil {
-		s.logger.Error("failed to select due device addons",
+		s.logger.Error(
+			"failed to select due device addons",
 			zap.Int("limit", limit),
 			zap.Error(err),
 		)
@@ -182,12 +164,13 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	}
 	if len(due) == 0 {
 		if err := tx.Commit(); err != nil {
-			s.logger.Error("failed to commit empty billing transaction",
+			s.logger.Error(
+				"failed to commit empty billing transaction",
 				zap.Error(err),
 			)
 			return nil, fmt.Errorf("failed to commit empty billing transaction: %w", err)
 		}
-		return nil, nil
+		return make(map[string]int), nil
 	}
 
 	byUser := make(map[string][]string)
@@ -200,25 +183,24 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		if len(addonIDs) == 0 {
 			continue
 		}
-		// Деактивируем истекшие устройства.
 		if err := s.deactivateDeviceAddonsTx(tx, addonIDs); err != nil {
-			s.logger.Error("failed to deactivate device addons",
+			s.logger.Error(
+				"failed to deactivate device addons",
 				zap.String("user_id", userID),
 				zap.Strings("addon_ids", addonIDs),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		// Обновляем счетчик доп. устройств.
 		if err := s.decrementExtraDevicesCountTx(tx, userID, len(addonIDs)); err != nil {
-			s.logger.Error("failed to decrement extra_devices_count",
+			s.logger.Error(
+				"failed to decrement extra_devices_count",
 				zap.String("user_id", userID),
 				zap.Int("amount", len(addonIDs)),
 				zap.Error(err),
 			)
 			return nil, err
 		}
-		// Считаем оставшиеся активные устройства в этой же транзакции.
 		countQuery := `
 		SELECT COUNT(*)
 		FROM (
@@ -230,7 +212,8 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 		`
 		var activeCount int
 		if err := tx.QueryRowx(countQuery, userID).Scan(&activeCount); err != nil {
-			s.logger.Error("failed to count remaining active addons",
+			s.logger.Error(
+				"failed to count remaining active addons",
 				zap.String("user_id", userID),
 				zap.Error(err),
 			)
@@ -240,7 +223,8 @@ func (s *UserStorage) ProcessDueDeviceAddonsBilling(
 	}
 
 	if err := tx.Commit(); err != nil {
-		s.logger.Error("failed to commit billing transaction",
+		s.logger.Error(
+			"failed to commit billing transaction",
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("failed to commit billing transaction: %w", err)

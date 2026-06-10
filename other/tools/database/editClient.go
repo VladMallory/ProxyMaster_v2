@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/domain"
-	database "github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	storage "github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
@@ -75,7 +75,7 @@ func main() {
 	loggerClient := zap.NewNop()
 
 	// Создаем хранилище пользователей
-	userStorage := database.NewUserStorage(db, loggerClient)
+	userStorage := storage.NewUserStorage(db, loggerClient)
 
 	// Получаем всех пользователей
 	fmt.Println("\n📋 Загружаю список пользователей...")

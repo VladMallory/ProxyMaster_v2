@@ -26,8 +26,8 @@ type Config struct {
 	TelegramSupport string
 	TelegramAdminID string
 
-	DatabaseURL string
-
+	DatabaseURL       string
+	PaymentProvider   string
 	PlategaMerchantID string
 	PlategaAPIKey     string
 	PlategaReturnURL  string
@@ -36,9 +36,10 @@ type Config struct {
 	YouKassaSecretKey string
 	YouKassaReturnURL string
 
-	PricePerMonth string
-	DeviceLimit   int
-	TrafficLimit  int64
+	PricePerMonth  string
+	DeviceLimit    int
+	MaxDeviceLimit int
+	TrafficLimit   int64
 
 	LoggerLevel string
 
@@ -66,6 +67,12 @@ func New() (*Config, error) {
 		log.Fatalln("укажите лимит устройств (DEVICE_LIMIT)")
 	}
 
+	maxDeviceLimitStr := os.Getenv("MAX_DEVICE_LIMIT")
+	maxDeviceLimit, err := strconv.Atoi(maxDeviceLimitStr)
+	if err != nil || maxDeviceLimit < 1 {
+		log.Fatalln("укажите максимальный лимит устройств (MAX_DEVICE_LIMIT)")
+	}
+
 	trafficLimitStr := os.Getenv("TRAFFIC_LIMIT")
 	trafficLimit, err := strconv.ParseInt(trafficLimitStr, 10, 64)
 	if err != nil || trafficLimit <= 1 {
@@ -84,6 +91,7 @@ func New() (*Config, error) {
 		TelegramSupport:     os.Getenv("TELEGRAM_SUPPORT"),
 		TelegramAdminID:     os.Getenv("TELEGRAM_ADMIN_ID"),
 		DatabaseURL:         databaseURL,
+		PaymentProvider:     os.Getenv("PAYMENT_PROVIDER"),
 		PlategaMerchantID:   os.Getenv("PLATEGA_MERCHANT_ID"),
 		PlategaAPIKey:       os.Getenv("PLATEGA_API_KEY"),
 		PlategaReturnURL:    os.Getenv("PLATEGA_RETURN_URL"),
@@ -93,6 +101,7 @@ func New() (*Config, error) {
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
 		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
 		DeviceLimit:         deviceLimit,
+		MaxDeviceLimit:      maxDeviceLimit,
 		TrafficLimit:        trafficLimit,
 		SOCKS5Host:          os.Getenv("SOCKS5_HOST"),
 		SOCKS5Port:          os.Getenv("SOCKS5_PORT"),

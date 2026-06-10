@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/domain"
-	database "github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
-	domainTelegram "github.com/VladMallory/ProxyMaster_v2/internal/features/user/transport/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.uber.org/zap"
 )
@@ -55,10 +55,11 @@ func createProxyClient(cfg *config.Config) *http.Client {
 type Client struct {
 	api                 *tgbotapi.BotAPI
 	logger              *zap.Logger
-	remnawaveClient     domain.RemnawaveClient
+	remnawaveClient     remnawave.RemnawaveClient
 	subscriptionService domain.SubscriptionService
+	deviceService       domain.DeviceService
 	billingSvc          *billingSvc.Service
-	userRepo            *database.UserStorage
+	userRepo            *db.UserStorage
 	adminID             int64
 	cfg                 *config.Config
 }
@@ -68,10 +69,11 @@ func NewTelegramClient(
 	token string,
 	cfg *config.Config,
 	logger *zap.Logger,
-	remnawaveClient domain.RemnawaveClient,
+	remnawaveClient remnawave.RemnawaveClient,
 	subscriptionService domain.SubscriptionService,
+	deviceService domain.DeviceService,
 	paymentGateway billingSvc.PaymentGateway,
-	userRepo *database.UserStorage,
+	userRepo *db.UserStorage,
 	adminID int64,
 ) (*Client, error) {
 	// Создаем HTTPClient с прокси (если настроен)
@@ -91,6 +93,7 @@ func NewTelegramClient(
 		logger:              logger.Named("telegram"),
 		remnawaveClient:     remnawaveClient,
 		subscriptionService: subscriptionService,
+		deviceService:       deviceService,
 		billingSvc:          billingClient,
 		userRepo:            userRepo,
 		adminID:             adminID,
@@ -118,7 +121,7 @@ func (c *Client) Start() {
 		// 1. Обработка нажатий на инлайн-кнопки (CallbackQuery)
 		if update.CallbackQuery != nil {
 			// Передаем нажатие в слой бизнес-логики, включая ID сообщения для редактирования
-			err := domainTelegram.ProcessCallback(
+			err := ProcessCallback(
 				c,
 				update.CallbackQuery.Message.Chat.ID,
 				update.CallbackQuery.Message.MessageID,
@@ -126,6 +129,7 @@ func (c *Client) Start() {
 				update.CallbackQuery.From.FirstName,
 				c.remnawaveClient,
 				c.subscriptionService,
+				c.deviceService,
 				c.billingSvc,
 				c.userRepo,
 				c.cfg,
@@ -155,7 +159,7 @@ func (c *Client) Start() {
 			}
 
 			// Передаем текст сообщения в слой бизнес-логики
-			err := domainTelegram.ProcessCommand(
+			err := ProcessCommand(
 				c,
 				update.Message.Chat.ID,
 				update.Message.Text,

@@ -5,15 +5,20 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/service"
-	database "github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
+	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
+	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/device"
+	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users"
+	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users/reminders"
+	remindertg "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users/reminders/handler/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/payments/platega"
+	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/payments/youkassa"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
-	dbpkg "github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/logger"
 	"github.com/VladMallory/ProxyMaster_v2/internal/transport/telegram"
 )
@@ -23,7 +28,7 @@ type Application interface {
 	Run()
 }
 
-type ReminderRunner interface {
+type ReminderRunnerUser interface {
 	RunDay(ctx context.Context)
 }
 
@@ -32,10 +37,15 @@ type BotRunner interface {
 	Start()
 }
 
+type ReminderRunnerDevice interface {
+	RunBillingLoop(ctx context.Context)
+}
+
 // App зависимости приложения.
 type app struct {
-	bot      BotRunner
-	reminder ReminderRunner
+	deviceBilling ReminderRunnerDevice
+	reminder      ReminderRunnerUser
+	bot           BotRunner
 }
 
 // New собирает приложение.
@@ -59,6 +69,7 @@ func New() (Application, error) {
 	remnawaveLogger := loggerClient.Named("remnawave")
 	subscriptionReminderServiceLogger := loggerClient.Named("subscription_reminder")
 	subscriptionLogger := loggerClient.Named("subscription")
+	yookassaLogger := loggerClient.Named("yookassa")
 	plategaLogger := loggerClient.Named("platega")
 	databaseLogger := loggerClient.Named("database")
 
@@ -74,29 +85,60 @@ func New() (Application, error) {
 
 	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)
 
-	db, err := dbpkg.Connect(cfg.DatabaseURL, databaseLogger)
+	dbConn, err := db.Connect(cfg.DatabaseURL, databaseLogger)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка подключения к базе данных: %w", err)
+		return nil, err
 	}
 
 	// repository
-	userRepo := database.NewUserStorage(db, databaseLogger)
+	userRepo := db.NewUserStorage(dbConn, databaseLogger)
 
 	// ===services===
-	subService := service.NewSubscriptionService(
+	// users subscription
+	subscriptionUserSvc := users.NewSubscriptionService(
+		remnawaveClient,
+		userRepo,
+		subscriptionLogger,
+	)
+
+	// device
+	deviceService := device.NewDeviceService(
+		remnawaveClient,
+		userRepo,
+		userRepo,
+		subscriptionLogger,
+		cfg.DeviceLimit,
+		cfg.MaxDeviceLimit,
+	)
+
+	deviceBilling := device.NewDeviceBillingService(
 		remnawaveClient,
 		userRepo,
 		subscriptionLogger,
 		cfg.DeviceLimit,
 	)
 
-	// ===platega===
-	plategaClient := platega.NewClient(
-		cfg.PlategaMerchantID,
-		cfg.PlategaAPIKey,
-		cfg.PlategaReturnURL,
-		plategaLogger,
-	)
+	// ===Платежная система===
+	var paymentGateway billingSvc.PaymentGateway
+
+	switch cfg.PaymentProvider {
+	case "yookassa":
+		paymentGateway = youkassa.NewClient(
+			cfg.YouKassaShopID,
+			cfg.YouKassaSecretKey,
+			cfg.YouKassaReturnURL,
+			yookassaLogger,
+		)
+	case "platega":
+		paymentGateway = platega.NewClient(
+			cfg.PlategaMerchantID,
+			cfg.PlategaAPIKey,
+			cfg.PlategaReturnURL,
+			plategaLogger,
+		)
+	default:
+		return nil, errors.New("в .env нужно указать платежную систему")
+	}
 
 	// Парсим TelegramAdminID с проверкой ошибки
 	telegramAdminID, err := strconv.ParseInt(cfg.TelegramAdminID, 10, 64)
@@ -110,8 +152,9 @@ func New() (Application, error) {
 		cfg,
 		loggerClient,
 		remnawaveClient,
-		subService,
-		plategaClient,
+		subscriptionUserSvc,
+		deviceService,
+		paymentGateway,
 		userRepo,
 		telegramAdminID,
 	)
@@ -119,15 +162,17 @@ func New() (Application, error) {
 		return nil, fmt.Errorf("ошибка инициализации Telegram API: %w", err)
 	}
 
-	subscriptionReminderService := service.NewSubscriptionReminderService(
+	// ===REMINDER===
+	reminderSvc := reminders.New(
 		remnawaveClient,
-		telegramClient,
+		remindertg.NewSender(telegramClient),
 		subscriptionReminderServiceLogger,
 	)
 
 	return &app{
-		bot:      telegramClient,
-		reminder: subscriptionReminderService,
+		deviceBilling: deviceBilling,
+		reminder:      reminderSvc,
+		bot:           telegramClient,
 	}, nil
 }
 
@@ -140,8 +185,10 @@ func (a *app) Run() {
 
 	// Сервис о напоминии об оплате
 	go a.reminder.RunDay(ctx)
+	// Проверка доп. устройств
+	go a.deviceBilling.RunBillingLoop(ctx)
 
-	println("программа запущена")
+	fmt.Println("программа запущена")
 
 	// Чтобы программа не завершалась
 	select {}

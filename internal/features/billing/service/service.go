@@ -11,7 +11,11 @@ import (
 
 // PaymentGateway — контракт платёжной системы.
 type PaymentGateway interface {
-	CreateTransaction(ctx context.Context, amount float64, orderID string) (paymentURL, externalID string, err error)
+	CreateTransaction(
+		ctx context.Context,
+		amount float64,
+		orderID string,
+	) (paymentURL, externalID string, err error)
 	CheckStatus(ctx context.Context, transactionID string) (domain.PaymentStatus, error)
 	GetTransactionInfo(ctx context.Context, transactionID string) (TransactionInfo, error)
 }
@@ -45,7 +49,9 @@ type Service struct {
 }
 
 func New(gateway PaymentGateway) *Service {
-	return &Service{gateway: gateway}
+	return &Service{
+		gateway: gateway,
+	}
 }
 
 // CreatePayment создаёт платёж и сохраняет его цель.

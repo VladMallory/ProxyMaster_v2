@@ -1,8 +1,4 @@
-// Package database предоставляет UserStorage для взаимодействия с таблицей
-// пользователей в базе данных. Он включает методы для создания, получения,
-// обновления и управления данными пользователей, а также другие операции,
-// связанные с пользователями.
-package database
+package db
 
 import (
 	"database/sql"
@@ -10,18 +6,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
-// UserStorage structure for working with users table.
 type UserStorage struct {
 	db     *sqlx.DB
 	logger *zap.Logger
 }
 
-// NewUserStorage is constructor for UserStorage struct.
 func NewUserStorage(db *sqlx.DB, logger *zap.Logger) *UserStorage {
 	return &UserStorage{
 		db:     db,
@@ -29,19 +23,18 @@ func NewUserStorage(db *sqlx.DB, logger *zap.Logger) *UserStorage {
 	}
 }
 
-// logDuration логирует время выполнения метода.
 func (s *UserStorage) logDuration(method string) func() {
 	start := time.Now()
 
 	return func() {
-		s.logger.Info("вызов метода завершен",
+		s.logger.Info(
+			"вызов метода завершен",
 			zap.String("method", method),
 			zap.Duration("duration", time.Since(start)),
 		)
 	}
 }
 
-// CreateUser создает пользователя в DB.
 func (s *UserStorage) CreateUser(userData domain.CreateUserDTO) (*domain.UserTG, error) {
 	defer s.logDuration("CreateUser")()
 
@@ -61,9 +54,9 @@ func (s *UserStorage) CreateUser(userData domain.CreateUserDTO) (*domain.UserTG,
 		0,
 		now,
 	).StructScan(&user)
-
 	if err != nil {
-		s.logger.Error("failed to create user",
+		s.logger.Error(
+			"failed to create user",
 			zap.String("user_id", user.ID),
 			zap.Error(err),
 		)
@@ -74,7 +67,6 @@ func (s *UserStorage) CreateUser(userData domain.CreateUserDTO) (*domain.UserTG,
 	return &user, nil
 }
 
-// GetAllUsers is method for getting all users
 func (s *UserStorage) GetAllUsers() ([]domain.UserTG, error) {
 	defer s.logDuration("GetAllUser")()
 
@@ -96,7 +88,6 @@ func (s *UserStorage) GetAllUsers() ([]domain.UserTG, error) {
 	return users, nil
 }
 
-// GetUserByID is methos for getting user by id
 func (s *UserStorage) GetUserByID(id string) (*domain.UserTG, error) {
 	defer s.logDuration("GetUserByID")()
 
@@ -115,7 +106,8 @@ func (s *UserStorage) GetUserByID(id string) (*domain.UserTG, error) {
 			return nil, domain.ErrUserNotFound
 		}
 
-		s.logger.Error("failed to get user",
+		s.logger.Error(
+			"failed to get user",
 			zap.String("id", id),
 			zap.Error(err),
 		)
@@ -127,7 +119,6 @@ func (s *UserStorage) GetUserByID(id string) (*domain.UserTG, error) {
 	return &user, nil
 }
 
-// UpdateUser обновляет юзера.
 func (s *UserStorage) UpdateUser(
 	id string,
 	updateData domain.UpdateUserTGDTO,
@@ -162,7 +153,8 @@ func (s *UserStorage) UpdateUser(
 		id,
 	).StructScan(&updatedUser); err != nil {
 
-		s.logger.Error("failed to update user",
+		s.logger.Error(
+			"failed to update user",
 			zap.Any("updateData", updateData),
 			zap.Error(err),
 		)
@@ -173,13 +165,12 @@ func (s *UserStorage) UpdateUser(
 	return &updatedUser, nil
 }
 
-// GetActiveUserIDs возвращает ID всех активных пользователей.
-// Этот метод используется для получения списка всех пользователей, которым будет отправлена рассылка.
 func (s *UserStorage) GetActiveUserIDs() ([]string, error) {
 	var userIDs []string
 	query := `SELECT id FROM users`
 	if err := s.db.Select(&userIDs, query); err != nil {
-		s.logger.Error("failed to get all user IDs",
+		s.logger.Error(
+			"failed to get all user IDs",
 			zap.Error(err),
 		)
 		return nil, fmt.Errorf("failed to get all user IDs: %w", err)

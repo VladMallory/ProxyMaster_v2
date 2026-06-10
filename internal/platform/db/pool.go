@@ -1,7 +1,8 @@
-// Package database содержит работу с Postgres подключение и простые миграции схемы.
-package database
+// Package db содержит работу с Postgres подключение, миграции и UserStorage.
+package db
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -16,7 +17,8 @@ func Connect(databaseURL string, l *zap.Logger) (*sqlx.DB, error) {
 	// Подключаемся к Postgres.
 	db, err := sqlx.Connect("postgres", databaseURL)
 	if err != nil {
-		l.Error("failed db connection",
+		l.Error(
+			"failed db connection",
 			zap.Error(err),
 		)
 
@@ -47,7 +49,7 @@ func runMigrations(databaseURL string) error {
 	}
 	defer m.Close()
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("failed to run up migrations: %w", err)
 	}
 

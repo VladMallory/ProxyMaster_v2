@@ -89,7 +89,10 @@ func (c *Client) CreateTransaction(
 	// 3) Выполнение сетевого запроса
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return "", "", fmt.Errorf("youkassa.CreateTransaction: ошибка выполнения HTTP запроса: %w", err)
+		return "", "", fmt.Errorf(
+			"youkassa.CreateTransaction: ошибка выполнения HTTP запроса: %w",
+			err,
+		)
 	}
 	defer func() {
 		if closeErr := httpResp.Body.Close(); closeErr != nil {
@@ -178,7 +181,10 @@ func parsePaymentResponse(resp *http.Response) (string, string, error) {
 }
 
 // CheckStatus проверяет статус платежа и маппит его в доменные статусы проекта.
-func (c *Client) CheckStatus(ctx context.Context, transactionID string) (payment.PaymentStatus, error) {
+func (c *Client) CheckStatus(
+	ctx context.Context,
+	transactionID string,
+) (payment.PaymentStatus, error) {
 	defer c.logDuration("CheckStatus")()
 
 	info, err := c.GetTransactionInfo(ctx, transactionID)
@@ -201,7 +207,10 @@ func (c *Client) CheckStatus(ctx context.Context, transactionID string) (payment
 }
 
 // GetTransactionInfo получает объект платежа из ЮKassa по его ID.
-func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (billingSvc.TransactionInfo, error) {
+func (c *Client) GetTransactionInfo(
+	ctx context.Context,
+	transactionID string,
+) (billingSvc.TransactionInfo, error) {
 	defer c.logDuration("GetTransactionInfo")()
 
 	shopID, secretKey, _, err := c.resolveCredentials()
@@ -210,7 +219,7 @@ func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (
 	}
 
 	if strings.TrimSpace(transactionID) == "" {
-		return nil, fmt.Errorf("youkassa.GetTransactionInfo: transactionID пустой")
+		return nil, errors.New("youkassa.GetTransactionInfo: transactionID пустой")
 	}
 
 	url := strings.TrimRight(c.baseURL, "/") + "/v3/payments/" + transactionID
@@ -225,13 +234,17 @@ func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (
 
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("youkassa.GetTransactionInfo: ошибка выполнения HTTP запроса: %w", err)
+		return nil, fmt.Errorf(
+			"youkassa.GetTransactionInfo: ошибка выполнения HTTP запроса: %w",
+			err,
+		)
 	}
 	defer func() error {
 		err := httpResp.Body.Close()
 		if err != nil {
 			return err
 		}
+
 		return nil
 	}()
 
@@ -241,7 +254,11 @@ func (c *Client) GetTransactionInfo(ctx context.Context, transactionID string) (
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("youkassa.GetTransactionInfo: статус %d, ответ: %s", httpResp.StatusCode, string(body))
+		return nil, fmt.Errorf(
+			"youkassa.GetTransactionInfo: статус %d, ответ: %s",
+			httpResp.StatusCode,
+			string(body),
+		)
 	}
 
 	var payment createPaymentResponse
@@ -271,15 +288,15 @@ func (c *Client) resolveCredentials() (shopID, secretKey, returnURL string, err 
 	}
 
 	if shopID == "" {
-		return "", "", "", fmt.Errorf("youkassa: не задан shopID (YOOKASSA_SHOP_ID)")
+		return "", "", "", errors.New("youkassa: не задан shopID (YOOKASSA_SHOP_ID)")
 	}
 
 	if secretKey == "" {
-		return "", "", "", fmt.Errorf("youkassa: не задан secretKey (YOOKASSA_SECRET_KEY)")
+		return "", "", "", errors.New("youkassa: не задан secretKey (YOOKASSA_SECRET_KEY)")
 	}
 
 	if returnURL == "" {
-		return "", "", "", fmt.Errorf("youkassa: не задан returnURL (YOOKASSA_RETURN_URL)")
+		return "", "", "", errors.New("youkassa: не задан returnURL (YOOKASSA_RETURN_URL)")
 	}
 
 	return shopID, secretKey, returnURL, nil

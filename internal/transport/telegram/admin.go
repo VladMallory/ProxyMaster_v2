@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +23,7 @@ func IsAdmin(sender MessageSender,
 	// firstName string,
 	// remnawaveClient domain.RemnawaveClient,
 	adminID int64,
-	userRepo *database.UserStorage,
+	userRepo *db.UserStorage,
 
 	l *zap.Logger,
 ) (bool, error) {

@@ -1,4 +1,4 @@
-package database
+package db
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// setExtraDevicesCountTx устанавливает количество доп. устройств в рамках транзакции.
 func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int) error {
 	defer s.logDuration("setExtraDevicesCountTx")()
 	query := `
@@ -17,7 +16,8 @@ func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int
 	WHERE id = $2
 	`
 	if _, err := tx.Exec(query, cnt, userID); err != nil {
-		s.logger.Error("failed to update extra_devices_count in tx",
+		s.logger.Error(
+			"failed to update extra_devices_count in tx",
 			zap.String("user_id", userID),
 			zap.Int("cnt", cnt),
 			zap.Error(err),
@@ -27,7 +27,6 @@ func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int
 	return nil
 }
 
-// deactivateDeviceAddonsTx деактивирует доп. устройства в транзакции.
 func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) error {
 	defer s.logDuration("deactivateDeviceAddonsTx")()
 	query := `
@@ -36,7 +35,8 @@ func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) e
 	WHERE id = ANY($1)
 	`
 	if _, err := tx.Exec(query, pq.Array(addonIDs)); err != nil {
-		s.logger.Error("failed to deactivate device addons in tx",
+		s.logger.Error(
+			"failed to deactivate device addons in tx",
 			zap.Strings("addon_ids", addonIDs),
 			zap.Error(err),
 		)
@@ -45,7 +45,6 @@ func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) e
 	return nil
 }
 
-// decrementExtraDevicesCountTx уменьшает количество доп. устройств в транзакции.
 func (s *UserStorage) decrementExtraDevicesCountTx(tx *sqlx.Tx, userID string, amount int) error {
 	defer s.logDuration("decrementExtraDevicesCountTx")()
 	query := `
@@ -54,7 +53,8 @@ func (s *UserStorage) decrementExtraDevicesCountTx(tx *sqlx.Tx, userID string, a
 	WHERE id = $2
 	`
 	if _, err := tx.Exec(query, amount, userID); err != nil {
-		s.logger.Error("failed to decrement extra_devices_count in tx",
+		s.logger.Error(
+			"failed to decrement extra_devices_count in tx",
 			zap.String("user_id", userID),
 			zap.Int("amount", amount),
 			zap.Error(err),

@@ -17,6 +17,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// RemnawaveClient определяет контракт для работы с RemnaWave API.
+type RemnawaveClient interface {
+	GetUUIDByUsername(ctx context.Context, username string) (string, error)
+	GetAllUsers(ctx context.Context) ([]User, error)
+	CreateUser(dto CreateUserDTO) error
+	DeleteUser(ctx context.Context, username string) error
+	ExtendClientSubscription(userUUID string, username string, days int) error
+	GetUserInfo(uuid string) (GetUserInfoResponse, error)
+	GetUserDevice(ctx context.Context, username string) ([]HWIDDevice, error)
+	SetDevices(ctx context.Context, username string, devices *uint8) error
+	BetterResetTraffic(ctx context.Context, username string) error
+	DeleteDeviceHWID(ctx context.Context, username string) error
+}
+
 // RemnaConfig хранит важные *config данные из env.
 type RemnaConfig struct {
 	PanelURL       string

@@ -19,9 +19,10 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	payment "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/domain"
 	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/domain"
-	"github.com/VladMallory/ProxyMaster_v2/internal/features/user/repository"
+	userstg "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users/transport/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 
 	"go.uber.org/zap"
 )
@@ -46,10 +47,11 @@ func ProcessCallback(sender MessageSender,
 	chatID int64,
 	messageID int,
 	data, firstName string,
-	remnawaveClient domain.RemnawaveClient,
+	remnawaveClient remnawave.RemnawaveClient,
 	subscriptionService domain.SubscriptionService,
+	deviceService domain.DeviceService,
 	bSvc *billingSvc.Service,
-	userRepo *database.UserStorage,
+	userRepo *db.UserStorage,
 	cfg *config.Config,
 ) error {
 	buildProfileData := func(userID string) (string, error) {
@@ -138,6 +140,7 @@ func ProcessCallback(sender MessageSender,
 			id,
 			bSvc,
 			subscriptionService,
+			deviceService,
 			userRepo,
 			remnawaveClient,
 			firstName,
@@ -168,14 +171,16 @@ func ProcessCallback(sender MessageSender,
 
 		switch status {
 		case payment.PaymentStatusSuccess:
-			// handleSuccessfulPayment уже содержит логику отправки сообщений и обработки ошибок
-			return handleSuccessfulPayment(
+			stopMessageTimer(chatID, messageID)
+
+			return userstg.HandleSuccessfulPayment(
 				sender,
 				chatID,
 				messageID,
 				transactionID,
 				bSvc,
 				subscriptionService,
+				deviceService,
 				remnawaveClient,
 				cfg,
 			)
@@ -187,6 +192,7 @@ func ProcessCallback(sender MessageSender,
 				transactionID,
 				bSvc,
 				subscriptionService,
+				deviceService,
 				remnawaveClient,
 				cfg,
 			)
@@ -358,7 +364,7 @@ func ProcessCallback(sender MessageSender,
 			return nil
 		}
 
-		if userInfo.Response.HWIDDeviceLimit >= 5 {
+		if userInfo.Response.HWIDDeviceLimit >= cfg.MaxDeviceLimit {
 			if sendErr := sender.SendMessage(
 				chatID,
 				"❌ Достигнут лимит устройств.",
@@ -405,6 +411,7 @@ func ProcessCallback(sender MessageSender,
 			id,
 			bSvc,
 			subscriptionService,
+			deviceService,
 			userRepo,
 			remnawaveClient,
 			firstName,
@@ -477,6 +484,7 @@ func ProcessCallback(sender MessageSender,
 			id,
 			bSvc,
 			subscriptionService,
+			deviceService,
 			userRepo,
 			remnawaveClient,
 			firstName,
@@ -536,6 +544,7 @@ func ProcessCallback(sender MessageSender,
 			id,
 			bSvc,
 			subscriptionService,
+			deviceService,
 			userRepo,
 			remnawaveClient,
 			firstName,
@@ -616,8 +625,8 @@ func startMessageTimer(
 	messageID int,
 	duration time.Duration,
 	firstName string,
-	remnawaveClient domain.RemnawaveClient,
-	userRepo *database.UserStorage,
+	remnawaveClient remnawave.RemnawaveClient,
+	userRepo *db.UserStorage,
 ) {
 	key := fmt.Sprintf("%d|%d", chatID, messageID)
 
@@ -685,8 +694,9 @@ func startAutoPaymentCheck(
 	transactionID string,
 	bSvc *billingSvc.Service,
 	subscriptionService domain.SubscriptionService,
-	userRepo *database.UserStorage,
-	remnawaveClient domain.RemnawaveClient,
+	deviceService domain.DeviceService,
+	userRepo *db.UserStorage,
+	remnawaveClient remnawave.RemnawaveClient,
 	firstName string,
 	cfg *config.Config,
 ) {
@@ -724,14 +734,12 @@ func startAutoPaymentCheck(
 		// Ждем 15 секунд перед первой проверкой (даем время на оплату)
 		time.Sleep(15 * time.Second)
 
-		// Проверяем каждые 30 секунд в течение 20 минут
 		deadline := time.Now().Add(20 * time.Minute)
 		checkInterval := 30 * time.Second
 
 		for time.Now().Before(deadline) {
 			log.Printf("[АВТОПРОВЕРКА] Проверяем статус транзакции %s", transactionID)
 
-			// Проверяем статус платежа
 			status, err := bSvc.CheckPayment(context.Background(), transactionID)
 			if err != nil {
 				log.Printf(
@@ -748,13 +756,17 @@ func startAutoPaymentCheck(
 			switch status {
 			case payment.PaymentStatusSuccess:
 				log.Printf("[АВТОПРОВЕРКА] Платеж %s успешен, обрабатываем...", transactionID)
-				if err := handleSuccessfulPayment(
+
+				stopMessageTimer(chatID, messageID)
+
+				if err := userstg.HandleSuccessfulPayment(
 					sender,
 					chatID,
 					messageID,
 					transactionID,
 					bSvc,
 					subscriptionService,
+					deviceService,
 					remnawaveClient,
 					cfg,
 				); err != nil {
@@ -790,7 +802,8 @@ func tryStartPaymentStatusWatcher(
 	transactionID string,
 	bSvc *billingSvc.Service,
 	subscriptionService domain.SubscriptionService,
-	remnawaveClient domain.RemnawaveClient,
+	deviceService domain.DeviceService,
+	remnawaveClient remnawave.RemnawaveClient,
 	cfg *config.Config,
 ) bool {
 	_, loaded := activePaymentStatusWatchers.LoadOrStore(transactionID, struct{}{})
@@ -812,13 +825,16 @@ func tryStartPaymentStatusWatcher(
 
 			switch status {
 			case payment.PaymentStatusSuccess:
-				if err := handleSuccessfulPayment(
+				stopMessageTimer(chatID, messageID)
+
+				if err := userstg.HandleSuccessfulPayment(
 					sender,
 					chatID,
 					messageID,
 					transactionID,
 					bSvc,
 					subscriptionService,
+					deviceService,
 					remnawaveClient,
 					cfg,
 				); err != nil {
@@ -856,248 +872,7 @@ func tryStartPaymentStatusWatcher(
 	return true
 }
 
-func handleSuccessfulPayment(
-	sender MessageSender,
-	chatID int64,
-	messageID int,
-	transactionID string,
-	bSvc *billingSvc.Service,
-	subscriptionService domain.SubscriptionService,
-	remnawaveClient domain.RemnawaveClient,
-	cfg *config.Config,
-) error {
-	// Останавливаем таймер сообщения, так как оплата прошла успешно
-	stopMessageTimer(chatID, messageID)
 
-	info, err := bSvc.GetPaymentInfo(context.Background(), transactionID)
-	if err != nil {
-		log.Printf("Ошибка получения информации о транзакции: %v", err)
-		if sendErr := sender.SendMessage(
-			chatID,
-			"Платеж прошел, но возникла ошибка при получении данных. Обратитесь в поддержку.",
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке получения информации о транзакции: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	amount := int(info.GetAmount())
-	if purpose, _, ok := bSvc.ConsumePaymentPurpose(transactionID); ok {
-		switch purpose {
-		case billingSvc.PurposeAddDevice:
-			return handleSuccessfulAddDevicePayment(
-				sender,
-				chatID,
-				messageID,
-				subscriptionService,
-			)
-		case billingSvc.PurposePrepayDevices:
-			return handleSuccessfulPrepayDevicesPayment(
-				sender,
-				chatID,
-				messageID,
-				subscriptionService,
-			)
-		case billingSvc.PurposeResetTraffic:
-			return handleSuccessfulResetTrafficPayment(
-				sender,
-				chatID,
-				messageID,
-				// amount,
-				remnawaveClient,
-				// userRepo,
-			)
-		}
-	}
-
-	pricePerMonth, err := strconv.Atoi(cfg.PricePerMonth)
-	if err != nil {
-		log.Printf("Ошибка преобразования цены: %v", err)
-		return err
-	}
-	months := amount / pricePerMonth
-	if months <= 0 {
-		return nil
-	}
-
-	go func() {
-		time.Sleep(10 * time.Second)
-
-		if err := handleSubscriptionFromBalance(
-			sender,
-			subscriptionService,
-			chatID,
-			messageID,
-			months,
-		); err != nil {
-			log.Printf("Ошибка автопродления подписки: %v", err)
-		}
-	}()
-
-	return nil
-}
-
-func handleSuccessfulAddDevicePayment(
-	sender MessageSender,
-	chatID int64,
-	messageID int,
-	subscriptionService domain.SubscriptionService,
-) error {
-	userID := strconv.FormatInt(chatID, 10)
-
-	if err := subscriptionService.AddPaidDevice(userID); err != nil {
-		errorMsg := "❌ Ошибка добавления устройства."
-		if errors.Is(err, domain.ErrInsufficientFunds) {
-			errorMsg = "❌ Недостаточно средств. Нужно 50₽."
-		} else if errors.Is(err, domain.ErrMaxDevices) {
-			errorMsg = "❌ Достигнут лимит устройств."
-		}
-		log.Printf("Ошибка добавления платного устройства для %s: %v", userID, err)
-		if sendErr := sender.ShowView(
-			chatID,
-			messageID,
-			domain.ViewTypeSubscriptionResult,
-			errorMsg,
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке добавления устройства: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	successMsg := "✅ Устройство добавлено."
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
-		return fmt.Errorf("ошибка отображения сообщения об успешном добавлении устройства: %w", err)
-	}
-
-	return nil
-}
-
-func handleSuccessfulPrepayDevicesPayment(
-	sender MessageSender,
-	chatID int64,
-	messageID int,
-	subscriptionService domain.SubscriptionService,
-) error {
-	userID := strconv.FormatInt(chatID, 10)
-
-	count, err := subscriptionService.PrepayPaidDevices(userID)
-	if err != nil {
-		errorMsg := "❌ Ошибка продления доп. устройств."
-		if errors.Is(err, domain.ErrInsufficientFunds) {
-			errorMsg = "❌ Недостаточно средств для продления доп. устройств."
-		} else if errors.Is(err, domain.ErrNoActiveDeviceAddons) {
-			errorMsg = "У вас нет активных доп. устройств для продления."
-		}
-		log.Printf("Ошибка предоплаты доп. устройств для %s: %v", userID, err)
-		if sendErr := sender.ShowView(
-			chatID,
-			messageID,
-			domain.ViewTypeSubscriptionResult,
-			errorMsg,
-		); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке продления устройств: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	successMsg := fmt.Sprintf("✅ Доп. устройства продлены на 1 месяц. Количество: %d.", count)
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
-		return fmt.Errorf("ошибка отображения сообщения о продлении устройств: %w", err)
-	}
-
-	return nil
-}
-
-func handleSuccessfulResetTrafficPayment(
-	sender MessageSender,
-	chatID int64,
-	messageID int,
-	// amount int,
-	remnawaveClient domain.RemnawaveClient,
-	// userRepo *database.UserStorage,
-) error {
-	userID := strconv.FormatInt(chatID, 10)
-
-	if err := remnawaveClient.BetterResetTraffic(context.Background(), userID); err != nil {
-		log.Printf("Ошибка сброса трафика у пользователя %s: %v", userID, err)
-		if sendErr := sender.SendMessage(chatID, "Не удалось сбросить трафик"); sendErr != nil {
-			return fmt.Errorf(
-				"не удалось отправить сообщение об ошибке сброса трафика: %w",
-				sendErr,
-			)
-		}
-		return nil
-	}
-
-	successMsg := "✅ Трафик успешно сброшен."
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
-		return fmt.Errorf("ошибка отображения сообщения об успешном сбросе трафика: %w", err)
-	}
-
-	return nil
-}
-
-func handleSubscriptionFromBalance(
-	sender MessageSender,
-	subscriptionService domain.SubscriptionService,
-	chatID int64,
-	messageID int,
-	months int,
-) error {
-	userID := strconv.FormatInt(chatID, 10)
-	result, err := subscriptionService.ActivateSubscription(userID, months)
-	if err != nil {
-		errorMsg := "Произошла ошибка при оформлении подписки"
-		if errors.Is(err, domain.ErrInsufficientFunds) {
-			errorMsg = "❌ Недостаточно средств на балансе"
-		}
-		log.Printf("Ошибка активации подписки для %d: %v", chatID, err)
-		if sendErr := sender.ShowView(
-			chatID,
-			messageID,
-			domain.ViewTypeSubscriptionResult,
-			errorMsg,
-		); sendErr != nil {
-			return fmt.Errorf("не удалось отправить сообщение об ошибке подписки: %w", sendErr)
-		}
-		return nil
-	}
-
-	successMsg := "✅ " + result
-	if err := sender.ShowView(
-		chatID,
-		messageID,
-		domain.ViewTypeSubscriptionResult,
-		successMsg,
-	); err != nil {
-		return fmt.Errorf("ошибка отображения сообщения об успешной подписке: %w", err)
-	}
-	return nil
-}
 
 // ProcessCommand обрабатывает текстовые команды (например, /start).
 // Эта функция — "мозг" обработки текста.
@@ -1107,8 +882,8 @@ func ProcessCommand(
 	command string,
 	firstName string,
 	telegramUsername string,
-	remnawaveClient domain.RemnawaveClient,
-	userRepo *database.UserStorage,
+	remnawaveClient remnawave.RemnawaveClient,
+	userRepo *db.UserStorage,
 	logger *zap.Logger,
 	adminID int64,
 ) error {
@@ -1210,8 +985,8 @@ func ProcessCommand(
 func buildMainViewText(
 	chatID int64,
 	firstName string,
-	remnawaveClient domain.RemnawaveClient,
-	userRepo *database.UserStorage,
+	remnawaveClient remnawave.RemnawaveClient,
+	userRepo *db.UserStorage,
 ) string {
 	username := strconv.FormatInt(chatID, 10)
 
@@ -1255,7 +1030,7 @@ func buildStartText(firstName string, subscriptionLine string) string {
 	)
 }
 
-func buildSubscriptionLine(username string, remnawaveClient domain.RemnawaveClient) string {
+func buildSubscriptionLine(username string, remnawaveClient remnawave.RemnawaveClient) string {
 	ctx := context.Background()
 	uuid, err := remnawaveClient.GetUUIDByUsername(ctx, username)
 	if err != nil {

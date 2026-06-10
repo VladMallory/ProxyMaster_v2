@@ -1,8 +1,6 @@
 // Package platega описывает взаимодействие с платежной системой Platega.
 package platega
 
-import ()
-
 // PaymentMethod методы оплаты, которые принимает platega.
 type PaymentMethod int
 
