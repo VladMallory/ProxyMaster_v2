@@ -1,13 +1,15 @@
-package domain
+// Package viewtype содержит типы экранов Telegram UI.
+// Вынесен в отдельный пакет, чтобы избежать циклических импортов
+// между transport/telegram и feature-пакетами.
+package viewtype
 
-// ViewType тип отображаемого экрана в Telegram.
 type ViewType string
 
 const (
-	ViewTypeDownloadApp ViewType = "download_app"
-	ViewTypeIosRegion   ViewType = "ios_region"
-	ViewTypeTariffs     ViewType = "tariffs"
-	ViewTypeTopUp       ViewType = "top_up"
+	ViewTypeDownloadApp        ViewType = "download_app"
+	ViewTypeIosRegion          ViewType = "ios_region"
+	ViewTypeTariffs            ViewType = "tariffs"
+	ViewTypeTopUp              ViewType = "top_up"
 	ViewTypeCheckPayment       ViewType = "check_payment"
 	ViewTypeProfile            ViewType = "profile"
 	ViewTypeDeviceLimits       ViewType = "device_limits"

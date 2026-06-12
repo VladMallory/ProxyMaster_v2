@@ -17,10 +17,11 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/transport/telegram/viewtype"
+	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	payment "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/domain"
 	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
 	userstg "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users/transport/telegram"
-	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 
@@ -35,7 +36,7 @@ type MessageSender interface {
 	// ShowView отправляет сообщение с нужной клавиатурой
 	// viewType: "tariffs", "payment", "main"
 	// messageID: ID сообщения для редактирования (0 — отправить новое)
-	ShowView(chatID int64, messageID int, viewType domain.ViewType, data string) error
+	ShowView(chatID int64, messageID int, viewType viewtype.ViewType, data string) error
 }
 
 // ProcessCallback обрабатывает нажатия на инлайн-кнопки (которые под сообщениями).
@@ -48,8 +49,8 @@ func ProcessCallback(sender MessageSender,
 	messageID int,
 	data, firstName string,
 	remnawaveClient remnawave.RemnawaveClient,
-	subscriptionService domain.SubscriptionService,
-	deviceService domain.DeviceService,
+	subscriptionService SubscriptionService,
+	deviceService DeviceService,
 	bSvc *billingSvc.Service,
 	userRepo *db.UserStorage,
 	cfg *config.Config,
@@ -125,7 +126,7 @@ func ProcessCallback(sender MessageSender,
 		if err := sender.ShowView(
 			chatID,
 			messageID,
-			domain.ViewTypeCheckPayment,
+			viewtype.ViewTypeCheckPayment,
 			url+"|"+id,
 		); err != nil {
 			return fmt.Errorf("ошибка отображения QR-кода для оплаты: %w", err)
@@ -226,7 +227,7 @@ func ProcessCallback(sender MessageSender,
 	}
 
 	// Обертка для вызовов sender.ShowView для упрощения
-	showView := func(viewType domain.ViewType, data string, errMsg string) error {
+	showView := func(viewType viewtype.ViewType, data string, errMsg string) error {
 		if err := sender.ShowView(chatID, messageID, viewType, data); err != nil {
 			return fmt.Errorf("%s: %w", errMsg, err)
 		}
@@ -235,11 +236,11 @@ func ProcessCallback(sender MessageSender,
 
 	switch data {
 	case "btn_balance":
-		return showView(domain.ViewTypeTopUp, "", "ошибка отображения меню пополнения")
+		return showView(viewtype.ViewTypeTopUp, "", "ошибка отображения меню пополнения")
 	case "download_app":
-		return showView(domain.ViewTypeDownloadApp, "", "ошибка отображения меню загрузки")
+		return showView(viewtype.ViewTypeDownloadApp, "", "ошибка отображения меню загрузки")
 	case "btn_ios_menu":
-		return showView(domain.ViewTypeIosRegion, "", "ошибка отображения меню iOS")
+		return showView(viewtype.ViewTypeIosRegion, "", "ошибка отображения меню iOS")
 	case "btn_unlimits":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -248,7 +249,7 @@ func ProcessCallback(sender MessageSender,
 			log.Printf("Ошибка получения устройств пользователя %s: %v", userID, err)
 
 			return showView(
-				domain.ViewTypeDeviceLimits,
+				viewtype.ViewTypeDeviceLimits,
 				"❌ Не удалось получить список устройств.\nПопробуйте позже.",
 				"ошибка отображения лимитов устройств",
 			)
@@ -262,20 +263,31 @@ func ProcessCallback(sender MessageSender,
 			builder.WriteString("📋 <b>Привязанные устройства:</b>\n\n")
 
 			for i, device := range devices {
-				builder.WriteString(fmt.Sprintf("— <b>Устройство %d</b>\n", i+1))
-				builder.WriteString(fmt.Sprintf("Платформа: <code>%s</code>\n", valueOrDash(device.Platform)))
-				builder.WriteString(fmt.Sprintf("Версия ОС: <code>%s</code>\n", valueOrDash(device.OSVersion)))
-				builder.WriteString(fmt.Sprintf("Модель: <code>%s</code>\n\n", valueOrDash(device.DeviceModel)))
+				builder.WriteString("— <b>Устройство ")
+				builder.WriteString(strconv.Itoa(i + 1))
+				builder.WriteString("</b>\n")
+
+				builder.WriteString("Платформа: <code>")
+				builder.WriteString(valueOrDash(device.Platform))
+				builder.WriteString("</code>\n")
+
+				builder.WriteString("Версия ОС: <code>")
+				builder.WriteString(valueOrDash(device.OSVersion))
+				builder.WriteString("</code>\n")
+
+				builder.WriteString("Модель: <code>")
+				builder.WriteString(valueOrDash(device.DeviceModel))
+				builder.WriteString("</code>\n\n")
 			}
 		}
 
 		return showView(
-			domain.ViewTypeDeviceLimits,
+			viewtype.ViewTypeDeviceLimits,
 			builder.String(),
 			"ошибка отображения лимитов устройств",
 		)
 	case "btn_traffic_limits":
-		return showView(domain.ViewTypeTrafficLimits, "", "ошибка отображения лимитов трафика")
+		return showView(viewtype.ViewTypeTrafficLimits, "", "ошибка отображения лимитов трафика")
 	case "btn_profile":
 		userID := strconv.FormatInt(chatID, 10)
 
@@ -301,9 +313,9 @@ func ProcessCallback(sender MessageSender,
 			}); err != nil {
 				log.Printf("Ошибка создания пользователя в DB: %v", err)
 				errorMsg := "ошибка создания пользователя"
-				if errors.Is(err, domain.ErrDuplicateKey) {
+				if errors.Is(err, db.ErrDuplicateKey) {
 					errorMsg = "пользователь с таким ID уже существует"
-				} else if errors.Is(err, domain.ErrDatabaseConnection) {
+				} else if errors.Is(err, db.ErrDatabaseConnection) {
 					errorMsg = "временные проблемы с базой данных"
 				}
 				if sendErr := sender.SendMessage(chatID, errorMsg); sendErr != nil {
@@ -330,7 +342,7 @@ func ProcessCallback(sender MessageSender,
 			}
 			return nil
 		}
-		return showView(domain.ViewTypeProfile, profileData, "ошибка отображения профиля")
+		return showView(viewtype.ViewTypeProfile, profileData, "ошибка отображения профиля")
 
 	case "btn_add_device":
 		userID := strconv.FormatInt(chatID, 10)
@@ -398,7 +410,7 @@ func ProcessCallback(sender MessageSender,
 		if err := sender.ShowView(
 			chatID,
 			messageID,
-			domain.ViewTypeCheckPayment,
+			viewtype.ViewTypeCheckPayment,
 			url+"|"+id,
 		); err != nil {
 			return fmt.Errorf("ошибка отображения ссылки на оплату устройства: %w", err)
@@ -471,7 +483,7 @@ func ProcessCallback(sender MessageSender,
 		if err := sender.ShowView(
 			chatID,
 			messageID,
-			domain.ViewTypeCheckPayment,
+			viewtype.ViewTypeCheckPayment,
 			url+"|"+id,
 		); err != nil {
 			return fmt.Errorf("ошибка отображения ссылки на оплату устройств: %w", err)
@@ -531,7 +543,7 @@ func ProcessCallback(sender MessageSender,
 		if err := sender.ShowView(
 			chatID,
 			messageID,
-			domain.ViewTypeCheckPayment,
+			viewtype.ViewTypeCheckPayment,
 			url+"|"+id,
 		); err != nil {
 			return fmt.Errorf("ошибка отображения ссылки на оплату сброса трафика: %w", err)
@@ -570,37 +582,37 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		return showView(
-			domain.ViewTypeSubscriptionResult,
+			viewtype.ViewTypeSubscriptionResult,
 			"Устройства успешно сброшены ✅",
 			"Ошибка отображения главного меню после сброса устройств",
 		)
 
 	case "btn_connect_error":
 		return showView(
-			domain.ViewTypeConnect,
+			viewtype.ViewTypeConnect,
 			"Не удалось получить ссылку на подключение. Убедитесь, что подписка активна, или обратитесь в поддержку.",
 			"ошибка отображения сообщения о пустой ссылке",
 		)
 
 	case "btn_info":
-		return showView(domain.ViewTypeServiceInfo, "", "ошибка отображения информации о сервисе")
+		return showView(viewtype.ViewTypeServiceInfo, "", "ошибка отображения информации о сервисе")
 
 	case "btn_privacy_policy":
 		return showView(
-			domain.ViewTypePrivacyPolicy,
+			viewtype.ViewTypePrivacyPolicy,
 			"",
 			"ошибка отображения политики конфиденциальности",
 		)
 	case "btn_user_agreement":
 		return showView(
-			domain.ViewTypeUserAgreement,
+			viewtype.ViewTypeUserAgreement,
 			"",
 			"ошибка отображения пользовательского соглашения",
 		)
 
 	case "btn_back":
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
-		return showView(domain.ViewTypeMain, text, "ошибка возврата в главное меню")
+		return showView(viewtype.ViewTypeMain, text, "ошибка возврата в главное меню")
 
 	default:
 		if err := sender.SendMessage(chatID, "Неизвестная команда"); err != nil {
@@ -654,7 +666,7 @@ func startMessageTimer(
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
 
 		// Показываем главное меню
-		if err := sender.ShowView(chatID, messageID, domain.ViewTypeMain, text); err != nil {
+		if err := sender.ShowView(chatID, messageID, viewtype.ViewTypeMain, text); err != nil {
 			log.Printf("[ТАЙМЕР] Ошибка показа главного меню: %v", err)
 		}
 
@@ -693,8 +705,8 @@ func startAutoPaymentCheck(
 	messageID int,
 	transactionID string,
 	bSvc *billingSvc.Service,
-	subscriptionService domain.SubscriptionService,
-	deviceService domain.DeviceService,
+	subscriptionService SubscriptionService,
+	deviceService DeviceService,
 	userRepo *db.UserStorage,
 	remnawaveClient remnawave.RemnawaveClient,
 	firstName string,
@@ -801,8 +813,8 @@ func tryStartPaymentStatusWatcher(
 	messageID int,
 	transactionID string,
 	bSvc *billingSvc.Service,
-	subscriptionService domain.SubscriptionService,
-	deviceService domain.DeviceService,
+	subscriptionService SubscriptionService,
+	deviceService DeviceService,
 	remnawaveClient remnawave.RemnawaveClient,
 	cfg *config.Config,
 ) bool {
@@ -871,8 +883,6 @@ func tryStartPaymentStatusWatcher(
 
 	return true
 }
-
-
 
 // ProcessCommand обрабатывает текстовые команды (например, /start).
 // Эта функция — "мозг" обработки текста.
@@ -966,7 +976,7 @@ func ProcessCommand(
 		// }
 
 		text := buildMainViewText(chatID, firstName, remnawaveClient, userRepo)
-		if err := sender.ShowView(chatID, 0, domain.ViewTypeMain, text); err != nil {
+		if err := sender.ShowView(chatID, 0, viewtype.ViewTypeMain, text); err != nil {
 			return fmt.Errorf("ошибка отображения главного меню: %w", err)
 		}
 		return nil

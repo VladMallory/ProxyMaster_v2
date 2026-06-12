@@ -8,17 +8,29 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
-	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/transport/telegram/viewtype"
 	billingDomain "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/domain"
 	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
 	deviceTelegram "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/device/transport/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
 )
 
+// SubscriptionService — минимальный интерфейс для активации подписки.
+type SubscriptionService interface {
+	ActivateSubscription(userID string, months int) (string, error)
+}
+
+// DeviceService — минимальный интерфейс для управления устройствами.
+type DeviceService interface {
+	AddPaidDevice(userID string) error
+	PrepayPaidDevices(userID string) (int, error)
+	ResetPaidDevices(userID string) error
+}
+
 // MessageSender интерфейс для отправки сообщений через Telegram.
 type MessageSender interface {
 	SendMessage(chatID int64, text string) error
-	ShowView(chatID int64, messageID int, viewType domain.ViewType, data string) error
+	ShowView(chatID int64, messageID int, viewType viewtype.ViewType, data string) error
 }
 
 func HandleSuccessfulPayment(
@@ -27,8 +39,8 @@ func HandleSuccessfulPayment(
 	messageID int,
 	transactionID string,
 	bSvc *billingSvc.Service,
-	subscriptionService domain.SubscriptionService,
-	deviceService domain.DeviceService,
+	subscriptionService SubscriptionService,
+	deviceService DeviceService,
 	remnawaveClient remnawave.RemnawaveClient,
 	cfg *config.Config,
 ) error {
@@ -86,7 +98,7 @@ func HandleSuccessfulPayment(
 
 func HandleSubscriptionFromBalance(
 	sender MessageSender,
-	subscriptionService domain.SubscriptionService,
+	subscriptionService SubscriptionService,
 	chatID int64,
 	messageID int,
 	months int,
@@ -101,10 +113,10 @@ func HandleSubscriptionFromBalance(
 		}
 		log.Printf("Ошибка активации подписки для %d: %v", chatID, err)
 
-		return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, errorMsg)
+		return sender.ShowView(chatID, messageID, viewtype.ViewTypeSubscriptionResult, errorMsg)
 	}
 
-	return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, "✅ "+result)
+	return sender.ShowView(chatID, messageID, viewtype.ViewTypeSubscriptionResult, "✅ "+result)
 }
 
 func HandleSuccessfulResetTrafficPayment(
@@ -121,5 +133,9 @@ func HandleSuccessfulResetTrafficPayment(
 		return sender.SendMessage(chatID, "Не удалось сбросить трафик")
 	}
 
-	return sender.ShowView(chatID, messageID, domain.ViewTypeSubscriptionResult, "✅ Трафик успешно сброшен.")
+	return sender.ShowView(
+		chatID, messageID,
+		viewtype.ViewTypeSubscriptionResult,
+		"✅ Трафик успешно сброшен.",
+	)
 }

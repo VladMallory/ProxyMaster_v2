@@ -91,6 +91,7 @@ func (s *UserStorage) GetNextDeviceAddonChargeAt(userID string) (*time.Time, err
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
+
 		return nil, fmt.Errorf("failed to get next charge date: %w", err)
 	}
 
@@ -138,8 +139,10 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
+
 		return 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
+
 	defer func() { _ = tx.Rollback() }()
 
 	lockQuery := `SELECT id FROM users WHERE id = $1 FOR UPDATE`
@@ -151,6 +154,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 				zap.String("user_id", userID),
 				zap.Error(domain.ErrUserNotFound),
 			)
+
 			return 0, domain.ErrUserNotFound
 		}
 		s.logger.Error(
@@ -158,6 +162,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
+
 		return 0, fmt.Errorf("failed to lock user: %w", err)
 	}
 
@@ -177,6 +182,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
+
 		return 0, fmt.Errorf("failed to count active addons: %w", err)
 	}
 
@@ -193,6 +199,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.Int("current", baseLimit+activeAddons),
 			zap.Error(err),
 		)
+
 		return 0, err
 	}
 
@@ -209,6 +216,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.String("addon_id", addonID),
 			zap.Error(err),
 		)
+
 		return 0, fmt.Errorf("failed to create device addon: %w", err)
 	}
 
@@ -220,6 +228,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.Int("new_count", newCount),
 			zap.Error(err),
 		)
+
 		return 0, err
 	}
 
@@ -229,6 +238,7 @@ func (s *UserStorage) AddDeviceAddonAtomic(
 			zap.String("user_id", userID),
 			zap.Error(err),
 		)
+
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 

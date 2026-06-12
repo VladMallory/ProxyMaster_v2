@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/transport/telegram"
 	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
 	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/device"
 	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users"
@@ -20,7 +21,6 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/logger"
-	"github.com/VladMallory/ProxyMaster_v2/internal/transport/telegram"
 )
 
 // Application главный интерфейс приложения.

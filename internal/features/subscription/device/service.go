@@ -112,7 +112,8 @@ func (s *DeviceService) PrepayPaidDevices(userID string) (int, error) {
 
 	count, err := s.addonRepo.PrepayDeviceAddonsAtomic(userID, extraDevicePriceRUB, 30*24*time.Hour)
 	if err != nil {
-		if errors.Is(err, billingDomain.ErrInsufficientFunds) || errors.Is(err, ErrNoActiveDeviceAddons) {
+		if errors.Is(err, billingDomain.ErrInsufficientFunds) ||
+			errors.Is(err, ErrNoActiveDeviceAddons) {
 			return 0, err
 		}
 

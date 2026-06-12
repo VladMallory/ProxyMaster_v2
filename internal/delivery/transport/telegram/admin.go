@@ -17,14 +17,12 @@ const (
 )
 
 // IsAdmin проверяет, является ли пользователь администратором и обрабатывает админские команды.
-func IsAdmin(sender MessageSender,
+func IsAdmin(
+	sender MessageSender,
 	chatID int64,
 	command string,
-	// firstName string,
-	// remnawaveClient domain.RemnawaveClient,
 	adminID int64,
 	userRepo *db.UserStorage,
-
 	l *zap.Logger,
 ) (bool, error) {
 	command = strings.TrimSpace(command)

@@ -173,7 +173,9 @@ func (s *UserStorage) GetActiveUserIDs() ([]string, error) {
 			"failed to get all user IDs",
 			zap.Error(err),
 		)
+
 		return nil, fmt.Errorf("failed to get all user IDs: %w", err)
 	}
+
 	return userIDs, nil
 }

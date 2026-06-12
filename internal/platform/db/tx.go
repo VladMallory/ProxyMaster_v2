@@ -22,8 +22,10 @@ func (s *UserStorage) setExtraDevicesCountTx(tx *sqlx.Tx, userID string, cnt int
 			zap.Int("cnt", cnt),
 			zap.Error(err),
 		)
+
 		return fmt.Errorf("failed to update extra_devices_count: %w", err)
 	}
+
 	return nil
 }
 
@@ -40,8 +42,10 @@ func (s *UserStorage) deactivateDeviceAddonsTx(tx *sqlx.Tx, addonIDs []string) e
 			zap.Strings("addon_ids", addonIDs),
 			zap.Error(err),
 		)
+
 		return fmt.Errorf("failed to deactivate device addons: %w", err)
 	}
+
 	return nil
 }
 
@@ -59,7 +63,9 @@ func (s *UserStorage) decrementExtraDevicesCountTx(tx *sqlx.Tx, userID string, a
 			zap.Int("amount", amount),
 			zap.Error(err),
 		)
+
 		return fmt.Errorf("failed to decrement extra_devices_count: %w", err)
 	}
+
 	return nil
 }

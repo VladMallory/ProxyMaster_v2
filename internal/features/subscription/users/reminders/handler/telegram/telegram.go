@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	"github.com/VladMallory/ProxyMaster_v2/internal/transport/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/transport/telegram"
 )
 
 type Sender struct {

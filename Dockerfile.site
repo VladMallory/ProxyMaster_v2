@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Собираем отдельный сайт оплаты.
-FROM golang:1.26.2-alpine AS builder
+FROM golang:1.26.4-alpine AS builder
 # Рабочая директория внутри контейнера.
 WORKDIR /app
 # Устанавливаем сертификаты, чтобы Go мог ходить во внешние HTTPS API.
