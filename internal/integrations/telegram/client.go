@@ -22,6 +22,9 @@ type Client struct {
 	api *tgbotapi.BotAPI
 }
 
+// Компилятор проверит, что *Client реализует BotAPI.
+var _ BotAPI = (*Client)(nil)
+
 // New создает клиента Telegram API.
 func New(token string, socks5 SOCKS5Config) (*Client, error) {
 	httpClient := createHTTPClient(socks5)

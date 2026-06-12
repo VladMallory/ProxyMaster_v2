@@ -41,3 +41,13 @@ type SOCKS5Config struct {
 	Username string
 	Password string
 }
+
+// BotAPI — интерфейс низкоуровневого Telegram API.
+// Бизнес-логика (internal/delivery/transport/telegram) зависит от этого интерфейса,
+// а не от конкретной реализации.
+type BotAPI interface {
+	SendMessage(chatID int64, text string, keyboard InlineKeyboard) error
+	EditMessage(chatID int64, messageID int, text string, keyboard InlineKeyboard) error
+	Start(handler func(Message))
+	SetupCommandsAndMenu() error
+}

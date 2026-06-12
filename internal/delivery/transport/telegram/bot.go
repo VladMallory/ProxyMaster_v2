@@ -23,7 +23,7 @@ import (
 
 // Client это обертка, которая содержит бизнес-зависимости и интеграционный клиент Telegram API.
 type Client struct {
-	api                 *tgintegration.Client
+	api                 tgintegration.BotAPI
 	logger              *zap.Logger
 	remnawaveClient     remnawave.RemnawaveClient
 	subscriptionService SubscriptionService
