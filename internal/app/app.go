@@ -14,6 +14,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/delivery/transport/telegram"
 	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
 	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/device"
+	subscriptionhttp "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/transport/http"
 	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users"
 	"github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users/reminders"
 	remindertg "github.com/VladMallory/ProxyMaster_v2/internal/features/subscription/users/reminders/handler/telegram"
@@ -113,6 +114,7 @@ func New() (Application, error) {
 		subscriptionLogger,
 		cfg.DeviceLimit,
 		cfg.MaxDeviceLimit,
+		cfg.ExtraDevicePrice,
 	)
 
 	deviceBilling := device.NewDeviceBillingService(
@@ -120,6 +122,7 @@ func New() (Application, error) {
 		userRepo,
 		subscriptionLogger,
 		cfg.DeviceLimit,
+		cfg.ExtraDevicePrice,
 	)
 
 	// ===Платежная система===
@@ -175,6 +178,9 @@ func New() (Application, error) {
 
 	// ===server===
 	server := http.NewServer(serverLogger, "web/site/static")
+
+	subHTTPHandler := subscriptionhttp.NewHandler(subscriptionUserSvc, subscriptionLogger)
+	subscriptionhttp.RegisterRoutes(server.Mux(), subHTTPHandler)
 
 	return &app{
 		deviceBilling: deviceBilling,

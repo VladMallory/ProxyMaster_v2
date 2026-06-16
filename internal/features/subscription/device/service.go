@@ -12,16 +12,15 @@ import (
 	"go.uber.org/zap"
 )
 
-const extraDevicePriceRUB = 50
-
 // DeviceService управляет устройствами пользователя (бесплатными и платными).
 type DeviceService struct {
-	remna           remnawave.RemnawaveClient
-	userRepo        domain.UserRepository
-	addonRepo       DeviceAddonRepository
-	logger          *zap.Logger
-	baseDeviceLimit int
-	maxDeviceLimit  int
+	remna            remnawave.RemnawaveClient
+	userRepo         domain.UserRepository
+	addonRepo        DeviceAddonRepository
+	logger           *zap.Logger
+	baseDeviceLimit  int
+	maxDeviceLimit   int
+	extraDevicePrice int
 }
 
 func NewDeviceService(
@@ -31,18 +30,20 @@ func NewDeviceService(
 	l *zap.Logger,
 	baseDeviceLimit int,
 	maxDeviceLimit int,
+	extraDevicePrice int,
 ) *DeviceService {
 	return &DeviceService{
-		remna:           remna,
-		userRepo:        userRepo,
-		addonRepo:       addonRepo,
-		logger:          l,
-		baseDeviceLimit: baseDeviceLimit,
-		maxDeviceLimit:  maxDeviceLimit,
+		remna:            remna,
+		userRepo:         userRepo,
+		addonRepo:        addonRepo,
+		logger:           l,
+		baseDeviceLimit:  baseDeviceLimit,
+		maxDeviceLimit:   maxDeviceLimit,
+		extraDevicePrice: extraDevicePrice,
 	}
 }
 
-// AddPaidDevice покупает 1 доп. устройство за 50₽/мес атомарно.
+// AddPaidDevice покупает 1 доп. устройство атомарно (цена из EXTRA_DEVICE_PRICE).
 func (s *DeviceService) AddPaidDevice(userID string) error {
 	defer s.logDuration("AddPaidDevice")()
 
@@ -67,7 +68,7 @@ func (s *DeviceService) AddPaidDevice(userID string) error {
 	}
 
 	newExtraDevicesCount, err := s.addonRepo.AddDeviceAddonAtomic(
-		userID, s.baseDeviceLimit, s.maxDeviceLimit, extraDevicePriceRUB, 30*24*time.Hour,
+		userID, s.baseDeviceLimit, s.maxDeviceLimit, s.extraDevicePrice, 30*24*time.Hour,
 	)
 	if err != nil {
 		if errors.Is(err, ErrMaxDevices) || errors.Is(err, billingDomain.ErrInsufficientFunds) {
@@ -111,7 +112,7 @@ func (s *DeviceService) ResetPaidDevices(userID string) error {
 func (s *DeviceService) PrepayPaidDevices(userID string) (int, error) {
 	defer s.logDuration("PrepayPaidDevices")()
 
-	count, err := s.addonRepo.PrepayDeviceAddonsAtomic(userID, extraDevicePriceRUB, 30*24*time.Hour)
+	count, err := s.addonRepo.PrepayDeviceAddonsAtomic(userID, s.extraDevicePrice, 30*24*time.Hour)
 	if err != nil {
 		if errors.Is(err, billingDomain.ErrInsufficientFunds) ||
 			errors.Is(err, ErrNoActiveDeviceAddons) {

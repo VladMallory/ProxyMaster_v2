@@ -35,7 +35,7 @@ func HandleSuccessfulAddDevicePayment(
 	if err := deviceService.AddPaidDevice(userID); err != nil {
 		errorMsg := "❌ Ошибка добавления устройства."
 		if errors.Is(err, billingDomain.ErrInsufficientFunds) {
-			errorMsg = "❌ Недостаточно средств. Нужно 50₽."
+			errorMsg = "❌ Недостаточно средств."
 		} else if errors.Is(err, subsDevice.ErrMaxDevices) {
 			errorMsg = "❌ Достигнут лимит устройств."
 		}

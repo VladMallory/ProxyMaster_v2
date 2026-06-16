@@ -55,6 +55,9 @@ PLATEGA_MERCHANT_ID=
 PRICE_PER_MONTH=100 # стоимость подписки за один месяц
 DEVICE_LIMIT=2 # указать количество которое указан в дефолте remnawave
 TRAFFIC_LIMIT=250 # количесвто гигабайт клиенту на месяц
+MAX_DEVICE_LIMIT=5
+EXTRA_DEVICE_PRICE=50
+RESET_TRAFFIC_PRICE=50
 
 # Logger. Можно ставить info, debug, warn, error.
 LOGGER_LEVEL=info

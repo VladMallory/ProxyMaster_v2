@@ -389,11 +389,10 @@ func ProcessCallback(sender MessageSender,
 			return nil
 		}
 
-		const addDevicePriceRUB = 50
 		url, id, err := bSvc.CreatePayment(
 			context.Background(),
 			strconv.FormatInt(chatID, 10),
-			addDevicePriceRUB,
+			cfg.ExtraDevicePrice,
 			billingSvc.PurposeAddDevice,
 		)
 		if err != nil {
@@ -462,7 +461,7 @@ func ProcessCallback(sender MessageSender,
 		}
 
 		// Цена за устройство
-		amount := activeAddons * 50
+		amount := activeAddons * cfg.ExtraDevicePrice
 		url, id, err := bSvc.CreatePayment(
 			context.Background(),
 			strconv.FormatInt(chatID, 10),
@@ -522,11 +521,10 @@ func ProcessCallback(sender MessageSender,
 			return nil
 		}
 
-		const resetTrafficPriceRUB = 50
 		url, id, err := bSvc.CreatePayment(
 			context.Background(),
 			strconv.FormatInt(chatID, 10),
-			resetTrafficPriceRUB,
+			cfg.ResetTrafficPrice,
 			billingSvc.PurposeResetTraffic,
 		)
 		if err != nil {

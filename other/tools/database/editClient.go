@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
@@ -239,12 +240,17 @@ func printStatistics(users []domain.UserTG) {
 		}
 	}
 
+	extraDevicePrice, _ := strconv.Atoi(os.Getenv("EXTRA_DEVICE_PRICE"))
+	if extraDevicePrice < 1 {
+		extraDevicePrice = 50
+	}
+
 	fmt.Println("\n📊 Статистика:")
 	fmt.Println("├─────────────────────────────────────────────")
 	fmt.Printf("│ Пользователей на пробном периоде: %d/%d (%.1f%%)\n",
 		trialUsers, len(users), float64(trialUsers)/float64(len(users))*100)
 	fmt.Printf("│ Всего дополнительных устройств: %d\n", totalExtraDevices)
-	fmt.Printf("│ Общий доход от доп. устройств: %d ₽/мес\n", totalExtraDevices*50)
+	fmt.Printf("│ Общий доход от доп. устройств: %d ₽/мес\n", totalExtraDevices*extraDevicePrice)
 	fmt.Println("└─────────────────────────────────────────────")
 
 	// Группировка по датам регистрации

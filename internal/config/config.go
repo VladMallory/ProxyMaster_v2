@@ -36,10 +36,12 @@ type Config struct {
 	YouKassaSecretKey string
 	YouKassaReturnURL string
 
-	PricePerMonth  string
-	DeviceLimit    int
-	MaxDeviceLimit int
-	TrafficLimit   int64
+	PricePerMonth      string
+	ExtraDevicePrice   int
+	ResetTrafficPrice  int
+	DeviceLimit        int
+	MaxDeviceLimit     int
+	TrafficLimit       int64
 
 	LoggerLevel string
 
@@ -79,6 +81,18 @@ func New() (*Config, error) {
 		log.Fatalln("укажите лимит трафика (TRAFFIC_LIMIT)")
 	}
 
+	extraDevicePriceStr := os.Getenv("EXTRA_DEVICE_PRICE")
+	extraDevicePrice, err := strconv.Atoi(extraDevicePriceStr)
+	if err != nil || extraDevicePrice < 1 {
+		log.Fatalln("укажите стоимость доп. устройства (EXTRA_DEVICE_PRICE)")
+	}
+
+	resetTrafficPriceStr := os.Getenv("RESET_TRAFFIC_PRICE")
+	resetTrafficPrice, err := strconv.Atoi(resetTrafficPriceStr)
+	if err != nil || resetTrafficPrice < 1 {
+		log.Fatalln("укажите стоимость сброса трафика (RESET_TRAFFIC_PRICE)")
+	}
+
 	return &Config{
 		RemnaPanelURL:       os.Getenv("REMNA_BASE_PANEL"),
 		RemnaSecretURLToken: os.Getenv("REMNA_SECRET_TOKEN"),
@@ -99,10 +113,12 @@ func New() (*Config, error) {
 		YouKassaShopID:      os.Getenv("YOUKASSA_SHOP_ID"),
 		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
-		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
-		DeviceLimit:         deviceLimit,
-		MaxDeviceLimit:      maxDeviceLimit,
-		TrafficLimit:        trafficLimit,
+		PricePerMonth:      os.Getenv("PRICE_PER_MONTH"),
+		ExtraDevicePrice:   extraDevicePrice,
+		ResetTrafficPrice:  resetTrafficPrice,
+		DeviceLimit:        deviceLimit,
+		MaxDeviceLimit:     maxDeviceLimit,
+		TrafficLimit:       trafficLimit,
 		SOCKS5Host:          os.Getenv("SOCKS5_HOST"),
 		SOCKS5Port:          os.Getenv("SOCKS5_PORT"),
 		SOCKS5Username:      os.Getenv("SOCKS5_USER"),

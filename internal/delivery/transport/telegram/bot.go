@@ -266,7 +266,7 @@ func (c *Client) handleProfileView(data string) (string, tgintegration.InlineKey
 	}
 
 	extraCharge := max(
-		(extraDevicesInt-c.cfg.DeviceLimit)*50, 0,
+		(extraDevicesInt-c.cfg.DeviceLimit)*c.cfg.ExtraDevicePrice, 0,
 	)
 
 	text := fmt.Sprintf(
@@ -283,7 +283,7 @@ func (c *Client) handleProfileView(data string) (string, tgintegration.InlineKey
 }
 
 func (c *Client) handleTrafficLimitsView() (string, tgintegration.InlineKeyboard) {
-	text := "Сбросить использованный трафик (обнулить намотанные гигабайты)?\n\nСтоимость: 50₽"
+	text := fmt.Sprintf("Сбросить использованный трафик (обнулить намотанные гигабайты)?\n\nСтоимость: %d₽", c.cfg.ResetTrafficPrice)
 
 	return text, c.trafficLimitsKeyboard()
 }

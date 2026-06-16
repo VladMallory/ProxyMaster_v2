@@ -92,7 +92,7 @@ func (c *Client) profileKeyboard() tgintegration.InlineKeyboard {
 	return tgintegration.InlineKeyboard{
 		{
 			tgintegration.NewButton(
-				"➕ Добавить устройство (+50₽/мес)",
+				fmt.Sprintf("➕ Добавить устройство (+%d₽/мес)", c.cfg.ExtraDevicePrice),
 				"btn_add_device",
 			),
 		},
@@ -150,7 +150,7 @@ func (c *Client) deviceLimitsKeyboard() tgintegration.InlineKeyboard {
 func (c *Client) trafficLimitsKeyboard() tgintegration.InlineKeyboard {
 	return tgintegration.InlineKeyboard{
 		{
-			tgintegration.NewButton("✅ Да, сбросить трафик за 50₽", "btn_reset_traffic_payment"),
+			tgintegration.NewButton(fmt.Sprintf("✅ Да, сбросить трафик за %d₽", c.cfg.ResetTrafficPrice), "btn_reset_traffic_payment"),
 		},
 		{
 			tgintegration.NewButton("❌ Нет, вернуться назад", "btn_unlimits"),

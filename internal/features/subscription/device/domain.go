@@ -10,7 +10,7 @@ type DeviceAddon struct {
 	// UserID телеграм-id пользователя (наш username).
 	UserID string `db:"user_id"`
 
-	// NextChargeAt дата следующего списания 50₽ за эту конкретную покупку.
+	// NextChargeAt дата следующего списания за эту конкретную покупку.
 	NextChargeAt time.Time `db:"next_charge_at"`
 
 	// Active флаг активности услуги (false = отключено/сброшено).

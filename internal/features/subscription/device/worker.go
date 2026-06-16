@@ -32,10 +32,11 @@ type DeviceAddonRepository interface {
 
 // DeviceWorker занимается фоновым биллингом доп. устройств.
 type DeviceWorker struct {
-	remna           remnawave.RemnawaveClient
-	addonRepo       DeviceAddonRepository
-	logger          *zap.Logger
-	baseDeviceLimit int
+	remna            remnawave.RemnawaveClient
+	addonRepo        DeviceAddonRepository
+	logger           *zap.Logger
+	baseDeviceLimit  int
+	extraDevicePrice int
 }
 
 func NewDeviceBillingService(
@@ -43,12 +44,14 @@ func NewDeviceBillingService(
 	addonRepo DeviceAddonRepository,
 	l *zap.Logger,
 	baseDeviceLimit int,
+	extraDevicePrice int,
 ) *DeviceWorker {
 	return &DeviceWorker{
-		remna:           remna,
-		addonRepo:       addonRepo,
-		logger:          l,
-		baseDeviceLimit: baseDeviceLimit,
+		remna:            remna,
+		addonRepo:        addonRepo,
+		logger:           l,
+		baseDeviceLimit:  baseDeviceLimit,
+		extraDevicePrice: extraDevicePrice,
 	}
 }
 
@@ -72,7 +75,7 @@ func (s *DeviceWorker) RunBillingLoop(ctx context.Context) {
 // processDueBilling обрабатывает просроченные доп. устройства и синхронизирует RemnaWave.
 func (s *DeviceWorker) processDueBilling(ctx context.Context, now time.Time) {
 	activeCounts, err := s.addonRepo.ProcessDueDeviceAddonsBilling(
-		now, 200, extraDevicePriceRUB, 30*24*time.Hour,
+		now, 200, s.extraDevicePrice, 30*24*time.Hour,
 	)
 	if err != nil {
 		s.logger.Error("device billing failed", zap.Error(err))
