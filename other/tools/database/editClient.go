@@ -208,7 +208,8 @@ func printUsersTable(users []domain.UserTG) {
 		regDate := user.CreatedAt.Format("02.01.2006 15:04")
 
 		// Выводим строку
-		fmt.Printf("│ %-15s │ %6d ₽ │ %-7s │ %14d │ %-20s │\n",
+		fmt.Printf(
+			"│ %-15s │ %6d ₽ │ %-7s │ %14d │ %-20s │\n",
 			user.ID,
 			0,
 			trialStatus,

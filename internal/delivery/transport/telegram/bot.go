@@ -78,7 +78,8 @@ func NewTelegramClient(
 func (c *Client) Start() {
 	// регистрирует кнопки три полоски слева снизу в телеграмме
 	if err := c.api.SetupCommandsAndMenu(); err != nil {
-		c.logger.Error("ошибка в добавлении кнопок",
+		c.logger.Error(
+			"ошибка в добавлении кнопок",
 			zap.Error(err),
 		)
 	}
@@ -265,7 +266,8 @@ func (c *Client) handleProfileView(data string) (string, tgintegration.InlineKey
 	}
 
 	extraCharge := max(
-		(extraDevicesInt-c.cfg.DeviceLimit)*50, 0)
+		(extraDevicesInt-c.cfg.DeviceLimit)*50, 0,
+	)
 
 	text := fmt.Sprintf(
 		"ID пользователя: %s\nБаланс: %s ₽\nЛимит устройств: %d\nДоп. списание: %d ₽/мес\nНужно оплатить до: %s",
@@ -293,7 +295,8 @@ func (c *Client) handleServiceInfoView() (string, tgintegration.InlineKeyboard) 
 func (c *Client) handlePrivacyPolicyView() (string, tgintegration.InlineKeyboard) {
 	content, err := os.ReadFile("assets/police.txt")
 	if err != nil {
-		c.logger.Error("ошибка чтения файла",
+		c.logger.Error(
+			"ошибка чтения файла",
 			zap.ByteString("file", content),
 			zap.Error(err),
 		)
@@ -307,7 +310,8 @@ func (c *Client) handlePrivacyPolicyView() (string, tgintegration.InlineKeyboard
 func (c *Client) handleUserAgreementView() (string, tgintegration.InlineKeyboard) {
 	content, err := os.ReadFile("assets/user_agreement.txt")
 	if err != nil {
-		c.logger.Error("ошибка чтения файла",
+		c.logger.Error(
+			"ошибка чтения файла",
 			zap.String("file", "assets/user_agreement.txt"),
 			zap.Error(err),
 		)

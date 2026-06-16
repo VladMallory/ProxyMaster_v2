@@ -65,7 +65,8 @@ func (c *Client) logDuration(method string, err *error) func() {
 
 	return func() {
 		if *err != nil {
-			c.logger.Error("вызов метода завершен ошибкой",
+			c.logger.Error(
+				"вызов метода завершен ошибкой",
 				zap.String("method", method),
 				zap.String("err", (*err).Error()),
 				zap.Duration("duration", time.Since(start)),
@@ -74,7 +75,8 @@ func (c *Client) logDuration(method string, err *error) func() {
 			return
 		}
 
-		c.logger.Info("вызов метода завершен",
+		c.logger.Info(
+			"вызов метода завершен",
 			zap.String("method", method),
 			zap.Duration("duration", time.Since(start)),
 		)
@@ -268,7 +270,8 @@ func (c *Client) WaitForPayment(
 	for time.Now().Before(deadline) {
 		status, checkErr := c.CheckStatus(ctx, transactionID)
 		if checkErr != nil {
-			c.logger.Error("WaitForPayment: ошибка проверки статуса",
+			c.logger.Error(
+				"WaitForPayment: ошибка проверки статуса",
 				zap.String("transactionID", transactionID),
 				zap.String("err", checkErr.Error()),
 			)

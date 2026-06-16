@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
@@ -20,6 +21,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/payments/youkassa"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/db"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/http"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/logger"
 )
 
@@ -46,6 +48,7 @@ type app struct {
 	deviceBilling ReminderRunnerDevice
 	reminder      ReminderRunnerUser
 	bot           BotRunner
+	server        *http.Server
 }
 
 // New собирает приложение.
@@ -72,6 +75,7 @@ func New() (Application, error) {
 	yookassaLogger := loggerClient.Named("yookassa")
 	plategaLogger := loggerClient.Named("platega")
 	databaseLogger := loggerClient.Named("database")
+	serverLogger := loggerClient.Named("server")
 
 	// Берем глобальный cfg и передаем только нужные поля
 	remnaCfg := remnawave.RemnaConfig{
@@ -169,10 +173,14 @@ func New() (Application, error) {
 		subscriptionReminderServiceLogger,
 	)
 
+	// ===server===
+	server := http.NewServer(serverLogger, "web/site/static")
+
 	return &app{
 		deviceBilling: deviceBilling,
 		reminder:      reminderSvc,
 		bot:           telegramClient,
+		server:        server,
 	}, nil
 }
 
@@ -187,6 +195,13 @@ func (a *app) Run() {
 	go a.reminder.RunDay(ctx)
 	// Проверка доп. устройств
 	go a.deviceBilling.RunBillingLoop(ctx)
+
+	// Сервер
+	go func() {
+		if err := a.server.Run(); err != nil {
+			log.Fatal("http server: ", err)
+		}
+	}()
 
 	fmt.Println("программа запущена")
 

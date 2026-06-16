@@ -499,7 +499,8 @@ func (c *RemnaClient) changeUserState(userUUID, action string) error {
 
 // actionURL отдаем методам строку, чтобы избежать дублирование кода в методах.
 func (c *RemnaClient) actionURL(userUUID string, action string) string {
-	return fmt.Sprintf("%s/api/users/%s/actions/%s?%s",
+	return fmt.Sprintf(
+		"%s/api/users/%s/actions/%s?%s",
 		c.cfg.PanelURL,
 		userUUID,
 		action,
@@ -512,7 +513,8 @@ func (c *RemnaClient) logDuration(method string) func() {
 	start := time.Now()
 
 	return func() {
-		c.logger.Info("вызов метода завершен",
+		c.logger.Info(
+			"вызов метода завершен",
 			zap.String("method", method),
 			zap.Duration("duration", time.Since(start)),
 		)

@@ -48,7 +48,8 @@ func IsAdmin(
 	// Выходим если не админ и логгируем попытку доступа
 	if chatID != adminID {
 		if err := sender.SendMessage(chatID, "У вас нет прав для этой команды."); err != nil {
-			l.Error("Ошибка отправки сообщения о нехватке прав доступа",
+			l.Error(
+				"Ошибка отправки сообщения о нехватке прав доступа",
 				zap.Int64("ChatID", chatID),
 				zap.Error(err),
 			)

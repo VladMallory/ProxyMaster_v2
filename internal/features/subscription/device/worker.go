@@ -83,7 +83,8 @@ func (s *DeviceWorker) processDueBilling(ctx context.Context, now time.Time) {
 	for userID, activeAddons := range activeCounts {
 		devices := uint8(s.baseDeviceLimit + activeAddons)
 		if err := s.remna.SetDevices(ctx, userID, &devices); err != nil {
-			s.logger.Error("failed to sync device limit",
+			s.logger.Error(
+				"failed to sync device limit",
 				zap.String("user_id", userID),
 				zap.Error(err),
 			)

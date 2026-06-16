@@ -124,7 +124,8 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 	}
 
 	// URL для удаления устройств
-	url := fmt.Sprintf("%s/api/hwid/devices/delete-all?%s",
+	url := fmt.Sprintf(
+		"%s/api/hwid/devices/delete-all?%s",
 		c.cfg.PanelURL,
 		c.cfg.SecretURLToken,
 	)

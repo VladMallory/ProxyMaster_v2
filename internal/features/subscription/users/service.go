@@ -35,7 +35,10 @@ func NewSubscriptionService(
 func (s *SubscriptionService) GetURLSubscription(userID string) (string, error) {
 	uuid, err := s.remna.GetUUIDByUsername(context.Background(), userID)
 	if err != nil {
-		return "", fmt.Errorf("не удалось получить UUID пользователя: %w", err)
+		return "", fmt.Errorf(
+			"не удалось получить UUID пользователя: %w",
+			err,
+		)
 	}
 
 	userInfo, err := s.remna.GetUserInfo(uuid)
@@ -50,7 +53,8 @@ func (s *SubscriptionService) logDuration(method string) func() {
 	start := time.Now()
 
 	return func() {
-		s.logger.Info("вызов метода завершен",
+		s.logger.Info(
+			"вызов метода завершен",
 			zap.String("method", method),
 			zap.Duration("duration", time.Since(start)),
 		)
@@ -139,7 +143,8 @@ func (s *SubscriptionService) ActivateSubscription(userID string, months int) (s
 		)
 	}
 
-	s.logger.Info("подписка продлена",
+	s.logger.Info(
+		"подписка продлена",
 		zap.String("user_id", userID),
 		zap.Int("days", totalDays),
 	)

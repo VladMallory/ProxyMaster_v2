@@ -59,7 +59,8 @@ func (s *DeviceService) AddPaidDevice(userID string) error {
 				return s.logError("failed to create user", err)
 			}
 		} else {
-			return s.logError("failed to find user", err,
+			return s.logError(
+				"failed to find user", err,
 				zap.String("user_id", userID),
 			)
 		}
@@ -127,7 +128,8 @@ func (s *DeviceService) logDuration(method string) func() {
 	start := time.Now()
 
 	return func() {
-		s.logger.Info("вызов метода завершен",
+		s.logger.Info(
+			"вызов метода завершен",
 			zap.String("method", method),
 			zap.Duration("duration", time.Since(start)),
 		)

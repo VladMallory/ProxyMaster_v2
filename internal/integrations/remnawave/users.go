@@ -288,7 +288,8 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 		url,
 		nil,
 		&userData,
-		username); err != nil {
+		username,
+	); err != nil {
 		return "", err
 	}
 
