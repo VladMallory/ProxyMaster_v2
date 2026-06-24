@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/VladMallory/ProxyMaster_v2/internal/domain"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
 	"go.uber.org/zap"
 )
@@ -15,18 +14,15 @@ import (
 // SubscriptionService управляет подписками (активация, продление, получение URL).
 type SubscriptionService struct {
 	remna  remnawave.RemnawaveClient
-	dbRepo domain.UserRepository
 	logger *zap.Logger
 }
 
 func NewSubscriptionService(
 	remna remnawave.RemnawaveClient,
-	dbRepo domain.UserRepository,
 	l *zap.Logger,
 ) *SubscriptionService {
 	return &SubscriptionService{
 		remna:  remna,
-		dbRepo: dbRepo,
 		logger: l,
 	}
 }
@@ -72,17 +68,6 @@ func (s *SubscriptionService) logError(msg string, err error, fields ...zap.Fiel
 // nolint:funlen
 func (s *SubscriptionService) ActivateSubscription(userID string, months int) (string, error) {
 	defer s.logDuration("ActivateSubscription")()
-
-	_, err := s.dbRepo.GetUserByID(userID)
-	if err != nil {
-		return "", s.logError(
-			"пользователь не найден в DB",
-			err,
-			zap.String("user_id", userID),
-		)
-	}
-
-	s.logger.Info("пользователь найден", zap.String("user_id", userID))
 
 	totalDays := months * 30
 

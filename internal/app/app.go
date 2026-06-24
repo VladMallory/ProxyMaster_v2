@@ -102,7 +102,6 @@ func New() (Application, error) {
 	// users subscription
 	subscriptionUserSvc := users.NewSubscriptionService(
 		remnawaveClient,
-		userRepo,
 		subscriptionLogger,
 	)
 
