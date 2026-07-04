@@ -260,5 +260,5 @@ func main() {
 		"/assets/", http.FileServer(http.Dir("./frontend/site_v01/assets")),
 	))
 
-	http.ListenAndServe("127.0.0.1:8080", nil)
+	http.ListenAndServe(":8080", nil)
 }

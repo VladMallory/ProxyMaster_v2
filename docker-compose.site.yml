@@ -1,4 +1,18 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: site_pay_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployments/Caddyfile.site:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      - site-pay
+
   site-pay:
     build:
       context: .
@@ -8,6 +22,10 @@ services:
       - .env
     environment:
       TZ: Asia/Vladivostok
-    ports:
-      - "127.0.0.1:8080:8080"
+    expose:
+      - "8080"
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

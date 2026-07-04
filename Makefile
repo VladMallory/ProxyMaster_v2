@@ -11,10 +11,8 @@ windows:
 	go run $(cmdWindows)
 
 site-pay:
-	caddy validate --config cmd/restAPITest/Caddyfile
-	caddy reload --config cmd/restAPITest/Caddyfile --adapter caddyfile
 	docker compose -f docker-compose.site.yml up -d --build
-	docker logs -f site_pay
+	docker logs -f site_pay_caddy
 
 # ==================
 # БЕКАПЫ БАЗЫ ДАННЫХ

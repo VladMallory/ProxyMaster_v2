@@ -1,0 +1,3 @@
+p.shadowfade.ru {
+	reverse_proxy site-pay:8080
+}
