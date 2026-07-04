@@ -9,10 +9,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	youkassa2 "github.com/VladMallory/ProxyMaster_v2/cmd/tools/rest-api-test/youkassa"
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/features/billing/domain"
+	billingSvc "github.com/VladMallory/ProxyMaster_v2/internal/features/billing/service"
+	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/payments/platega"
+	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/payments/youkassa"
 	"github.com/VladMallory/ProxyMaster_v2/internal/integrations/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/platform/logger"
 	sitev01 "github.com/VladMallory/ProxyMaster_v2/web/site"
@@ -25,8 +29,15 @@ type YooKassaWebhook struct {
 	} `json:"object"`
 }
 
-// payHandler создает платеж и отправляет пользователя на страницу оплаты.
-func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa2.YooKassaClient) http.HandlerFunc {
+type paymentMetadata struct {
+	username string
+	days     int
+}
+
+var pendingPayments sync.Map
+
+// payHandler создает платеж через выбранный gateway и отправляет пользователя на страницу оплаты.
+func payHandler(gateway billingSvc.PaymentGateway, remnawaveClient *remnawave.RemnaClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := strings.TrimSpace(r.FormValue("username"))
 		amountRaw := r.FormValue("amount")
@@ -46,7 +57,7 @@ func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa
 			return
 		}
 
-		_, ok := subscriptionAmountToDays(amount)
+		days, ok := subscriptionAmountToDays(amount)
 		if !ok {
 			fmt.Println("недопустимая сумма оплаты:", amount)
 			http.Error(w, "можно оплатить только 200, 400, 600, 800 или 1000 рублей", http.StatusBadRequest)
@@ -54,7 +65,7 @@ func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa
 			return
 		}
 
-		// Проверяем пользователя до создания платежа, чтобы не принимать оплату для несуществующего клиента.
+		// Проверяем пользователя до создания платежа.
 		_, err = remnawaveClient.GetUUIDByUsername(r.Context(), username)
 		if err != nil {
 			fmt.Println("ошибка проверки пользователя перед оплатой:", username, err)
@@ -70,7 +81,10 @@ func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa
 			return
 		}
 
-		payment, err := yooKassaClient.CreatePayment(username, amount)
+		// Уникальный ID заказа внутри нашего сайта.
+		orderID := fmt.Sprintf("site_%s_%d_%d", username, amount, time.Now().UnixNano())
+
+		paymentURL, transactionID, err := gateway.CreateTransaction(r.Context(), float64(amount), orderID)
 		if err != nil {
 			fmt.Println("ошибка создания платежа:", err)
 			http.Error(w, "ошибка в создании платежа", http.StatusInternalServerError)
@@ -78,20 +92,22 @@ func payHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa
 			return
 		}
 
-		fmt.Println("платеж создан:", payment.ID, "username:", username, "amount:", amount)
-		fmt.Println("запускаю проверку платежа:", payment.ID)
+		fmt.Println("платеж создан:", transactionID, "username:", username, "amount:", amount)
 
-		go func() {
-			watchPayment(context.WithoutCancel(r.Context()), remnawaveClient, yooKassaClient, payment.ID)
-		}()
+		// Сохраняем метаданные локально, чтобы при успешной оплате знать, кому продлевать.
+		pendingPayments.Store(transactionID, paymentMetadata{username: username, days: days})
 
-		http.Redirect(w, r, payment.Confirmation.ConfirmationURL, http.StatusSeeOther)
+		fmt.Println("запускаю проверку платежа:", transactionID)
+
+		go watchPayment(context.WithoutCancel(r.Context()), remnawaveClient, gateway, transactionID)
+
+		http.Redirect(w, r, paymentURL, http.StatusSeeOther)
 	}
 }
 
-// isPaid проверяет, что ЮKassa подтвердила успешную оплату.
-func isPaid(payment *youkassa2.YooKassaPaymentStatusResponse) bool {
-	return payment.Status == "succeeded" && payment.Paid
+// isPaid проверяет, что платёжная система подтвердила успешную оплату.
+func isPaid(status domain.PaymentStatus) bool {
+	return status == domain.PaymentStatusSuccess
 }
 
 func subscriptionAmountToDays(amount int64) (int, bool) {
@@ -111,29 +127,27 @@ func subscriptionAmountToDays(amount int64) (int, bool) {
 	}
 }
 
-// handleSuccessfulPayment выполняет действия после подтвержденной оплаты.
-func handleSuccessfulPayment(ctx context.Context, remnawaveClient *remnawave.RemnaClient, payment *youkassa2.YooKassaPaymentStatusResponse) error {
-	username := payment.Metadata.Username
-	if username == "" {
-		return fmt.Errorf("пустой username в metadata платежа")
+// handleSuccessfulPayment читает сохранённые метаданные платежа и продлевает подписку.
+func handleSuccessfulPayment(ctx context.Context, remnawaveClient *remnawave.RemnaClient, transactionID string) error {
+	v, ok := pendingPayments.Load(transactionID)
+	if !ok {
+		return fmt.Errorf("платёж %s не найден в ожидающих", transactionID)
 	}
 
-	uuidUser, err := remnawaveClient.GetUUIDByUsername(ctx, username)
+	pendingPayments.Delete(transactionID)
+	meta := v.(paymentMetadata)
+
+	uuidUser, err := remnawaveClient.GetUUIDByUsername(ctx, meta.username)
 	if err != nil {
 		return err
 	}
 
-	days, err := strconv.Atoi(payment.Metadata.Days)
-	if err != nil || days == 0 {
-		return fmt.Errorf("пустое количество дней в metadata платежа")
-	}
-
-	err = remnawaveClient.ExtendClientSubscription(uuidUser, username, days)
+	err = remnawaveClient.ExtendClientSubscription(uuidUser, meta.username, meta.days)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("подписка продлена для пользователя:", username)
+	fmt.Println("подписка продлена для пользователя:", meta.username)
 
 	return nil
 }
@@ -146,11 +160,10 @@ func payPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // yooKassaWebhookHandler принимает webhook от ЮKassa и фиксирует успешную оплату.
-func yooKassaWebhookHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa2.YooKassaClient) http.HandlerFunc {
+func yooKassaWebhookHandler(gateway billingSvc.PaymentGateway, remnawaveClient *remnawave.RemnaClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var webhook YooKassaWebhook
 
-		// ЮKassa отправляет JSON; если не смогли прочитать, отвечаем OK, чтобы она не дергала нас бесконечно.
 		err := json.NewDecoder(r.Body).Decode(&webhook)
 		if err != nil {
 			w.WriteHeader(http.StatusOK)
@@ -164,10 +177,10 @@ func yooKassaWebhookHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClie
 			return
 		}
 
-		// Даже webhook перепроверяем через API ЮKassa, чтобы не доверять входящему запросу вслепую.
-		payment, err := yooKassaClient.GetPayment(r.Context(), webhook.Object.ID)
-		if err == nil && isPaid(payment) {
-			err = handleSuccessfulPayment(r.Context(), remnawaveClient, payment)
+		// Перепроверяем статус через API, а не доверяем вебхуку вслепую.
+		status, err := gateway.CheckStatus(r.Context(), webhook.Object.ID)
+		if err == nil && isPaid(status) {
+			err = handleSuccessfulPayment(r.Context(), remnawaveClient, webhook.Object.ID)
 			if err != nil {
 				fmt.Println("ошибка обработки успешной оплаты:", err)
 			}
@@ -178,27 +191,25 @@ func yooKassaWebhookHandler(remnawaveClient *remnawave.RemnaClient, yooKassaClie
 }
 
 // watchPayment проверяет платеж каждые 10 секунд в течение 1 часа.
-func watchPayment(ctx context.Context, remnawaveClient *remnawave.RemnaClient, yooKassaClient *youkassa2.YooKassaClient, paymentID string) {
+func watchPayment(ctx context.Context, remnawaveClient *remnawave.RemnaClient, gateway billingSvc.PaymentGateway, transactionID string) {
 	ctx, cancel := context.WithTimeout(ctx, time.Hour)
 	defer cancel()
 
-	fmt.Println("проверка платежа запущена:", paymentID)
+	fmt.Println("проверка платежа запущена:", transactionID)
 
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	for {
-		payment, err := yooKassaClient.GetPayment(ctx, paymentID)
+		status, err := gateway.CheckStatus(ctx, transactionID)
 		if err != nil {
-			fmt.Println("ошибка проверки платежа:", paymentID, err)
+			fmt.Println("ошибка проверки платежа:", transactionID, err)
+		} else {
+			fmt.Println("статус платежа:", transactionID, status)
 		}
 
-		if err == nil {
-			fmt.Println("статус платежа:", payment.ID, payment.Status, "paid:", payment.Paid)
-		}
-
-		if err == nil && isPaid(payment) {
-			err = handleSuccessfulPayment(ctx, remnawaveClient, payment)
+		if err == nil && isPaid(status) {
+			err = handleSuccessfulPayment(ctx, remnawaveClient, transactionID)
 			if err != nil {
 				fmt.Println("ошибка обработки успешной оплаты:", err)
 			}
@@ -206,9 +217,17 @@ func watchPayment(ctx context.Context, remnawaveClient *remnawave.RemnaClient, y
 			return
 		}
 
+		if err == nil && status == domain.PaymentStatusFailed {
+			fmt.Println("платёж отклонён:", transactionID)
+			pendingPayments.Delete(transactionID)
+
+			return
+		}
+
 		select {
 		case <-ctx.Done():
-			fmt.Println("проверка платежа остановлена:", paymentID)
+			fmt.Println("проверка платежа остановлена:", transactionID)
+			pendingPayments.Delete(transactionID)
 
 			return
 		case <-ticker.C:
@@ -220,12 +239,6 @@ func main() {
 	cfg, err := config.New()
 	if err != nil {
 		return
-	}
-
-	yooKassaClient := &youkassa2.YooKassaClient{
-		ShopID:     cfg.YouKassaShopID,
-		SecretKey:  cfg.YouKassaSecretKey,
-		HTTPClient: http.DefaultClient,
 	}
 
 	loggerClient, err := logger.New("info")
@@ -245,11 +258,39 @@ func main() {
 
 	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)
 
+	// Выбираем платёжный gateway в зависимости от PAYMENT_PROVIDER.
+	var gateway billingSvc.PaymentGateway
+
+	switch cfg.PaymentProvider {
+	case "yookassa":
+		gateway = youkassa.NewClient(
+			cfg.YouKassaShopID,
+			cfg.YouKassaSecretKey,
+			cfg.YouKassaReturnURL,
+			loggerClient.Named("youkassa"),
+		)
+	case "platega":
+		gateway = platega.NewClient(
+			cfg.PlategaMerchantID,
+			cfg.PlategaAPIKey,
+			cfg.PlategaReturnURL,
+			loggerClient.Named("platega"),
+		)
+	default:
+		fmt.Println("неизвестный PAYMENT_PROVIDER:", cfg.PaymentProvider)
+
+		return
+	}
+
 	http.HandleFunc("GET /", payPageHandler)
 	http.HandleFunc("GET /pay", payPageHandler)
-	http.HandleFunc("POST /", payHandler(remnawaveClient, yooKassaClient))
-	http.HandleFunc("POST /pay", payHandler(remnawaveClient, yooKassaClient))
-	http.HandleFunc("POST /pay/webhook", yooKassaWebhookHandler(remnawaveClient, yooKassaClient))
+	http.HandleFunc("POST /", payHandler(gateway, remnawaveClient))
+	http.HandleFunc("POST /pay", payHandler(gateway, remnawaveClient))
+
+	// Вебхук есть только у ЮKassa.
+	if cfg.PaymentProvider == "yookassa" {
+		http.HandleFunc("POST /pay/webhook", yooKassaWebhookHandler(gateway, remnawaveClient))
+	}
 
 	http.HandleFunc("GET /styles.css", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
