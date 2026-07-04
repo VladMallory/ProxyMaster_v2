@@ -26,8 +26,8 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates
 # Копируем бинарник сайта.
 COPY --from=builder /app/site-pay /app/site-pay
-# Копируем frontend, потому что код отдает ./frontend/site_v01/styles.css и assets.
-COPY --from=builder /app/frontend /app/frontend
+# Копируем frontend (шаблоны, стили, ассеты).
+COPY --from=builder /app/web/site /app/web/site
 # Сайт внутри контейнера слушает 8080.
 EXPOSE 8080
 # Запускаем сайт.

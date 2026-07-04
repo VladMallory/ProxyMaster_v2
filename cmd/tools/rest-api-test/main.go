@@ -253,11 +253,11 @@ func main() {
 
 	http.HandleFunc("GET /styles.css", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		http.ServeFile(w, r, "./frontend/site_v01/styles.css")
+		http.ServeFile(w, r, "./web/site/styles.css")
 	})
 
 	http.Handle("GET /assets/", http.StripPrefix(
-		"/assets/", http.FileServer(http.Dir("./frontend/site_v01/assets")),
+		"/assets/", http.FileServer(http.Dir("./web/site/assets")),
 	))
 
 	http.ListenAndServe(":8080", nil)
