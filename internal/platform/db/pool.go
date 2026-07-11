@@ -42,7 +42,10 @@ func Connect(databaseURL string, l *zap.Logger) (*sqlx.DB, error) {
 				zap.Error(err),
 			)
 
-			return nil, fmt.Errorf("failed database connection after %d attempts: %w", maxRetries, err)
+			return nil, fmt.Errorf(
+				"failed database connection after %d attempts: %w",
+				maxRetries, err,
+			)
 		}
 
 		time.Sleep(backoff)
