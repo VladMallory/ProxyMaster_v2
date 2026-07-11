@@ -2,6 +2,7 @@ package reminders
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -82,7 +83,16 @@ func (s *SubscriptionReminderService) runOnce(ctx context.Context) {
 
 		chatID, err := strconv.ParseInt(u.Username, 10, 64)
 		if err != nil {
-			s.logger.Error("парсинг chatID", zap.String("uuid", u.UUID), zap.Error(err))
+			var numErr *strconv.NumError
+			if errors.As(err, &numErr) && errors.Is(numErr.Err, strconv.ErrSyntax) {
+				continue
+			}
+
+			s.logger.Error(
+				"парсинг chatID",
+				zap.String("uuid", u.UUID),
+				zap.Error(err),
+			)
 
 			continue
 		}
