@@ -248,12 +248,12 @@ func main() {
 
 	remnawaveLogger := loggerClient.Named("remnawave")
 	remnaCfg := remnawave.RemnaConfig{
-		PanelURL:       cfg.RemnaPanelURL,
-		SecretURLToken: cfg.RemnaSecretURLToken,
-		APIKey:         cfg.RemnaKey,
-		SquadUUID:      cfg.RemnaSquadUUID,
-		TrafficLimitGB: cfg.TrafficLimit,
-		DeviceLimit:    cfg.DeviceLimit,
+		PanelURL:           cfg.RemnaPanelURL,
+		SecretURLToken:     cfg.RemnaSecretURLToken,
+		APIKey:             cfg.RemnaKey,
+		SquadUUID:          cfg.RemnaSquadUUID,
+		TrafficLimitGB:     cfg.TrafficLimit,
+		DefaultDeviceLimit: cfg.DeviceLimit,
 	}
 
 	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)

@@ -4,6 +4,7 @@ package db
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -13,16 +14,39 @@ import (
 )
 
 // Connect is function for database connection.
+// Повторяет подключение при временных сетевых ошибках (DNS, таймауты).
 func Connect(databaseURL string, l *zap.Logger) (*sqlx.DB, error) {
-	// Подключаемся к Postgres.
-	db, err := sqlx.Connect("postgres", databaseURL)
-	if err != nil {
-		l.Error(
-			"failed db connection",
+	var db *sqlx.DB
+
+	// Retry подключения к БД — при Docker DNS проблемах приходится ждать
+	maxRetries := 20
+	backoff := 2 * time.Second
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		var err error
+		db, err = sqlx.Connect("postgres", databaseURL)
+		if err == nil {
+			break // успешно подключились
+		}
+
+		l.Warn(
+			"ошибка подключения к БД, повторяем...",
 			zap.Error(err),
+			zap.Int("attempt", attempt),
+			zap.Int("max_retries", maxRetries),
 		)
 
-		return nil, fmt.Errorf("failed database connection: %w", err)
+		if attempt == maxRetries {
+			l.Error(
+				"failed db connection",
+				zap.Error(err),
+			)
+
+			return nil, fmt.Errorf("failed database connection after %d attempts: %w", maxRetries, err)
+		}
+
+		time.Sleep(backoff)
+		backoff *= 2 // 2s → 4s → 8s → 16s
 	}
 
 	// Настраиваем пул соединений.

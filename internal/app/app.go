@@ -80,12 +80,12 @@ func New() (Application, error) {
 
 	// Берем глобальный cfg и передаем только нужные поля
 	remnaCfg := remnawave.RemnaConfig{
-		PanelURL:       cfg.RemnaPanelURL,
-		SecretURLToken: cfg.RemnaSecretURLToken,
-		APIKey:         cfg.RemnaKey,
-		SquadUUID:      cfg.RemnaSquadUUID,
-		TrafficLimitGB: cfg.TrafficLimit,
-		DeviceLimit:    cfg.DeviceLimit,
+		PanelURL:           cfg.RemnaPanelURL,
+		SecretURLToken:     cfg.RemnaSecretURLToken,
+		APIKey:             cfg.RemnaKey,
+		SquadUUID:          cfg.RemnaSquadUUID,
+		TrafficLimitGB:     cfg.TrafficLimit,
+		DefaultDeviceLimit: cfg.DeviceLimit,
 	}
 
 	remnawaveClient := remnawave.NewRemnaClient(remnaCfg, remnawaveLogger)

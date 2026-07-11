@@ -33,20 +33,19 @@ type RemnawaveClient interface {
 
 // RemnaConfig хранит важные *config данные из env.
 type RemnaConfig struct {
-	PanelURL       string
-	SecretURLToken string
-	APIKey         string
-	SquadUUID      string
-	TrafficLimitGB int64
-	DeviceLimit    int // Лимит устройств по умолчанию
+	PanelURL           string
+	SecretURLToken     string
+	APIKey             string
+	SquadUUID          string
+	TrafficLimitGB     int64
+	DefaultDeviceLimit int
 }
 
 // RemnaClient описывает то что нужно для работы remnawave.
 type RemnaClient struct {
 	cfg        RemnaConfig
 	httpClient *http.Client
-	// Храним логгер здесь для обращения к нему
-	logger *zap.Logger
+	logger     *zap.Logger
 }
 
 // NewRemnaClient конструктор для создания клиента.
@@ -152,71 +151,86 @@ func (c *RemnaClient) EncryptURL(url string) (string, error) {
 }
 
 // doRequest делает запросы к remnawave с стандартными заголовками.
+// При временных сетевых ошибках (таймаут, connection refused) повторяет запрос.
 func (c *RemnaClient) doRequest(
 	ctx context.Context,
 	method, url string,
 	body any,
 ) (*http.Response, error) {
-	var bodyReader io.Reader
+	maxRetries := 3
+	backoff := 1 * time.Second
+	var lastErr error
 
-	// Преобразуем запрос в JSON чтобы отправить
-	// его на сервер в привычном виде
-	if body != nil {
-		jsonData, err := json.Marshal(body)
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		var bodyReader io.Reader
+
+		if body != nil {
+			jsonData, err := json.Marshal(body)
+			if err != nil {
+				c.logger.Error(
+					"ошибка парсинга json",
+					zap.Error(err),
+					zap.String("method", method),
+					zap.String("url", url),
+				)
+
+				return nil, fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
+			}
+
+			bodyReader = bytes.NewBuffer(jsonData)
+		} else {
+			bodyReader = http.NoBody
+		}
+
+		request, err := http.NewRequestWithContext(
+			ctx,
+			method,
+			url,
+			bodyReader,
+		)
 		if err != nil {
 			c.logger.Error(
-				"ошибка парсинга json",
+				"ошибка создания запроса",
 				zap.Error(err),
 				zap.String("method", method),
 				zap.String("url", url),
 			)
 
-			return nil, fmt.Errorf("%w: %w", ErrFailedToMarshal, err)
+			return nil, fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
 		}
 
-		bodyReader = bytes.NewBuffer(jsonData)
-	} else {
-		bodyReader = http.NoBody
+		request.Header.Add("Content-Type", "application/json")
+		request.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
+
+		response, err := c.httpClient.Do(request)
+		if err == nil {
+			return response, nil // успешно
+		}
+
+		lastErr = err
+		c.logger.Warn(
+			"сетевая ошибка, повторяем запрос",
+			zap.Error(err),
+			zap.String("method", method),
+			zap.String("url", url),
+			zap.Int("attempt", attempt),
+			zap.Int("max_retries", maxRetries),
+		)
+
+		if attempt < maxRetries {
+			time.Sleep(backoff)
+			backoff *= 2 // 1s → 2s → 4s
+		}
 	}
 
-	// Создание HTTP запроса
-	request, err := http.NewRequestWithContext(
-		ctx,
-		method,
-		url,
-		bodyReader,
+	c.logger.Error(
+		"failed to execute doRequest after retries",
+		zap.Error(lastErr),
+		zap.String("method", method),
+		zap.String("url", url),
 	)
-	if err != nil {
-		c.logger.Error(
-			"ошибка создания запроса",
-			zap.Error(err),
-			zap.String("method", method),
-			zap.String("url", url),
-		)
 
-		return nil, fmt.Errorf("%w: %w", ErrFailedToMakeRequest, err)
-	}
-
-	// Добавление стандартных заголовков
-	// для всех запросов к API remnawave
-	request.Header.Add("Content-Type", "application/json")
-	// Обязательно добавляем ключ RemnaKey чтобы панель пропустила
-	request.Header.Add("Authorization", "Bearer "+c.cfg.APIKey)
-
-	// Выполняет запрос
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.logger.Error(
-			"failed to execute doRequest",
-			zap.Error(err),
-			zap.String("method", method),
-			zap.String("url", url),
-		)
-
-		return nil, fmt.Errorf("%w: %w", ErrFailedToDoRequest, err)
-	}
-
-	return response, nil
+	return nil, fmt.Errorf("%w: %w", ErrFailedToDoRequest, lastErr)
 }
 
 // readBody читает тело ответа с логированием ошибок.
