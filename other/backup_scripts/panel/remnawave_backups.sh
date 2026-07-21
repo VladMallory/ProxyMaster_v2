@@ -35,7 +35,7 @@ docker exec \
 docker cp "$CONTAINER:$TMP_PATH" "$BACKUP_DIR/$BACKUP_FILE"
 docker exec "$CONTAINER" rm -f "$TMP_PATH"
 
-find "$BACKUP_DIR" -type f -name "*.dump" -mtime +14 -delete
+find "$BACKUP_DIR" -type f -name "*.dump" -mtime +1 -delete
 
 echo "[INFO] Backup completed successfully"
 EOF

@@ -36,12 +36,12 @@ type Config struct {
 	YouKassaSecretKey string
 	YouKassaReturnURL string
 
-	PricePerMonth      string
-	ExtraDevicePrice   int
-	ResetTrafficPrice  int
-	DeviceLimit        int
-	MaxDeviceLimit     int
-	TrafficLimit       int64
+	PricePerMonth     string
+	ExtraDevicePrice  int
+	ResetTrafficPrice int
+	DeviceLimit       int
+	MaxDeviceLimit    int
+	TrafficLimit      int64
 
 	LoggerLevel string
 
@@ -113,12 +113,12 @@ func New() (*Config, error) {
 		YouKassaShopID:      os.Getenv("YOUKASSA_SHOP_ID"),
 		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
-		PricePerMonth:      os.Getenv("PRICE_PER_MONTH"),
-		ExtraDevicePrice:   extraDevicePrice,
-		ResetTrafficPrice:  resetTrafficPrice,
-		DeviceLimit:        deviceLimit,
-		MaxDeviceLimit:     maxDeviceLimit,
-		TrafficLimit:       trafficLimit,
+		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
+		ExtraDevicePrice:    extraDevicePrice,
+		ResetTrafficPrice:   resetTrafficPrice,
+		DeviceLimit:         deviceLimit,
+		MaxDeviceLimit:      maxDeviceLimit,
+		TrafficLimit:        trafficLimit,
 		SOCKS5Host:          os.Getenv("SOCKS5_HOST"),
 		SOCKS5Port:          os.Getenv("SOCKS5_PORT"),
 		SOCKS5Username:      os.Getenv("SOCKS5_USER"),

@@ -283,7 +283,10 @@ func (c *Client) handleProfileView(data string) (string, tgintegration.InlineKey
 }
 
 func (c *Client) handleTrafficLimitsView() (string, tgintegration.InlineKeyboard) {
-	text := fmt.Sprintf("Сбросить использованный трафик (обнулить намотанные гигабайты)?\n\nСтоимость: %d₽", c.cfg.ResetTrafficPrice)
+	text := fmt.Sprintf(
+		"Сбросить использованный трафик (обнулить намотанные гигабайты)?\n\nСтоимость: %d₽",
+		c.cfg.ResetTrafficPrice,
+	)
 
 	return text, c.trafficLimitsKeyboard()
 }
