@@ -45,6 +45,8 @@ type Config struct {
 
 	LoggerLevel string
 
+	LinkChannel string
+
 	SOCKS5Host     string
 	SOCKS5Port     string
 	SOCKS5Username string
@@ -114,6 +116,7 @@ func New() (*Config, error) {
 		YouKassaSecretKey:   os.Getenv("YOUKASSA_SECRET_KEY"),
 		YouKassaReturnURL:   os.Getenv("YOUKASSA_RETURN_URL"),
 		PricePerMonth:       os.Getenv("PRICE_PER_MONTH"),
+		LinkChannel:         os.Getenv("LINK_CHANNEL"),
 		ExtraDevicePrice:    extraDevicePrice,
 		ResetTrafficPrice:   resetTrafficPrice,
 		DeviceLimit:         deviceLimit,

@@ -343,7 +343,7 @@ func (c *Client) mainKeyboard(userID int64) tgintegration.InlineKeyboard {
 		)
 	}
 
-	return tgintegration.InlineKeyboard{
+	keyboard := tgintegration.InlineKeyboard{
 		{
 			tgintegration.NewButton("📱 Скачать приложение", "download_app"),
 		},
@@ -361,4 +361,12 @@ func (c *Client) mainKeyboard(userID int64) tgintegration.InlineKeyboard {
 			tgintegration.NewButton("🧾 Информация о сервисе", "btn_info"),
 		},
 	}
+
+	if c.cfg.LinkChannel != "" {
+		keyboard = append(keyboard, []tgintegration.ButtonData{
+			tgintegration.NewURLButton("📢 Наш канал", c.cfg.LinkChannel),
+		})
+	}
+
+	return keyboard
 }

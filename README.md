@@ -59,6 +59,9 @@ MAX_DEVICE_LIMIT=5
 EXTRA_DEVICE_PRICE=50
 RESET_TRAFFIC_PRICE=50
 
+# Ссылку на свой канал
+LINK_CHANNEL=
+
 # Logger. Можно ставить info, debug, warn, error.
 LOGGER_LEVEL=info
 
