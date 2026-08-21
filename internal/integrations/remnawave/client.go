@@ -486,7 +486,7 @@ func (c *RemnaClient) wrapErr(err error, msg, username string, url ...string) er
 func (c *RemnaClient) changeUserState(userUUID, action string) error {
 	url := c.actionURL(userUUID, action)
 
-	resp, err := c.doRequest(context.Background(), http.MethodPut, url, nil)
+	resp, err := c.doRequest(context.Background(), http.MethodPost, url, nil)
 	if err != nil {
 		return err
 	}

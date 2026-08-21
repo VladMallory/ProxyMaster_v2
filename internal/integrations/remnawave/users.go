@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -97,9 +98,15 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days i
 		c.cfg.SecretURLToken,
 	)
 
+	// Новый API ждёт массив числовых id (userIds), а не uuids.
+	id, err := strconv.ParseInt(userUUID, 10, 64)
+	if err != nil {
+		return c.wrapErr(err, "не удалось распарсить id пользователя", username)
+	}
+
 	payload := BulkExtendRequest{
-		UUIDs: []string{userUUID},
-		Days:  days,
+		UserIDs: []int64{id},
+		Days:    days,
 	}
 
 	resp, err := c.doRequest(context.Background(), http.MethodPost, url, payload)
@@ -293,11 +300,12 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 		return "", err
 	}
 
-	// Проверка валидности ответа
-	if userData.Response.UUID == "" || userData.Response.Username == "" {
+	// Панель больше не отдаёт uuid — идентификатор теперь числовой id.
+	// 0 значит, что пользователь не найден или пришёл пустой ответ.
+	if userData.Response.ID == 0 || userData.Response.Username == "" {
 		c.logger.Error(
-			"received empty UUID or username in response",
-			zap.String("response_uuid", userData.Response.UUID),
+			"received empty id or username in response",
+			zap.Int("response_id", userData.Response.ID),
 			zap.String("response_username", userData.Response.Username),
 		)
 
@@ -305,13 +313,13 @@ func (c *RemnaClient) GetUUIDByUsername(ctx context.Context, username string) (s
 	}
 
 	c.logger.Info(
-		"получен UUID пользователя",
+		"получен id пользователя",
 		zap.String("username", username),
-		zap.String("uuid", userData.Response.UUID),
+		zap.Int("id", userData.Response.ID),
 	)
 
-	// Возвращаем UUID из структуры
-	return userData.Response.UUID, nil
+	// Возвращаем id строкой: все URL панели теперь строятся с числовым id.
+	return strconv.Itoa(userData.Response.ID), nil
 }
 
 // GetUserStatus возвращает статус пользователя по его UUID.

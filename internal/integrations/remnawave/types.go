@@ -6,8 +6,8 @@ import (
 
 // BulkExtendRequest структура для запроса в апи remnawave.
 type BulkExtendRequest struct {
-	UUIDs []string `json:"uuids"`
-	Days  int      `json:"extendDays"`
+	UserIDs []int64 `json:"userIds"`
+	Days    int     `json:"extendDays"`
 }
 
 type UpdateUserRequest struct {

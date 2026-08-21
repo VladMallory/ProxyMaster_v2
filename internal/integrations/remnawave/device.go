@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -12,7 +13,7 @@ import (
 
 type HWIDDevice struct {
 	HWID        string     `json:"hwid"`
-	UserUUID    string     `json:"userUuid"`
+	UserID      int        `json:"userId"`
 	Platform    *string    `json:"platform"`
 	OSVersion   *string    `json:"osVersion"`
 	DeviceModel *string    `json:"deviceModel"`
@@ -130,9 +131,14 @@ func (c *RemnaClient) DeleteDeviceHWID(ctx context.Context, username string) err
 		c.cfg.SecretURLToken,
 	)
 
-	// JSON запрос с UUID пользователя
-	requestBody := map[string]string{
-		"userUuid": UUID,
+	// Новый API ждёт числовой userId вместо строкового userUuid.
+	id, err := strconv.Atoi(UUID)
+	if err != nil {
+		return c.wrapErr(err, "ошибка парсинга id", username)
+	}
+
+	requestBody := map[string]int{
+		"userId": id,
 	}
 
 	// Делаем POST запрос

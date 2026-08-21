@@ -90,7 +90,7 @@ func (s *SubscriptionReminderService) runOnce(ctx context.Context) {
 
 			s.logger.Error(
 				"парсинг chatID",
-				zap.String("uuid", u.UUID),
+				zap.Int("id", u.ID),
 				zap.Error(err),
 			)
 
@@ -108,7 +108,7 @@ func (s *SubscriptionReminderService) runOnce(ctx context.Context) {
 		)
 
 		if err := s.sender.Send(chatID, msg); err != nil {
-			s.logger.Error("отправка напоминания", zap.String("uuid", u.UUID), zap.Error(err))
+			s.logger.Error("отправка напоминания", zap.Int("id", u.ID), zap.Error(err))
 
 			continue
 		}
