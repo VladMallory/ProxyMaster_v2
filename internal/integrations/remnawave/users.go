@@ -115,7 +115,8 @@ func (c *RemnaClient) ExtendClientSubscription(userUUID, username string, days i
 	}
 	defer c.closeBody(resp)
 
-	if resp.StatusCode == http.StatusOK {
+	// Новый API отвечает 204 No Content, а не 200 OK.
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 		c.logger.Info(
 			"Период подписки продлён",
 			zap.String("username", username),
