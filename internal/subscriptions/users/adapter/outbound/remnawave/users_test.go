@@ -55,7 +55,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				require.Len(t, got.TrojanPassword, 12)
 				require.Len(t, got.SSPassword, 12)
 				require.Zero(t, got.TrafficLimitBytes)
-				require.Equal(t, "NO_RESET", got.TrafficLimitStrategy)
+				require.Equal(t, "MONTH", got.TrafficLimitStrategy)
 				require.Empty(t, got.ActiveInternalSquads)
 
 				// даты считаются от time.Now() -> сравниваем с допуском
@@ -345,6 +345,82 @@ func TestRemnawaveClient_GetByUUID(t *testing.T) {
 			t.Parallel()
 
 			got, err := newTestClient(tt.roundTrip).GetByUUID(context.Background(), "uuid-123")
+
+			if tt.wantErr {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantErrSubstr)
+
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// nolint: funlen
+func TestRemnawaveClient_GetUUIDByUsername(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		roundTrip     func(req *http.Request) (*http.Response, error)
+		wantErr       bool
+		wantErrSubstr string
+		want          string
+	}{
+		{
+			name: "панель отдала uuid -> возвращаем uuid как есть",
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				require.Equal(t, http.MethodGet, req.Method)
+				require.Equal(t, "/api/users/by-username/vlad", req.URL.Path)
+				require.Equal(t, "apiKey=x", req.URL.RawQuery)
+
+				return jsonResponse(http.StatusOK, subdomain.APIResponse{
+					UserResponse: subdomain.UserResponse{
+						UUID:     "uuid-123",
+						ID:       42,
+						Username: "vlad",
+					},
+				}), nil
+			},
+			want: "uuid-123",
+		},
+		{
+			name: "панель без uuid (новое api) -> возвращаем числовой id строкой",
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				return jsonResponse(http.StatusOK, subdomain.APIResponse{
+					UserResponse: subdomain.UserResponse{
+						ID:       1813,
+						Username: "vlad",
+					},
+				}), nil
+			},
+			want: "1813",
+		},
+		{
+			name: "юзер не найден -> ErrNoFindUser как есть",
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				return jsonResponse(http.StatusNotFound, "{}"), nil
+			},
+			wantErr:       true,
+			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
+		},
+		{
+			name: "сервер ответил 500 -> ошибка пробрасывается без обёртки",
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				return jsonResponse(http.StatusInternalServerError, "boom"), nil
+			},
+			wantErr:       true,
+			wantErrSubstr: "request failed 500",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := newTestClient(tt.roundTrip).GetUUIDByUsername(context.Background(), "vlad")
 
 			if tt.wantErr {
 				require.Error(t, err)

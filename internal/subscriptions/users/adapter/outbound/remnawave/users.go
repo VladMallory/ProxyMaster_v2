@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +28,7 @@ func (r *RemnawaveClient) CreateUser(
 		TrojanPassword:       strings.ReplaceAll(uuid.NewString(), "-", "")[:12],
 		SSPassword:           strings.ReplaceAll(uuid.NewString(), "-", "")[:12],
 		TrafficLimitBytes:    0,
-		TrafficLimitStrategy: "NO_RESET",
+		TrafficLimitStrategy: "MONTH",
 		ExpireAt:             now.AddDate(0, 0, days),
 		CreatedAt:            now,
 		LastTrafficResetAt:   now.Format(time.RFC3339),
@@ -83,6 +84,26 @@ func (r RemnawaveClient) GetByUsername(
 	}
 
 	return resp.UserResponse, nil
+}
+
+// GetUUIDByUsername — возвращает идентификатор пользователя по имени.
+// Старый API отдавал uuid, новый — только числовой id.
+// Возвращаем строку: на старой панели это uuid, на новой — id строкой.
+// Вызывать только там, где идентификатор реально нужен.
+func (r RemnawaveClient) GetUUIDByUsername(
+	ctx context.Context,
+	username string,
+) (string, error) {
+	resp, err := r.GetByUsername(ctx, username)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.UUID != "" {
+		return resp.UUID, nil
+	}
+
+	return strconv.Itoa(resp.ID), nil
 }
 
 func (r RemnawaveClient) GetByUUID(

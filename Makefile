@@ -1,4 +1,4 @@
-.PHONY: run windows run2 backup-db backup-db-gz backup-list backup-info backup-restore backup-restore-clean backup-cleanup db-only db-stop docker-build docker dc dcd dev dev-stop docker-build-linux docker-linux gosec list vault-status vault-init vault-unseal vault-put-secrets vault-approle-setup site-pay
+.PHONY: run windows run2 e2e backup-db backup-db-gz backup-list backup-info backup-restore backup-restore-clean backup-cleanup db-only db-stop docker-build docker dc dcd dev dev-stop docker-build-linux docker-linux gosec list vault-status vault-init vault-unseal vault-put-secrets vault-approle-setup site-pay
 binary=ProxyMaster_v2
 cmdMacosAndLinux=./cmd/myapp/main.go
 cmdWindows=.\cmd\myapp\main.go
@@ -9,6 +9,10 @@ run:
 
 windows:
 	go run $(cmdWindows)
+
+# Прогнать e2e-тесты 
+e2e:
+	go test -tags e2e -count=1 ./...
 
 site-pay:
 	docker compose -f docker-compose.site.yml up -d --build
