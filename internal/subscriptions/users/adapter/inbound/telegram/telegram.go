@@ -90,13 +90,20 @@ func (h *Handler) handleDownload(c telebot.Context) error {
 	return c.Edit("Выберите платформу:", h.keys.DownloadApps(), telebot.ModeHTML)
 }
 
+const appStore = "Выберите Ваш регион из App Store. Если не знаете какой у вас, " +
+	"кликните сначала на первую кнопку, если ошибка, то на вторую"
+
 func (h *Handler) handleIOS(c telebot.Context) error {
 	err := c.Respond()
 	if err != nil {
 		return err
 	}
 
-	return c.Edit("Выберите App Store:", h.keys.IOS(), telebot.ModeHTML)
+	return c.Edit(
+		appStore,
+		h.keys.IOS(),
+		telebot.ModeHTML,
+	)
 }
 
 func (h *Handler) handleAndroid(c telebot.Context) error {
