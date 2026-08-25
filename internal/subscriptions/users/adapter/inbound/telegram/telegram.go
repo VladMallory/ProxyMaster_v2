@@ -1,25 +1,26 @@
 package telegram
 
 import (
-	"context"
-	"html"
 	"log/slog"
-	"strconv"
 	"time"
 
-	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
+	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram/keyboard"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
 	"gopkg.in/telebot.v4"
 )
 
 type Handler struct {
-	useCase    userscase.UserUseCase
-	bot        *telebot.Bot
-	trialDays  int
-	supportURL string
+	useCase   userscase.UserUseCase
+	bot       *telebot.Bot
+	trialDays int
+	keys      *keyboard.Keyboard
 }
 
-func NewHandler(useCase userscase.UserUseCase, token, supportURL string) (*Handler, error) {
+func NewHandler(
+	useCase userscase.UserUseCase,
+	token, supportURL string,
+	trialDays int,
+) (*Handler, error) {
 	pref := telebot.Settings{
 		Token:  token,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
@@ -31,9 +32,10 @@ func NewHandler(useCase userscase.UserUseCase, token, supportURL string) (*Handl
 	}
 
 	tgBot := &Handler{
-		useCase:    useCase,
-		bot:        b,
-		supportURL: supportURL,
+		useCase:   useCase,
+		bot:       b,
+		trialDays: trialDays,
+		keys:      keyboard.New(supportURL),
 	}
 
 	tgBot.registerRoutes()
@@ -60,63 +62,114 @@ func (h *Handler) Stop() {
 	h.bot.Stop()
 }
 
-// RegisterRoutes связывает команды telebotgram с методами хендлера.
+// RegisterRoutes регистрирует обработчики.
 func (h *Handler) registerRoutes() {
 	h.bot.Handle("/start", h.handleStart)
+
+	h.bot.Handle(&telebot.Btn{Unique: "btn_download"}, h.handleDownload)
+	h.bot.Handle(&telebot.Btn{Unique: "dl_ios"}, h.handleIOS)
+	h.bot.Handle(&telebot.Btn{Unique: "dl_android"}, h.handleAndroid)
+	h.bot.Handle(&telebot.Btn{Unique: "dl_linux"}, h.handleLinux)
+	h.bot.Handle(&telebot.Btn{Unique: "dl_macos"}, h.handleMacOS)
+	h.bot.Handle(&telebot.Btn{Unique: "dl_router"}, h.handleRouter)
+
+	h.bot.Handle(&telebot.Btn{Unique: "btn_back_platforms"}, h.handleBackPlatforms)
+	h.bot.Handle(&telebot.Btn{Unique: "btn_back"}, h.handleBack)
 
 	h.bot.Handle(telebot.OnText, h.handleUnknownCommand)
 }
 
-func (h *Handler) handleStart(c telebot.Context) error {
-	user := c.Sender()
+// === СКАЧАТЬ ПРИЛОЖЕНИЕ ===
 
-	users, err := h.useCase.GetOrCreateSub(
-		context.Background(),
-		strconv.FormatInt(user.ID, 10),
-		h.trialDays,
-	)
-	if err != nil {
-		return c.Send(err.Error())
-	}
-
-	menu := h.keysStart(users)
-
-	text, err := renderStart(startViewModel{
-		Name:       html.EscapeString(user.FirstName),
-		ExpireDate: formatExpireDate(users.ExpireAt),
-		Device:     users.Device,
-	})
+func (h *Handler) handleDownload(c telebot.Context) error {
+	err := c.Respond()
 	if err != nil {
 		return err
 	}
 
-	err = c.Send(text, menu, telebot.ModeHTML)
-	if err != nil {
-		return err
-	}
-
-	slog.Info("подписка получена",
-		"users", users.Name,
-	)
-
-	return nil
+	return c.Edit("Выберите платформу:", h.keys.DownloadApps(), telebot.ModeHTML)
 }
 
-func (h Handler) keysStart(users subdomain.User) *telebot.ReplyMarkup {
-	// Клавиатуры
-	menu := &telebot.ReplyMarkup{}
+func (h *Handler) handleIOS(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
 
-	btnURL := menu.URL("🚀 Подключиться", users.URL)
-	btnSupport := menu.URL("🛟 Поддержка", h.supportURL)
+	return c.Edit("Выберите App Store:", h.keys.IOS(), telebot.ModeHTML)
+}
 
-	menu.Inline(
-		menu.Row(btnURL),
-		menu.Row(btnSupport),
+func (h *Handler) handleAndroid(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
+
+	return c.Edit(
+		"Если у вас есть Google Play, то жмите на первую кнопку, если у вас не установлен Google Play, то на вторую:",
+		h.keys.Android(),
+		telebot.ModeHTML,
 	)
+}
 
-	return menu
+func (h *Handler) handleLinux(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
+
+	return c.Edit("Выберите дистрибитив:", h.keys.Linux(), telebot.ModeHTML)
+}
+
+func (h *Handler) handleBackPlatforms(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
+
+	return c.Edit("Выберите платформу:", h.keys.DownloadApps(), telebot.ModeHTML)
+}
+
+func (h *Handler) handleMacOS(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
+
+	return c.Edit("Выберите вариант установки", h.keys.Macos(), telebot.ModeHTML)
+}
+
+const router string = "Если ваш роутер на Keenetic OS или OpenWRT, то можно будет поставить " +
+	"прям на роутер, но это не прям очень легко, нужно будет чуть-чуть повозиться"
+
+func (h *Handler) handleRouter(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
+
+	return c.Edit(
+		router,
+		h.keys.Router(),
+		telebot.ModeHTML,
+	)
 }
 
 func (h *Handler) handleUnknownCommand(c telebot.Context) error {
 	return c.Send("Неизвестнная команда, введите /start")
+}
+
+func (h *Handler) handleBack(c telebot.Context) error {
+	err := c.Respond()
+	if err != nil {
+		return err
+	}
+
+	text, menu, err := h.startMenu(c)
+	if err != nil {
+		return err
+	}
+
+	// Возвращаем главное меню, редактируя текущее сообщение
+	return c.Edit(text, menu, telebot.ModeHTML)
 }

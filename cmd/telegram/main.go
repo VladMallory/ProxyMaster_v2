@@ -36,12 +36,13 @@ func new() (app, error) {
 		cfg.RemnawaveAPIKey,
 	)
 
-	usersUseCase := userscase.NewUserUseCase(remnawaveClient)
+	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
 
 	tgBot, err := telegram.NewHandler(
 		usersUseCase,
 		cfg.TelegramToken,
 		cfg.TelegramSupport,
+		cfg.TrialDays,
 	)
 	if err != nil {
 		return app{}, err

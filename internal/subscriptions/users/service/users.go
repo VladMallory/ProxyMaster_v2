@@ -15,13 +15,25 @@ type UserRepository interface {
 }
 
 type UserUseCase struct {
-	repo UserRepository
+	repo               UserRepository
+	defaultDeviceLimit int
 }
 
-func NewUserUseCase(repo UserRepository) UserUseCase {
+func NewUserUseCase(repo UserRepository, defaultDeface int) UserUseCase {
 	return UserUseCase{
-		repo: repo,
+		repo:               repo,
+		defaultDeviceLimit: defaultDeface,
 	}
+}
+
+// deviceCheck если панель возвращает 0 device, то задаем значение из env
+// чтобы пользователю не писать "у вас устройств 0".
+func (u UserUseCase) deviceCheck(defaultDeviceLimit int) int {
+	if defaultDeviceLimit == 0 {
+		return u.defaultDeviceLimit
+	}
+
+	return defaultDeviceLimit
 }
 
 // GetOrCreateSub получает или создает подписку пользователя.
@@ -32,7 +44,14 @@ func (u UserUseCase) GetOrCreateSub(
 ) (subdomain.User, error) {
 	resp, err := u.repo.GetByUsername(ctx, username)
 	if errors.Is(err, subdomain.ErrNoFindUser) {
-		return u.repo.CreateUser(ctx, username, trialDays)
+		createtUser, err := u.repo.CreateUser(ctx, username, trialDays)
+		if err != nil {
+			return subdomain.User{}, err
+		}
+
+		resp.HWIDDeviceLimit = u.deviceCheck(resp.HWIDDeviceLimit)
+
+		return createtUser, nil
 	}
 	if err != nil {
 		return subdomain.User{}, err
@@ -46,7 +65,7 @@ func (u UserUseCase) GetOrCreateSub(
 	return subdomain.User{
 		Name:     resp.Username,
 		UUID:     resp.UUID,
-		Device:   resp.HWIDDeviceLimit,
+		Device:   u.deviceCheck(resp.HWIDDeviceLimit),
 		URL:      resp.SubscriptionURL,
 		Days:     remainingDays(resp.ExpireAt),
 		ExpireAt: expireAt,
@@ -63,7 +82,7 @@ func (u UserUseCase) GetURL(ctx context.Context, username string) (subdomain.Use
 	return subdomain.User{
 		Name:   resp.Username,
 		UUID:   resp.UUID,
-		Device: resp.HWIDDeviceLimit,
+		Device: u.deviceCheck(resp.HWIDDeviceLimit),
 		URL:    resp.SubscriptionURL,
 	}, nil
 }

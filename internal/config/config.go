@@ -20,11 +20,12 @@ type Config struct {
 	DatabaseURL string `env:"DATABASE_URL"`
 
 	PricePerMonth     string `env:"PRICE_PER_MONTH"`
-	DeviceLimit       string `env:"DEVICE_LIMIT"`
+	DeviceLimit       int    `env:"DEVICE_LIMIT"`
 	TrafficLimit      string `env:"TRAFFIC_LIMIT"`
 	MaxDeviceLimit    string `env:"MAX_DEVICE_LIMIT"`
 	ExtraDevicePrice  string `env:"EXTRA_DEVICE_PRICE"`
 	ResetTrafficPrice string `env:"RESET_TRAFFIC_PRICE"`
+	TrialDays         int    `env:"TRIAL_DAYS"`
 
 	LoggerLevel string `env:"LOGGER_LEVEL" default:"info"`
 }
