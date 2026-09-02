@@ -47,3 +47,17 @@ func (h *Handler) startMenu(c telebot.Context) (string, *telebot.ReplyMarkup, er
 
 	return text, h.keys.Start(users), nil
 }
+
+// handleBack возвращает в главное меню, редактируя текущее сообщение.
+func (h *Handler) handleBack(c telebot.Context) error {
+	if err := c.Respond(); err != nil {
+		return err
+	}
+
+	text, menu, err := h.startMenu(c)
+	if err != nil {
+		return err
+	}
+
+	return c.Edit(text, menu, telebot.ModeHTML)
+}

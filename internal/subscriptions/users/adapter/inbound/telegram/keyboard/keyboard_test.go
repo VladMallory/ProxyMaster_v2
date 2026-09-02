@@ -21,7 +21,7 @@ func TestKeyboard_Start(t *testing.T) {
 	require.Len(t, menu.InlineKeyboard, 3)
 
 	require.Len(t, menu.InlineKeyboard[0], 1)
-	require.Equal(t, "btn_download", menu.InlineKeyboard[0][0].Unique)
+	require.Equal(t, "users_download", menu.InlineKeyboard[0][0].Unique)
 
 	require.Len(t, menu.InlineKeyboard[1], 1)
 	require.Equal(t, "🚀 Подключиться", menu.InlineKeyboard[1][0].Text)
@@ -41,22 +41,22 @@ func TestKeyboard_DownloadApps(t *testing.T) {
 
 	// Ряд платформ: iOS и Android.
 	require.Len(t, menu.InlineKeyboard[0], 2)
-	require.Equal(t, "dl_ios", menu.InlineKeyboard[0][0].Unique)
-	require.Equal(t, "dl_android", menu.InlineKeyboard[0][1].Unique)
+	require.Equal(t, "users_dl_ios", menu.InlineKeyboard[0][0].Unique)
+	require.Equal(t, "users_dl_android", menu.InlineKeyboard[0][1].Unique)
 
 	// Второй ряд: Linux, Windows (URL), macOS.
 	require.Len(t, menu.InlineKeyboard[1], 3)
-	require.Equal(t, "dl_linux", menu.InlineKeyboard[1][0].Unique)
+	require.Equal(t, "users_dl_linux", menu.InlineKeyboard[1][0].Unique)
 	require.NotEmpty(t, menu.InlineKeyboard[1][1].URL)
-	require.Equal(t, "dl_macos", menu.InlineKeyboard[1][2].Unique)
+	require.Equal(t, "users_dl_macos", menu.InlineKeyboard[1][2].Unique)
 
 	// Третий ряд: роутер.
 	require.Len(t, menu.InlineKeyboard[2], 1)
-	require.Equal(t, "dl_router", menu.InlineKeyboard[2][0].Unique)
+	require.Equal(t, "users_dl_router", menu.InlineKeyboard[2][0].Unique)
 
 	// Последний ряд: возврат в главное меню.
 	require.Len(t, menu.InlineKeyboard[3], 1)
-	require.Equal(t, "btn_back", menu.InlineKeyboard[3][0].Unique)
+	require.Equal(t, "users_back", menu.InlineKeyboard[3][0].Unique)
 }
 
 func TestKeyboard_IOS(t *testing.T) {
@@ -72,7 +72,7 @@ func TestKeyboard_IOS(t *testing.T) {
 
 	// Кнопка возврата к списку платформ.
 	require.Len(t, menu.InlineKeyboard[2], 1)
-	require.Equal(t, "btn_back_platforms", menu.InlineKeyboard[2][0].Unique)
+	require.Equal(t, "users_back_platforms", menu.InlineKeyboard[2][0].Unique)
 }
 
 func TestKeyboard_Android(t *testing.T) {
@@ -86,7 +86,7 @@ func TestKeyboard_Android(t *testing.T) {
 	require.NotEmpty(t, menu.InlineKeyboard[0][1].URL)
 
 	require.Len(t, menu.InlineKeyboard[1], 1)
-	require.Equal(t, "btn_back_platforms", menu.InlineKeyboard[1][0].Unique)
+	require.Equal(t, "users_back_platforms", menu.InlineKeyboard[1][0].Unique)
 }
 
 func TestKeyboard_Linux(t *testing.T) {
@@ -102,7 +102,7 @@ func TestKeyboard_Linux(t *testing.T) {
 	require.NotEmpty(t, menu.InlineKeyboard[1][0].URL)
 
 	require.Len(t, menu.InlineKeyboard[2], 1)
-	require.Equal(t, "btn_back_platforms", menu.InlineKeyboard[2][0].Unique)
+	require.Equal(t, "users_back_platforms", menu.InlineKeyboard[2][0].Unique)
 }
 
 func TestKeyboard_Macos(t *testing.T) {
@@ -118,7 +118,7 @@ func TestKeyboard_Macos(t *testing.T) {
 	require.NotEmpty(t, menu.InlineKeyboard[1][0].URL)
 
 	require.Len(t, menu.InlineKeyboard[2], 1)
-	require.Equal(t, "btn_back_platforms", menu.InlineKeyboard[2][0].Unique)
+	require.Equal(t, "users_back_platforms", menu.InlineKeyboard[2][0].Unique)
 }
 
 func TestKeyboard_Back(t *testing.T) {
@@ -128,5 +128,5 @@ func TestKeyboard_Back(t *testing.T) {
 
 	require.Len(t, menu.InlineKeyboard, 1)
 	require.Len(t, menu.InlineKeyboard[0], 1)
-	require.Equal(t, "btn_back", menu.InlineKeyboard[0][0].Unique)
+	require.Equal(t, "users_back", menu.InlineKeyboard[0][0].Unique)
 }

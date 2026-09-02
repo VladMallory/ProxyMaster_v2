@@ -17,7 +17,7 @@ func New(supportURL string) *Keyboard {
 func (k *Keyboard) Start(users subdomain.User) *telebot.ReplyMarkup {
 	menu := &telebot.ReplyMarkup{}
 
-	btnDownload := menu.Data("📲 Скачать приложение", "btn_download")
+	btnDownload := menu.Data("📲 Скачать приложение", "users_download")
 	btnURL := menu.URL("🚀 Подключиться", users.URL)
 	btnSupport := menu.URL("🛟 Поддержка", k.supportURL)
 
@@ -34,19 +34,19 @@ func (k *Keyboard) Start(users subdomain.User) *telebot.ReplyMarkup {
 func (k *Keyboard) DownloadApps() *telebot.ReplyMarkup {
 	menu := &telebot.ReplyMarkup{}
 
-	btnIOS := menu.Data("🍎 iOS", "dl_ios")
+	btnIOS := menu.Data("🍎 iOS", "users_dl_ios")
 	btnAndroid := menu.Data(
 		"🤖 Android",
-		"dl_android",
+		"users_dl_android",
 	)
-	btnLinux := menu.Data("🐧 Linux", "dl_linux")
+	btnLinux := menu.Data("🐧 Linux", "users_dl_linux")
 	btnWindows := menu.URL(
 		"🪟 Windows",
 		"https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe",
 	)
-	btnMacOS := menu.Data("💻 macOS", "dl_macos")
-	btnRouter := menu.Data("📡 Роутер", "dl_router")
-	btnBack := menu.Data("🏠 Главное меню", "btn_back")
+	btnMacOS := menu.Data("💻 macOS", "users_dl_macos")
+	btnRouter := menu.Data("📡 Роутер", "users_dl_router")
+	btnBack := menu.Data("🏠 Главное меню", "users_back")
 
 	menu.Inline(
 		menu.Row(btnIOS, btnAndroid),
@@ -70,7 +70,7 @@ func (k *Keyboard) IOS() *telebot.ReplyMarkup {
 		"🌍 App Store другие регионы",
 		"https://apps.apple.com/us/app/happ-proxy-utility/id6504287215",
 	)
-	btnBack := menu.Data("← Назад", "btn_back_platforms")
+	btnBack := menu.Data("← Назад", "users_back_platforms")
 
 	menu.Inline(
 		menu.Row(btnRu),
@@ -92,7 +92,7 @@ func (k *Keyboard) Android() *telebot.ReplyMarkup {
 		"📦 Скачать напрямую",
 		"https://play.google.com/store/apps/details?id=com.happproxy",
 	)
-	btnBack := menu.Data("← Назад", "btn_back_platforms")
+	btnBack := menu.Data("← Назад", "users_back_platforms")
 
 	menu.Inline(
 		menu.Row(btnGooglePlay, btnDirectDownload),
@@ -118,7 +118,7 @@ func (k *Keyboard) Linux() *telebot.ReplyMarkup {
 		"https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.linux.x64.pkg.tar.zst",
 	)
 
-	btnBack := menu.Data("← Назад", "btn_back_platforms")
+	btnBack := menu.Data("← Назад", "users_back_platforms")
 
 	menu.Inline(
 		menu.Row(btnDebian, btnFedora),
@@ -144,7 +144,7 @@ func (k *Keyboard) Macos() *telebot.ReplyMarkup {
 		"https://github.com/Happ-proxy/happ-desktop/releases/latest/download/Happ.macOS.universal.dmg",
 	)
 
-	btnBack := menu.Data("← Назад", "btn_back_platforms")
+	btnBack := menu.Data("← Назад", "users_back_platforms")
 
 	menu.Inline(
 		menu.Row(btnRu, btnOther),
@@ -165,7 +165,7 @@ func (k *Keyboard) Router() *telebot.ReplyMarkup {
 func (k *Keyboard) Back() *telebot.ReplyMarkup {
 	menu := &telebot.ReplyMarkup{}
 
-	btnBack := menu.Data("🏠 Главное меню", "btn_back")
+	btnBack := menu.Data("🏠 Главное меню", "users_back")
 
 	menu.Inline(
 		menu.Row(btnBack),

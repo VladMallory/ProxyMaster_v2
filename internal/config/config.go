@@ -1,6 +1,8 @@
 package config
 
 import (
+	"log"
+
 	"github.com/caarlos0/env"
 	"github.com/joho/godotenv"
 )
@@ -30,15 +32,15 @@ type Config struct {
 	LoggerLevel string `env:"LOGGER_LEVEL" default:"info"`
 }
 
-func Load() (Config, error) {
+func Load() Config {
 	if err := godotenv.Load(); err != nil {
-		return Config{}, err
+		log.Fatalln(err)
 	}
 
 	var cfg Config
 	if err := env.Parse(&cfg); err != nil {
-		return Config{}, err
+		log.Fatalln(err)
 	}
 
-	return cfg, nil
+	return cfg
 }
