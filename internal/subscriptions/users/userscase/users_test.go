@@ -14,9 +14,10 @@ import (
 // Каждый метод — функция-поле: не задал функцию, но метод вызвался -> nil pointer panic,
 // который сразу укажет "бизнес-логика дёрнула то, чего не должна была".
 type fakeUserRepository struct {
-	getByUsernameFunc func(ctx context.Context, username string) (subdomain.UserResponse, error)
-	getByUUIDFunc     func(ctx context.Context, uuid string) (subdomain.UserResponse, error)
-	createUserFunc    func(ctx context.Context, username string, days int) (subdomain.User, error)
+	getByUsernameFunc  func(ctx context.Context, username string) (subdomain.UserResponse, error)
+	getByUUIDFunc      func(ctx context.Context, uuid string) (subdomain.UserResponse, error)
+	createUserFunc     func(ctx context.Context, username string, days int) (subdomain.User, error)
+	updateExpireAtFunc func(ctx context.Context, username string, expireAt time.Time) error
 }
 
 func (f *fakeUserRepository) GetByUsername(
@@ -39,6 +40,14 @@ func (f *fakeUserRepository) CreateUser(
 	days int,
 ) (subdomain.User, error) {
 	return f.createUserFunc(ctx, username, days)
+}
+
+func (f *fakeUserRepository) UpdateExpireAt(
+	ctx context.Context,
+	username string,
+	expireAt time.Time,
+) error {
+	return f.updateExpireAtFunc(ctx, username, expireAt)
 }
 
 // nolint: funlen

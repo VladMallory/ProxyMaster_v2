@@ -19,11 +19,13 @@ func (k *Keyboard) Start(users subdomain.User) *telebot.ReplyMarkup {
 
 	btnDownload := menu.Data("📲 Скачать приложение", "users_download")
 	btnURL := menu.URL("🚀 Подключиться", users.URL)
+	btnTopUp := menu.Data("💳 Продлить подписку", "payment_menu")
 	btnSupport := menu.URL("🛟 Поддержка", k.supportURL)
 
 	menu.Inline(
 		menu.Row(btnDownload),
 		menu.Row(btnURL),
+		menu.Row(btnTopUp),
 		menu.Row(btnSupport),
 	)
 

@@ -4,7 +4,8 @@ import (
 	"log"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram/keyboard"
-	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
+	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/userscase"
+
 	"gopkg.in/telebot.v4"
 )
 

@@ -131,3 +131,67 @@ func (r RemnawaveClient) GetByUUID(
 
 	return resp.UserResponse, nil
 }
+
+// UpdateExpireAt двигает expireAt у существующего юзера.
+// modify-user в Remnawave (PUT /api/users) требует полную сущность,
+// поэтому сначала вычитываем текущего юзера и правим только дату.
+func (r RemnawaveClient) UpdateExpireAt(
+	ctx context.Context,
+	username string,
+	expireAt time.Time,
+) error {
+	// Берём текущее состояние, иначе панель не примет запрос.
+	cur, err := r.GetByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	// Тот же DTO, что при создании: контракт у панели единый.
+	update := subdomain.CreateUserRequest{
+		Username:             cur.Username,
+		Status:               cur.Status,
+		UUID:                 cur.UUID,
+		VLESSUUID:            cur.VLESSUUID,
+		TrojanPassword:       cur.TrojanPassword,
+		SSPassword:           cur.SSPassword,
+		TrafficLimitBytes:    cur.TrafficLimitBytes,
+		TrafficLimitStrategy: cur.TrafficLimitStrategy,
+		ExpireAt:             expireAt,
+		CreatedAt:            time.Now(),
+		LastTrafficResetAt:   cur.LastTrafficResetAt,
+		Description:          cur.Description,
+		Tag:                  cur.Tag,
+		TelegramID:           cur.TelegramID,
+		Email:                cur.Email,
+		HWIDDeviceLimit:      cur.HWIDDeviceLimit,
+		ActiveInternalSquads: activeSquads(cur.ActiveInternalSquads),
+		ExternalSquadUUID:    cur.ExternalSquadUUID,
+	}
+
+	path := "/api/users?" + r.apiKey
+
+	_, err = doRequest[subdomain.APIResponse](
+		ctx,
+		r.client,
+		r.baseURL,
+		r.token,
+		http.MethodPut,
+		path,
+		update,
+	)
+
+	return err
+}
+
+// activeSquads приводит ответ панели ([]any) к типу запроса ([]string),
+// т.к. панель может вернуть как список строк, так и null.
+func activeSquads(raw []any) []string {
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+
+	return out
+}

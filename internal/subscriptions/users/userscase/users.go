@@ -12,6 +12,7 @@ type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (subdomain.UserResponse, error)
 	GetByUUID(ctx context.Context, uuid string) (subdomain.UserResponse, error)
 	CreateUser(ctx context.Context, username string, days int) (subdomain.User, error)
+	UpdateExpireAt(ctx context.Context, username string, expireAt time.Time) error
 }
 
 type UserUseCase struct {
@@ -85,6 +86,22 @@ func (u UserUseCase) GetURL(ctx context.Context, username string) (subdomain.Use
 		Device: u.deviceCheck(resp.HWIDDeviceLimit),
 		URL:    resp.SubscriptionURL,
 	}, nil
+}
+
+func (u UserUseCase) ExtendSubscription(ctx context.Context, username string, days int) error {
+	resp, err := u.repo.GetByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	currentExpire, err := time.Parse(time.RFC3339, resp.ExpireAt)
+	if err != nil {
+		return err
+	}
+
+	newExpire := currentExpire.AddDate(0, 0, days)
+
+	return u.repo.UpdateExpireAt(ctx, username, newExpire)
 }
 
 // remainingDays считает сколько дней подписки осталось.
