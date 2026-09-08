@@ -24,7 +24,7 @@ type PaymentService struct {
 	cancel    context.CancelFunc
 	timeout   time.Duration
 	gateway   PaymentGateway
-	observers []PaymentObserver // TODO:
+	observers []PaymentObserver
 	pollEvery time.Duration
 }
 

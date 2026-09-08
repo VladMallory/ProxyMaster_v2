@@ -1,16 +1,19 @@
 package keyboard
 
 import (
+	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
+
 	"gopkg.in/telebot.v4"
 )
 
 type Keyboard struct {
 	supportURL string
+	registry   *platformtg.Registry
 }
 
-func New(supportURL string) *Keyboard {
-	return &Keyboard{supportURL: supportURL}
+func New(supportURL string, registry *platformtg.Registry) *Keyboard {
+	return &Keyboard{supportURL: supportURL, registry: registry}
 }
 
 // Start клавиатура главного меню /start.
@@ -19,15 +22,19 @@ func (k *Keyboard) Start(users subdomain.User) *telebot.ReplyMarkup {
 
 	btnDownload := menu.Data("📲 Скачать приложение", "users_download")
 	btnURL := menu.URL("🚀 Подключиться", users.URL)
-	btnTopUp := menu.Data("💳 Продлить подписку", "payment_menu")
 	btnSupport := menu.URL("🛟 Поддержка", k.supportURL)
 
-	menu.Inline(
+	rows := []telebot.Row{
 		menu.Row(btnDownload),
 		menu.Row(btnURL),
-		menu.Row(btnTopUp),
-		menu.Row(btnSupport),
-	)
+	}
+
+	// Вставляем кнопки из реестра payment и другие адаптеры сами регистрируют себя ранее.
+	rows = append(rows, k.registry.Build(menu)...)
+
+	rows = append(rows, menu.Row(btnSupport))
+
+	menu.Inline(rows...)
 
 	return menu
 }

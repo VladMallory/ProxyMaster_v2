@@ -19,6 +19,12 @@ type Config struct {
 
 	PaymentProvider string `env:"PAYMENT_PROVIDER"`
 
+	PlategaMerchantID string `env:"PLATEGA_MERCHANT_ID"`
+	PlategaSecret     string `env:"PLATEGA_SECRET"`
+	PaymentReturnURL  string `env:"PAYMENT_RETURN_URL"`
+	PaymentFailedURL  string `env:"PAYMENT_FAILED_URL"`
+	PaymentCurrency   string `env:"PAYMENT_CURRENCY"    envDefault:"RUB"`
+
 	DatabaseURL string `env:"DATABASE_URL"`
 
 	PricePerMonth     string `env:"PRICE_PER_MONTH"`

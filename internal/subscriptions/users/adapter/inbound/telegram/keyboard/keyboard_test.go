@@ -3,22 +3,31 @@ package keyboard
 import (
 	"testing"
 
+	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/telebot.v4"
 )
 
-// newTestKeyboard собирает Keyboard с тестовой ссылкой на поддержку.
+// newTestKeyboard собирает Keyboard с тестовой ссылкой на поддержку и пустым реестром.
 func newTestKeyboard() *Keyboard {
-	return New("https://support.example")
+	return New("https://support.example", platformtg.NewRegistry())
 }
 
 func TestKeyboard_Start(t *testing.T) {
 	t.Parallel()
 
-	menu := newTestKeyboard().Start(subdomain.User{URL: "https://sub.example"})
+	registry := platformtg.NewRegistry()
+	registry.Register(platformtg.Button{
+		Row: 2,
+		Btn: telebot.Btn{Unique: "payment_menu", Text: "💳 Продлить подписку"},
+	})
 
-	// Три ряда: скачать приложение / подключиться / поддержка.
-	require.Len(t, menu.InlineKeyboard, 3)
+	kb := New("https://support.example", registry)
+	menu := kb.Start(subdomain.User{URL: "https://sub.example"})
+
+	// Четыре ряда: скачать / подключиться / продлить(из реестра) / поддержка.
+	require.Len(t, menu.InlineKeyboard, 4)
 
 	require.Len(t, menu.InlineKeyboard[0], 1)
 	require.Equal(t, "users_download", menu.InlineKeyboard[0][0].Unique)
@@ -28,8 +37,11 @@ func TestKeyboard_Start(t *testing.T) {
 	require.Equal(t, "https://sub.example", menu.InlineKeyboard[1][0].URL)
 
 	require.Len(t, menu.InlineKeyboard[2], 1)
-	require.Equal(t, "🛟 Поддержка", menu.InlineKeyboard[2][0].Text)
-	require.Equal(t, "https://support.example", menu.InlineKeyboard[2][0].URL)
+	require.Equal(t, "payment_menu", menu.InlineKeyboard[2][0].Unique)
+
+	require.Len(t, menu.InlineKeyboard[3], 1)
+	require.Equal(t, "🛟 Поддержка", menu.InlineKeyboard[3][0].Text)
+	require.Equal(t, "https://support.example", menu.InlineKeyboard[3][0].URL)
 }
 
 func TestKeyboard_DownloadApps(t *testing.T) {

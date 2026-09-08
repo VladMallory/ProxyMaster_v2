@@ -1,5 +1,5 @@
 // internal/payment/adapter/outbound/telegram/notifier.go
-package payment
+package telegram
 
 import (
 	"context"
@@ -25,7 +25,7 @@ func (n *Notifier) OnPaymentConfirmed(ctx context.Context, userID string, amount
 
 	_, err = n.bot.Send(
 		&telebot.User{ID: chatID},
-		fmt.Sprintf("✅ Баланс пополнен на %d ₽", amount),
+		fmt.Sprintf("✅ Подписка продлена на %d ₽", amount),
 	)
 
 	return err

@@ -6,7 +6,11 @@ import (
 )
 
 var tariffToDays = map[int]int{
-	200: 30, 400: 60, 600: 90, 800: 120, 1000: 150,
+	200:  30,
+	400:  60,
+	600:  90,
+	800:  120,
+	1000: 150,
 }
 
 type SubscriptionExtender struct {

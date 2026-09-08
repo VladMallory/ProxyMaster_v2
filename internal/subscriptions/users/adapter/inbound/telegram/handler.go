@@ -3,6 +3,7 @@ package telegram
 import (
 	"log"
 
+	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram/keyboard"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/userscase"
 
@@ -22,12 +23,13 @@ func NewHandler(
 	useCase userscase.UserUseCase,
 	supportURL string,
 	trialDays int,
+	registry *platformtg.Registry,
 ) *Handler {
 	return &Handler{
 		useCase:   useCase,
 		bot:       bot,
 		trialDays: trialDays,
-		keys:      keyboard.New(supportURL),
+		keys:      keyboard.New(supportURL, registry),
 	}
 }
 

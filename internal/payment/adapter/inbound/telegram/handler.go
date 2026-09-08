@@ -6,6 +6,7 @@ import (
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram/keyboard"
 	paymentservice "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
+	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 
 	"gopkg.in/telebot.v4"
 )
@@ -16,7 +17,18 @@ type Handler struct {
 	keys *keyboard.Keyboard
 }
 
-func NewHandler(bot *telebot.Bot, svc *paymentservice.PaymentService) *Handler {
+func NewHandler(
+	bot *telebot.Bot,
+	svc *paymentservice.PaymentService,
+	registry *platformtg.Registry,
+) *Handler {
+	// Payment сам регистрирует свою кнопку в общем реестре
+	// никто его не спрашивает и не тянет.
+	registry.Register(platformtg.Button{
+		Row: 2,
+		Btn: telebot.Btn{Unique: "payment_menu", Text: "💳 Продлить подписку"},
+	})
+
 	return &Handler{
 		bot:  bot,
 		svc:  svc,

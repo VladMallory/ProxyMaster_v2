@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
-	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
 	paymenttg "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
 	paymentnotif "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/telegram"
 	paymentservice "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
 	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
@@ -38,8 +38,12 @@ func newApp() (app, error) {
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
 	})
 	if err != nil {
-		log.Fatalln(err)
+		return app{}, err
 	}
+
+	// Реестр кнопок главного меню общая третья сущность,
+	// не принадлежащая ни users, ни payment.
+	registry := platformtg.NewRegistry()
 
 	remnawaveClient := remnawave.NewRemnawaveClient(
 		cfg.RemnawaveBaseURL,
@@ -48,15 +52,27 @@ func newApp() (app, error) {
 	)
 	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
 
-	usersHandler := userstg.NewHandler(bot, usersUseCase, cfg.TelegramSupport, cfg.TrialDays)
+	usersHandler := userstg.NewHandler(
+		bot,
+		usersUseCase,
+		cfg.TelegramSupport,
+		cfg.TrialDays,
+		registry,
+	)
 	usersHandler.RegisterRoutes()
 
-	gateway := platega.New()
+	plategaClient := platega.NewClient(cfg.PlategaMerchantID, cfg.PlategaSecret)
+	gateway := platega.NewGateway(
+		plategaClient,
+		cfg.PaymentReturnURL,
+		cfg.PaymentFailedURL,
+		cfg.PaymentCurrency,
+	)
 
-	// observer №1: продлевает подписку после оплаты
+	// observer 1: продлевает подписку после оплаты
 	subscriptionExtender := userscase.NewSubscriptionExtender(usersUseCase)
 
-	// observer №2: пишет пользователю в Telegram после оплаты
+	// observer 2: пишет пользователю в Telegram после оплаты
 	paymentNotifier := paymentnotif.NewNotifier(bot)
 
 	paymentSvc := paymentservice.NewPaymentService(
@@ -65,7 +81,8 @@ func newApp() (app, error) {
 		subscriptionExtender,
 		paymentNotifier,
 	)
-	paymentHandler := paymenttg.NewHandler(bot, paymentSvc)
+	// paymentHandler сам регистрирует свою кнопку в реестре
+	paymentHandler := paymenttg.NewHandler(bot, paymentSvc, registry)
 	paymentHandler.RegisterRoutes()
 
 	// Общий fallback регистрируется ПОСЛЕДНИМ, после всех будущих контекстов.
