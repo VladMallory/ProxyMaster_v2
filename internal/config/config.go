@@ -2,26 +2,38 @@ package config
 
 import (
 	"log"
+	"net/url"
 
 	"github.com/caarlos0/env"
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	RemnawaveBaseURL   string `env:"REMNA_BASE_PANEL"`
+	// === REMNAWAVE ===
+	RemnaPanel string `env:"REMNA_PANEL,required"`
+
+	RemnawaveBaseURL   string
+	RemnawaveAPIKey    string
 	RemnawaveToken     string `env:"REMNA_TOKEN"`
-	RemnawaveAPIKey    string `env:"REMNA_SECRET_TOKEN"`
 	RemnawaveSquadUUID string `env:"REMNA_SQUAD_UUID"`
 
+	// === TELEGRAM ===
 	TelegramToken   string `env:"TELEGRAM_TOKEN"`
 	TelegramSupport string `env:"TELEGRAM_SUPPORT"`
 	TelegramAdminID string `env:"TELEGRAM_ADMIN_ID"`
 
+	// === PAYMENT ===
 	PaymentProvider string `env:"PAYMENT_PROVIDER"`
+	// PLATEGA
+	PlategaBaseURL    string `env:"PLATEGA_BASE_URL"    default:"https://app.platega.io"`
+	PlategaMerchantID string `env:"PLATEGA_MERCHANT_ID"`
+	PlategaSecret     string `env:"PLATEGA_API_KEY"`
+	PlategaReturnURL  string `env:"PLATEGA_RETURN_URL"`
 
 	DatabaseURL string `env:"DATABASE_URL"`
 
-	PricePerMonth     string `env:"PRICE_PER_MONTH"`
+	// === SETTINGS ===
+	PricePerMonth     int    `env:"PRICE_PER_MONTH"`
 	DeviceLimit       int    `env:"DEVICE_LIMIT"`
 	TrafficLimit      string `env:"TRAFFIC_LIMIT"`
 	MaxDeviceLimit    string `env:"MAX_DEVICE_LIMIT"`
@@ -42,5 +54,32 @@ func Load() Config {
 		log.Fatalln(err)
 	}
 
+	baseURL, apiKey, err := parseRemna(cfg.RemnaPanel)
+	if err != nil {
+		return Config{}
+	}
+
+	cfg.RemnawaveBaseURL = baseURL
+	cfg.RemnawaveAPIKey = apiKey
+
 	return cfg
+}
+
+func parseRemna(raw string) (baseURL, secretToken string, err error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", "", err
+	}
+
+	if u.Scheme == "" || u.Host == "" {
+		return "", "", err
+	}
+
+	if u.RawQuery == "" {
+		return "", "", err
+	}
+
+	base := url.URL{Scheme: u.Scheme, Host: u.Host}
+
+	return base.String(), u.RawQuery, nil
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -198,4 +199,33 @@ func TestE2E_NotFound(t *testing.T) {
 		_, err := client.GetByUUID(ctx, "999999999")
 		require.ErrorIs(t, err, subdomain.ErrNoFindUser)
 	})
+}
+
+func TestE2E_ExtendExpire(t *testing.T) {
+	client := e2eClient(t)
+
+	ctx := context.Background()
+	username := "e2e-ext-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	t.Cleanup(func() { e2eDeleteUserByName(t, client, username) })
+
+	_, err := client.CreateUser(ctx, username, 1)
+	log.Println("user create: ", username)
+	require.NoError(t, err)
+
+	ident, err := client.GetUUIDByUsername(ctx, username)
+	require.NoError(t, err)
+	require.NotEmpty(t, ident)
+
+	newExpire := time.Now().AddDate(0, 0, 30)
+
+	err = client.ExtendExpire(ctx, ident, newExpire)
+	log.Println("user extend: ", ident)
+	require.NoError(t, err)
+
+	got, err := client.GetByUUID(ctx, ident)
+	require.NoError(t, err)
+	parsed, err := time.Parse(time.RFC3339, got.ExpireAt)
+	require.NoError(t, err)
+	require.InDelta(t, newExpire.Unix(), parsed.Unix(), 60)
 }

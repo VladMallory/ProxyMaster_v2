@@ -5,6 +5,10 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	telegramhandler "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
+	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
+	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
 	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
@@ -28,12 +32,9 @@ func main() {
 func newApp() (app, error) {
 	cfg := config.Load()
 
-	bot, err := telebot.NewBot(telebot.Settings{
-		Token:  cfg.TelegramToken,
-		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
-	})
+	bot, err := newBot(cfg)
 	if err != nil {
-		log.Fatalln(err)
+		return app{}, err
 	}
 
 	remnawaveClient := remnawave.NewRemnawaveClient(
@@ -43,17 +44,66 @@ func newApp() (app, error) {
 	)
 	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
 
-	usersHandler := telegram.NewHandler(bot, usersUseCase, cfg.TelegramSupport, cfg.TrialDays)
-	usersHandler.RegisterRoutes()
+	subContributor, userProvider := setupSubscriptions(bot, cfg, usersUseCase)
+	payContributor := setupPayment(cfg, usersUseCase, logNotifier{})
 
-	// Общий fallback регистрируется ПОСЛЕДНИМ, после всех будущих контекстов.
-	platformtg.RegisterFallback(bot)
+	registry := &platformtg.Registry{}
+	registry.Register(subContributor)
+	registry.Register(payContributor)
 
-	usersHandler.SetupCommands()
+	startHandler := platformtg.NewStartHandler(bot, registry, userProvider, cfg.TrialDays)
+	platformtg.Setup(bot, registry, startHandler)
+	platformtg.SetupCommands(bot)
 
-	return app{
-		bot: bot,
-	}, nil
+	return app{bot: bot}, nil
+}
+
+type logNotifier struct{}
+
+func (logNotifier) NotifySuccess(userID string, months int) {}
+func (logNotifier) NotifyTimeout(userID string)             {}
+
+// func (logNotifier)
+
+func newBot(cfg config.Config) (*telebot.Bot, error) {
+	return telebot.NewBot(telebot.Settings{
+		Token:  cfg.TelegramToken,
+		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
+	})
+}
+
+// setupSubscriptions собирает всё для фичи subscriptions.
+func setupSubscriptions(
+	bot *telebot.Bot,
+	cfg config.Config,
+	usersUseCase userscase.UserUseCase,
+) (platformtg.MenuContributor, platformtg.UserProvider) {
+	handler := telegram.NewHandler(usersUseCase, cfg.TelegramSupport, cfg.TrialDays)
+	contributor := telegram.NewSubscriptionContributor(cfg.TelegramSupport, handler)
+	userProvider := telegram.NewPlatformUserAdapter(usersUseCase)
+
+	return contributor, userProvider
+}
+
+// setupPayment собирает всё для фичи payment и отдаёт её Contributor.
+func setupPayment(
+	cfg config.Config,
+	extender paymentsvc.SubscriptionExtender,
+	notifier paymentsvc.ResultNotifier,
+) platformtg.MenuContributor {
+	plategaClient := platega.NewClient(cfg.PlategaBaseURL, cfg.PlategaMerchantID, cfg.PlategaSecret)
+
+	tariffs := []paymentdomain.Tariff{
+		{Months: 1, PriceRub: cfg.PricePerMonth},
+		{Months: 2, PriceRub: cfg.PricePerMonth * 2},
+		{Months: 3, PriceRub: cfg.PricePerMonth * 3},
+		{Months: 5, PriceRub: cfg.PricePerMonth * 5},
+	}
+
+	paySvc := paymentsvc.NewPayment(plategaClient, extender, notifier, tariffs)
+	handler := telegramhandler.NewHandler(paySvc)
+
+	return telegramhandler.NewPaymentContributor(handler)
 }
 
 func (a app) run() {

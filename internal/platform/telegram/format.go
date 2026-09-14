@@ -10,8 +10,7 @@ var monthsRu = [...]string{
 	"июля", "августа", "сентября", "октября", "ноября", "декабря",
 }
 
+// formatExpireDate единое форматирование даты для /start.
 func formatExpireDate(t time.Time) string {
-	return fmt.Sprintf("%d %s %d",
-		t.Day(), monthsRu[t.Month()-1], t.Year(),
-	)
+	return fmt.Sprintf("%d %s %d", t.Day(), monthsRu[t.Month()-1], t.Year())
 }

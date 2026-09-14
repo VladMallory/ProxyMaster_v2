@@ -12,6 +12,7 @@ type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (subdomain.UserResponse, error)
 	GetByUUID(ctx context.Context, uuid string) (subdomain.UserResponse, error)
 	CreateUser(ctx context.Context, username string, days int) (subdomain.User, error)
+	ExtendExpire(ctx context.Context, UUID string, days time.Time) error
 }
 
 type UserUseCase struct {
@@ -95,4 +96,24 @@ func remainingDays(expireAt string) int {
 	}
 
 	return int(time.Until(t).Hours() / 24)
+}
+
+// ExtendSubscription продление подписки для существующего пользователя.
+func (u UserUseCase) ExtendSubscription(ctx context.Context, username string, months int) error {
+	resp, err := u.repo.GetByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	current, err := time.Parse(time.RFC3339, resp.ExpireAt)
+	if err != nil {
+		return err
+	}
+
+	base := current
+	if base.Before(time.Now()) {
+		base = time.Now() // не даём остатку сгорать при просрочке
+	}
+
+	return u.repo.ExtendExpire(ctx, resp.UUID, base.AddDate(0, months, 0))
 }

@@ -17,6 +17,7 @@ type fakeUserRepository struct {
 	getByUsernameFunc func(ctx context.Context, username string) (subdomain.UserResponse, error)
 	getByUUIDFunc     func(ctx context.Context, uuid string) (subdomain.UserResponse, error)
 	createUserFunc    func(ctx context.Context, username string, days int) (subdomain.User, error)
+	extendExpire      func(ctx context.Context, uuid string, days time.Time) error
 }
 
 func (f *fakeUserRepository) GetByUsername(
@@ -39,6 +40,10 @@ func (f *fakeUserRepository) CreateUser(
 	days int,
 ) (subdomain.User, error) {
 	return f.createUserFunc(ctx, username, days)
+}
+
+func (f *fakeUserRepository) ExtendExpire(ctx context.Context, uuid string, days time.Time) error {
+	return f.extendExpire(ctx, uuid, days)
 }
 
 // nolint: funlen

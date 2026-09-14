@@ -1,6 +1,4 @@
-cat > /tmp/setup-remnanode-cron.sh <<'SETUP'
 #!/bin/bash
-# ставить от root
 set -e
 
 cat > /usr/local/bin/restart-remnanode.sh <<'EOS'
@@ -19,13 +17,8 @@ EOS
 chmod +x /usr/local/bin/restart-remnanode.sh
 touch /var/log/remnanode-restart.log
 
-# ставим cron без дублей
-(crontab -l 2>/dev/null | grep -v 'restart-remnanode'; echo '0 4 * * * /usr/local/bin/restart-remnanode.sh') | crontab -
+(crontab -l 2>/dev/null | grep -v 'restart-remnanode' || true; echo '0 4 * * * /usr/local/bin/restart-remnanode.sh') | crontab -
 
 echo "Done:"
-crontab -l | grep restart
+crontab -l | grep restart || echo "(нет записи restart в crontab! проверь вручную)"
 ls -lh /usr/local/bin/restart-remnanode.sh /var/log/remnanode-restart.log
-SETUP
-
-chmod +x /tmp/setup-remnanode-cron.sh
-sudo /tmp/setup-remnanode-cron.sh

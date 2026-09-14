@@ -90,6 +90,6 @@ func doRequest[T any](
 
 func closer(closer io.Closer, err *error) {
 	if cerr := closer.Close(); cerr != nil {
-		_ = errors.Join(*err, cerr)
+		*err = errors.Join(*err, cerr)
 	}
 }

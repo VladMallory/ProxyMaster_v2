@@ -131,3 +131,30 @@ func (r RemnawaveClient) GetByUUID(
 
 	return resp.UserResponse, nil
 }
+
+// ExtendExpire продлевает существующего клиента в Remnawave по uuid.
+func (r *RemnawaveClient) ExtendExpire(ctx context.Context, uuid string, expireAt time.Time) error {
+	id, err := strconv.Atoi(uuid)
+	if err != nil {
+		return err
+	}
+
+	path := "/api/users/?" + r.apiKey
+
+	body := map[string]any{
+		"id":       id,
+		"expireAt": expireAt.Format(time.RFC3339),
+	}
+
+	_, err = doRequest[subdomain.APIResponse](
+		ctx,
+		r.client,
+		r.baseURL,
+		r.token,
+		http.MethodPatch,
+		path,
+		body,
+	)
+
+	return err
+}
