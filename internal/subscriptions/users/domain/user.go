@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
-var ErrNoFindUser = errors.New("пользователь не найден")
+var (
+	ErrNoFindUser = errors.New("пользователь не найден")
+	ErrMontsMust  = errors.New("days must be > 0")
+)
 
 type User struct {
 	Name     string

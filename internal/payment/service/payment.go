@@ -2,6 +2,7 @@ package paymentsvc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -28,7 +29,7 @@ type ResultNotifier interface {
 
 const (
 	pollInterval = 10 * time.Second
-	pollTimeout  = 20 * time.Minute
+	pollTimeout  = 33 * time.Second
 )
 
 type Service struct {
@@ -88,7 +89,10 @@ func (s *Service) watchPayment(
 		case <-ctx.Done():
 			s.notifier.NotifyTimeout(userID)
 
+			return
+
 		case <-ticker.C:
+			fmt.Println("Проверка")
 			ok, err := s.paymentService.CheckStatus(ctx, invoiceID)
 			if err != nil {
 				continue
@@ -99,6 +103,8 @@ func (s *Service) watchPayment(
 				continue
 			}
 
+			fmt.Println("Прошел платеж")
+
 			// Если платеж ok:
 			if err := s.extender.ExtendSubscription(ctx, userID, months); err != nil {
 				slog.Error("оплата прошла, продление не удалось", "user", userID, "err", err)
@@ -106,6 +112,9 @@ func (s *Service) watchPayment(
 				return
 			}
 
+			s.notifier.NotifySuccess(userID, months)
+
+			return
 		}
 	}
 }

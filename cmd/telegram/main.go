@@ -42,10 +42,11 @@ func newApp() (app, error) {
 		cfg.RemnawaveToken,
 		cfg.RemnawaveAPIKey,
 	)
+	telegramNotifier := telegramhandler.NewNotifier(bot)
 	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
 
 	subContributor, userProvider := setupSubscriptions(bot, cfg, usersUseCase)
-	payContributor := setupPayment(cfg, usersUseCase, logNotifier{})
+	payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
 
 	registry := &platformtg.Registry{}
 	registry.Register(subContributor)
@@ -58,11 +59,11 @@ func newApp() (app, error) {
 	return app{bot: bot}, nil
 }
 
-type logNotifier struct{}
-
-func (logNotifier) NotifySuccess(userID string, months int) {}
-func (logNotifier) NotifyTimeout(userID string)             {}
-
+// type logNotifier struct{}
+//
+// func (logNotifier) NotifySuccess(userID string, months int) {}
+// func (logNotifier) NotifyTimeout(userID string)             {}
+//
 // func (logNotifier)
 
 func newBot(cfg config.Config) (*telebot.Bot, error) {
@@ -89,7 +90,7 @@ func setupSubscriptions(
 func setupPayment(
 	cfg config.Config,
 	extender paymentsvc.SubscriptionExtender,
-	notifier paymentsvc.ResultNotifier,
+	notifier *telegramhandler.Notifier,
 ) platformtg.MenuContributor {
 	plategaClient := platega.NewClient(cfg.PlategaBaseURL, cfg.PlategaMerchantID, cfg.PlategaSecret)
 
@@ -101,7 +102,7 @@ func setupPayment(
 	}
 
 	paySvc := paymentsvc.NewPayment(plategaClient, extender, notifier, tariffs)
-	handler := telegramhandler.NewHandler(paySvc)
+	handler := telegramhandler.NewHandler(paySvc, notifier)
 
 	return telegramhandler.NewPaymentContributor(handler)
 }

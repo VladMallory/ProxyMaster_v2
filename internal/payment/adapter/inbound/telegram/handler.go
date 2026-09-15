@@ -10,11 +10,19 @@ import (
 )
 
 type Handler struct {
-	svc *paymentsvc.Service
+	svc      *paymentsvc.Service
+	notifier rememberer
 }
 
-func NewHandler(svc *paymentsvc.Service) *Handler {
-	return &Handler{svc: svc}
+type rememberer interface {
+	Remember(userID string, msg telebot.Editable)
+}
+
+func NewHandler(svc *paymentsvc.Service, notifier rememberer) *Handler {
+	return &Handler{
+		svc:      svc,
+		notifier: notifier,
+	}
 }
 
 func (h *Handler) handleCheckout(c telebot.Context) error {
@@ -58,6 +66,8 @@ func (h *Handler) handleTariff(c telebot.Context) error {
 	}
 
 	userID := strconv.FormatInt(c.Sender().ID, 10)
+
+	h.notifier.Remember(userID, c.Message())
 
 	payURL, err := h.svc.CreatePayment(context.Background(), userID, idx)
 	if err != nil {

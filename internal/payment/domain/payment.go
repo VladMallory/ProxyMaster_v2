@@ -1,7 +1,11 @@
 // payment/domain/payment.go
 package paymentdomain
 
-import "time"
+import (
+	"time"
+
+	"gopkg.in/telebot.v4"
+)
 
 type Tariff struct {
 	Months   int
@@ -15,6 +19,11 @@ type Invoice struct {
 	Months    int
 	Status    string
 	CreatedAt time.Time
+}
+
+type stored struct {
+	msg  telebot.Editable
+	name string
 }
 
 type Out struct {
