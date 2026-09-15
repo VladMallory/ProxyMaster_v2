@@ -59,13 +59,6 @@ func newApp() (app, error) {
 	return app{bot: bot}, nil
 }
 
-// type logNotifier struct{}
-//
-// func (logNotifier) NotifySuccess(userID string, months int) {}
-// func (logNotifier) NotifyTimeout(userID string)             {}
-//
-// func (logNotifier)
-
 func newBot(cfg config.Config) (*telebot.Bot, error) {
 	return telebot.NewBot(telebot.Settings{
 		Token:  cfg.TelegramToken,

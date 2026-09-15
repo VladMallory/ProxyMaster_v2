@@ -95,3 +95,29 @@ func (h *StartHandler) HandleBack(c telebot.Context) error {
 
 	return c.Edit(text, menu, telebot.ModeHTML)
 }
+
+// RenderMainMenuForTimeout строит меню где нету telebot.Context.
+// TODO: переделать под универсальное меню чтобы не дублировать.
+
+// func (h *StartHandler) RenderMainMenuForTimeout(
+// 	ctx context.Context,
+// 	userID string,
+// ) (string, *telebot.ReplyMarkup, error) {
+// 	u, err := h.users.GetOrCreateSub(ctx, userID, h.trialDays)
+// 	if err != nil {
+// 		return "", nil, err
+// 	}
+//
+// 	text, err := renderStart(startViewModel{
+// 		Name:       html.EscapeString(u.Name),
+// 		ExpireDate: formatExpireDate(u.ExpireAt),
+// 		Device:     u.Device,
+// 	})
+// 	if err != nil {
+// 		return "", nil, err
+// 	}
+//
+// 	menu := h.registry.BuildStartMenu(MenuContent{SubURL: u.URL})
+//
+// 	return text, menu, nil
+// }

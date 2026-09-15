@@ -2,7 +2,6 @@ package paymentsvc
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -92,7 +91,6 @@ func (s *Service) watchPayment(
 			return
 
 		case <-ticker.C:
-			fmt.Println("Проверка")
 			ok, err := s.paymentService.CheckStatus(ctx, invoiceID)
 			if err != nil {
 				continue
@@ -102,8 +100,6 @@ func (s *Service) watchPayment(
 			if !ok {
 				continue
 			}
-
-			fmt.Println("Прошел платеж")
 
 			// Если платеж ok:
 			if err := s.extender.ExtendSubscription(ctx, userID, months); err != nil {

@@ -1,17 +1,11 @@
 package telegramhandler
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 
 	"gopkg.in/telebot.v4"
 )
-
-type mainMenuBuilder interface {
-	BuildMainMenu(ctx context.Context, userID, name string) (string, *telebot.ReplyMarkup)
-}
 
 type Notifier struct {
 	bot  *telebot.Bot
@@ -31,7 +25,6 @@ func (n *Notifier) NotifySuccess(userID string, months int) {
 
 	msg, ok := n.msgs[userID]
 	if ok {
-		fmt.Println("NotifySuccess удалил ключ")
 		delete(n.msgs, userID)
 	}
 
@@ -40,9 +33,8 @@ func (n *Notifier) NotifySuccess(userID string, months int) {
 		return
 	}
 
-	fmt.Println("Успешная оплата, ", userID, months)
-
-	_, err := n.bot.Edit(msg, "Оплата прошла успешно ")
+	_, err := n.bot.Edit(msg, "✅Оплата прошла успешно ",
+		backMenu(), telebot.ModeHTML)
 	if err != nil {
 		slog.Error("не отправился success-нотифай", "user", userID, "err", err)
 	}
@@ -59,7 +51,6 @@ func (n *Notifier) NotifyTimeout(userID string) {
 
 	msg, ok := n.msgs[userID]
 	if ok {
-		fmt.Println("NotifyTimeout удалил ключ")
 		delete(n.msgs, userID)
 	}
 
@@ -68,10 +59,16 @@ func (n *Notifier) NotifyTimeout(userID string) {
 		return
 	}
 
-	fmt.Println("NotifyTimeout: ", userID)
-
-	_, err := n.bot.Edit(msg, "da")
+	_, err := n.bot.Edit(msg, "⏳Время оплаты истекло.", backMenu(), telebot.ModeHTML)
 	if err != nil {
 		return
 	}
+}
+
+func backMenu() *telebot.ReplyMarkup {
+	menu := &telebot.ReplyMarkup{}
+	btnBack := menu.Data("🏠 В главное меню", "users_back")
+	menu.Inline(menu.Row(btnBack))
+
+	return menu
 }
