@@ -25,7 +25,7 @@ type Config struct {
 	// === PAYMENT ===
 	PaymentProvider string `env:"PAYMENT_PROVIDER"`
 	// PLATEGA
-	PlategaBaseURL    string `env:"PLATEGA_BASE_URL"    default:"https://app.platega.io"`
+	PlategaBaseURL    string `env:"PLATEGA_BASE_URL"    envDefault:"https://app.platega.io"`
 	PlategaMerchantID string `env:"PLATEGA_MERCHANT_ID"`
 	PlategaSecret     string `env:"PLATEGA_API_KEY"`
 	PlategaReturnURL  string `env:"PLATEGA_RETURN_URL"`

@@ -28,7 +28,7 @@ type ResultNotifier interface {
 
 const (
 	pollInterval = 10 * time.Second
-	pollTimeout  = 33 * time.Second
+	pollTimeout  = 20 * time.Minute
 )
 
 type Service struct {
