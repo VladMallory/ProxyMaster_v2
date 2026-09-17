@@ -45,9 +45,9 @@ func (u UserUseCase) GetOrCreateSub(
 ) (subdomain.User, error) {
 	resp, err := u.repo.GetByUsername(ctx, username)
 	if errors.Is(err, subdomain.ErrNoFindUser) {
-		createtUser, err := u.repo.CreateUser(ctx, username, trialDays)
-		if err != nil {
-			return subdomain.User{}, err
+		createtUser, cerr := u.repo.CreateUser(ctx, username, trialDays)
+		if cerr != nil {
+			return subdomain.User{}, cerr
 		}
 
 		resp.HWIDDeviceLimit = u.deviceCheck(resp.HWIDDeviceLimit)

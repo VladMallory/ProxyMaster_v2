@@ -21,12 +21,12 @@ type app struct {
 }
 
 func main() {
-	app, err := newApp()
+	myApp, err := newApp()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	app.run()
+	myApp.run()
 }
 
 func newApp() (app, error) {
@@ -45,7 +45,7 @@ func newApp() (app, error) {
 	telegramNotifier := telegramhandler.NewNotifier(bot)
 	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
 
-	subContributor, userProvider := setupSubscriptions(bot, cfg, usersUseCase)
+	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
 
 	payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
 
@@ -69,7 +69,6 @@ func newBot(cfg config.Config) (*telebot.Bot, error) {
 
 // setupSubscriptions собирает всё для фичи subscriptions.
 func setupSubscriptions(
-	bot *telebot.Bot,
 	cfg config.Config,
 	usersUseCase userscase.UserUseCase,
 ) (platformtg.MenuContributor, platformtg.UserProvider) {
