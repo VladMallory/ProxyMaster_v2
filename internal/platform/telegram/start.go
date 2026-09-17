@@ -14,7 +14,6 @@ type UserProvider interface {
 	GetOrCreateSub(ctx context.Context, username string, trialDays int) (UserView, error)
 }
 
-// Не тащим domain.User чтобы platform не зависел от subscriptions.
 type UserView struct {
 	Name     string
 	URL      string

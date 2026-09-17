@@ -46,6 +46,7 @@ func newApp() (app, error) {
 	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
 
 	subContributor, userProvider := setupSubscriptions(bot, cfg, usersUseCase)
+
 	payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
 
 	registry := &platformtg.Registry{}
@@ -85,7 +86,13 @@ func setupPayment(
 	extender paymentsvc.SubscriptionExtender,
 	notifier *telegramhandler.Notifier,
 ) platformtg.MenuContributor {
-	plategaClient := platega.NewClient(cfg.PlategaBaseURL, cfg.PlategaMerchantID, cfg.PlategaSecret)
+	plategaClient := platega.NewClient(
+		cfg.PlategaBaseURL,
+		cfg.PlategaMerchantID,
+		cfg.PlategaSecret,
+		cfg.PlategaReturnURL,
+		cfg.PlategaReturnURL,
+	)
 
 	tariffs := []paymentdomain.Tariff{
 		{Months: 1, PriceRub: cfg.PricePerMonth},

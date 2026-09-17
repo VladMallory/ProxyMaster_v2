@@ -37,7 +37,7 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 	row := make([]telebot.Btn, 0, 2)
 
 	for i, t := range tariffs {
-		text := fmt.Sprintf("💰 %d₽ - %d месяца", t.PriceRub, t.Months)
+		text := fmt.Sprintf("💰%d₽ - %d месяца", t.PriceRub, t.Months)
 		btn := menu.Data(text, "pay_tariff", strconv.Itoa(i))
 		row = append(row, btn)
 
@@ -47,7 +47,7 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 		}
 	}
 
-	btnBack := menu.Data("🏠 В главное меню", "users_back")
+	btnBack := menu.Data("🏠В главное меню", "users_back")
 	rows = append(rows, menu.Row(btnBack))
 
 	menu.Inline(rows...)
@@ -76,7 +76,7 @@ func (h *Handler) handleTariff(c telebot.Context) error {
 
 	menu := &telebot.ReplyMarkup{}
 	btnPay := menu.URL("🔗 Оплатить", payURL)
-	btnBack := menu.Data("🏠 В главное меню", "users_back")
+	btnBack := menu.Data("🏠В главное меню", "users_back")
 	menu.Inline(menu.Row(btnPay), menu.Row(btnBack))
 
 	return c.Edit("Нажмите чтобы оплатить:", menu)

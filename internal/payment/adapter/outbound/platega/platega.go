@@ -15,17 +15,21 @@ import (
 )
 
 type Client struct {
-	baseURL    string
-	merchantID string
-	secret     string
+	baseURL,
+	merchantID,
+	secret,
+	urlSuccess,
+	urlField string
 	httpClient *http.Client
 }
 
-func NewClient(baseURL, merchantID, secret string) *Client {
+func NewClient(baseURL, merchantID, secret, urlSuccess, urlField string) *Client {
 	return &Client{
 		baseURL:    baseURL,
 		merchantID: merchantID,
 		secret:     secret,
+		urlSuccess: urlSuccess,
+		urlField:   urlField,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -66,9 +70,9 @@ func (c *Client) CreateInvoice(
 			Currency: "RUB",
 		},
 		Description: "Оплата подписки",
-		Return:      "https://google.com",
-		FailedURL:   "https://google.com",
-		Payload:     userID, // вернется в вебхуке чтобы найти юзера
+		Return:      c.urlSuccess,
+		FailedURL:   c.urlField,
+		Payload:     userID,
 	}
 
 	raw, err := json.Marshal(reqBody)
@@ -76,59 +80,38 @@ func (c *Client) CreateInvoice(
 		return "", "", err
 	}
 
-	req, err := http.NewRequestWithContext(
+	body, err := c.doRequest(
 		ctx,
-		"POST",
+		http.MethodPost,
 		c.baseURL+"/transaction/process",
 		bytes.NewReader(raw),
 	)
 	if err != nil {
 		return "", "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("X-Merchantid", c.merchantID)
-	req.Header.Set("X-Secret", c.secret)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("platega do: %w", err)
-	}
-	defer closerHelper(resp.Body, &err)
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("platega status %d", resp.StatusCode)
-	}
 
 	var out createResp
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", "", fmt.Errorf("decode platega resp: %w", err)
+	if err := json.Unmarshal(body, &out); err != nil {
+		return "", "", err
 	}
 
 	return out.TransactionID, out.Redirect, nil
 }
 
 func (c *Client) CheckStatus(ctx context.Context, transactionID string) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/transaction/"+transactionID, nil)
+	body, err := c.doRequest(
+		ctx,
+		http.MethodGet,
+		c.baseURL+"/transaction/"+transactionID,
+		nil,
+	)
 	if err != nil {
 		return false, err
 	}
-
-	req.Header.Set("X-Merchantid", c.merchantID)
-	req.Header.Set("X-Secret", c.secret)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer closerHelper(resp.Body, &err)
 
 	var out paymentdomain.Out
-
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		if err != nil {
-			return false, err
-		}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return false, err
 	}
 
 	return out.Status == "CONFIRMED", nil
@@ -138,4 +121,47 @@ func closerHelper(closer io.Closer, err *error) {
 	if cerr := closer.Close(); cerr != nil {
 		*err = errors.Join(*err, cerr)
 	}
+}
+
+func (c *Client) doRequest(
+	ctx context.Context,
+	method,
+	path string,
+	body io.Reader,
+) ([]byte, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		method,
+		c.baseURL+path,
+		body,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Merchantid", c.merchantID)
+	req.Header.Set("X-Secret", c.secret)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer closerHelper(resp.Body, &err)
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(
+			"platega status %d: %s",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
+
+	return respBody, nil
 }

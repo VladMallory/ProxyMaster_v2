@@ -3,8 +3,6 @@ package paymentdomain
 
 import (
 	"time"
-
-	"gopkg.in/telebot.v4"
 )
 
 type Tariff struct {
@@ -21,10 +19,10 @@ type Invoice struct {
 	CreatedAt time.Time
 }
 
-type stored struct {
-	msg  telebot.Editable
-	name string
-}
+// type stored struct {
+// 	msg  telebot.Editable
+// 	name string
+// }
 
 type Out struct {
 	Status string `json:"status"`
