@@ -9,6 +9,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
 	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
+	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
@@ -37,13 +38,14 @@ func newApp() (app, error) {
 		return app{}, err
 	}
 
-	remnawaveClient := remnawave.NewRemnawaveClient(
-		cfg.RemnawaveBaseURL,
-		cfg.RemnawaveToken,
+	remnawavePlatform := platformremnawave.New(cfg.RemnawaveBaseURL, cfg.RemnawaveToken)
+
+	remnawaveAdapter := remnawave.NewRemnawaveClient(
+		remnawavePlatform,
 		cfg.RemnawaveAPIKey,
 	)
 	telegramNotifier := telegramhandler.NewNotifier(bot)
-	usersUseCase := userscase.NewUserUseCase(remnawaveClient, cfg.DeviceLimit)
+	usersUseCase := userscase.NewUserUseCase(remnawaveAdapter, cfg.DeviceLimit)
 
 	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
 

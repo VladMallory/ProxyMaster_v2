@@ -2,7 +2,6 @@ package remnawave
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,10 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
+	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 )
 
-func (r *RemnawaveClient) CreateUser(
+func (r *RemnawaveAdapter) CreateUser(
 	ctx context.Context,
 	username string,
 	days int,
@@ -37,11 +37,9 @@ func (r *RemnawaveClient) CreateUser(
 
 	path := "/api/users?" + r.apiKey
 
-	resp, err := doRequest[subdomain.APIResponse](
+	resp, err := platformremnawave.Do[subdomain.APIResponse](
 		ctx,
 		r.client,
-		r.baseURL,
-		r.token,
 		http.MethodPost,
 		path,
 		user,
@@ -60,26 +58,20 @@ func (r *RemnawaveClient) CreateUser(
 	}, nil
 }
 
-func (r RemnawaveClient) GetByUsername(
+func (r RemnawaveAdapter) GetByUsername(
 	ctx context.Context,
 	username string,
 ) (subdomain.UserResponse, error) {
 	path := "/api/users/by-username/" + username + "?" + r.apiKey
 
-	resp, err := doRequest[subdomain.APIResponse](
+	resp, err := platformremnawave.Do[subdomain.APIResponse](
 		ctx,
 		r.client,
-		r.baseURL,
-		r.token,
 		http.MethodGet,
 		path,
 		nil,
 	)
 	if err != nil {
-		if errors.Is(err, subdomain.ErrNoFindUser) {
-			return subdomain.UserResponse{}, subdomain.ErrNoFindUser
-		}
-
 		return subdomain.UserResponse{}, err
 	}
 
@@ -90,7 +82,7 @@ func (r RemnawaveClient) GetByUsername(
 // Старый API отдавал uuid, новый — только числовой id.
 // Возвращаем строку: на старой панели это uuid, на новой — id строкой.
 // Вызывать только там, где идентификатор реально нужен.
-func (r RemnawaveClient) GetUUIDByUsername(
+func (r RemnawaveAdapter) GetUUIDByUsername(
 	ctx context.Context,
 	username string,
 ) (string, error) {
@@ -106,26 +98,20 @@ func (r RemnawaveClient) GetUUIDByUsername(
 	return strconv.Itoa(resp.ID), nil
 }
 
-func (r RemnawaveClient) GetByUUID(
+func (r RemnawaveAdapter) GetByUUID(
 	ctx context.Context,
 	uuid string,
 ) (subdomain.UserResponse, error) {
 	path := "/api/users/" + uuid + "?" + r.apiKey
 
-	resp, err := doRequest[subdomain.APIResponse](
+	resp, err := platformremnawave.Do[subdomain.APIResponse](
 		ctx,
 		r.client,
-		r.baseURL,
-		r.token,
 		http.MethodGet,
 		path,
 		nil,
 	)
 	if err != nil {
-		if errors.Is(err, subdomain.ErrNoFindUser) {
-			return subdomain.UserResponse{}, subdomain.ErrNoFindUser
-		}
-
 		return subdomain.UserResponse{}, err
 	}
 
@@ -133,7 +119,11 @@ func (r RemnawaveClient) GetByUUID(
 }
 
 // ExtendExpire продлевает существующего клиента в Remnawave по uuid.
-func (r *RemnawaveClient) ExtendExpire(ctx context.Context, uuid string, expireAt time.Time) error {
+func (r *RemnawaveAdapter) ExtendExpire(
+	ctx context.Context,
+	uuid string,
+	expireAt time.Time,
+) error {
 	id, err := strconv.Atoi(uuid)
 	if err != nil {
 		return err
@@ -146,15 +136,16 @@ func (r *RemnawaveClient) ExtendExpire(ctx context.Context, uuid string, expireA
 		"expireAt": expireAt.Format(time.RFC3339),
 	}
 
-	_, err = doRequest[subdomain.APIResponse](
+	_, err = platformremnawave.Do[subdomain.APIResponse](
 		ctx,
 		r.client,
-		r.baseURL,
-		r.token,
 		http.MethodPatch,
 		path,
 		body,
 	)
+	if err != nil {
+		return err
+	}
 
 	return err
 }

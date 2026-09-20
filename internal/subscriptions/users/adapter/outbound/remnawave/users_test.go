@@ -15,8 +15,8 @@ import (
 
 // newTestClient — собирает RemnawaveClient с подменённым транспортом.
 // Каждый подтест создаёт свой экземпляр — без расшаренного состояния.
-func newTestClient(roundTrip func(req *http.Request) (*http.Response, error)) *RemnawaveClient {
-	return &RemnawaveClient{
+func newTestClient(roundTrip func(req *http.Request) (*http.Response, error)) *RemnawaveAdapter {
+	return &RemnawaveAdapter{
 		baseURL: "https://remna.example",
 		token:   "tok",
 		apiKey:  "apiKey=x",
