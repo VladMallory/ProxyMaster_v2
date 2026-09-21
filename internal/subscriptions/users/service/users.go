@@ -10,9 +10,9 @@ import (
 
 type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (subdomain.UserResponse, error)
-	GetByUUID(ctx context.Context, uuid string) (subdomain.UserResponse, error)
+	GetByID(ctx context.Context, userID int) (subdomain.UserResponse, error)
 	CreateUser(ctx context.Context, username string, days int) (subdomain.User, error)
-	ExtendExpire(ctx context.Context, UUID string, days time.Time) error
+	ExtendExpire(ctx context.Context, userID int, expireAt time.Time) error
 }
 
 type UserUseCase struct {
@@ -123,5 +123,5 @@ func (u UserUseCase) ExtendSubscription(ctx context.Context, username string, mo
 		base = time.Now() // не даём остатку сгорать при просрочке
 	}
 
-	return u.repo.ExtendExpire(ctx, resp.UUID, base.AddDate(0, months, 0))
+	return u.repo.ExtendExpire(ctx, resp.ID, base.AddDate(0, months, 0))
 }

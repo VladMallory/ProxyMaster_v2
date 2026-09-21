@@ -22,7 +22,7 @@ type SubscriptionExtender interface {
 }
 
 type ResultNotifier interface {
-	NotifySuccess(userID string, months int)
+	NotifySuccess(userID string)
 	NotifyTimeout(userID string)
 }
 
@@ -108,7 +108,7 @@ func (s *Service) watchPayment(
 				return
 			}
 
-			s.notifier.NotifySuccess(userID, months)
+			s.notifier.NotifySuccess(userID)
 
 			return
 		}

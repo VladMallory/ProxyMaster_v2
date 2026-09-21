@@ -3,10 +3,10 @@ package telegram
 import (
 	"context"
 	"html"
-	"log/slog"
 	"strconv"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/traceid"
 	"gopkg.in/telebot.v4"
 )
 
@@ -44,7 +44,10 @@ func NewStartHandler(
 
 // HandleStart обработчик /start: получает подписку, рендерит шаблон, отдаёт меню из Registry.
 func (h *StartHandler) HandleStart(c telebot.Context) error {
-	text, menu, err := h.buildStart(c)
+	ctx := traceid.New(context.Background())
+	ctx = traceid.WithUsername(ctx, strconv.FormatInt(c.Sender().ID, 10))
+
+	text, menu, err := h.buildStart(ctx, c)
 	if err != nil {
 		return c.Send(err.Error())
 	}
@@ -53,11 +56,14 @@ func (h *StartHandler) HandleStart(c telebot.Context) error {
 }
 
 // buildStart общая логика для HandleStart и HandleBack.
-func (h *StartHandler) buildStart(c telebot.Context) (string, *telebot.ReplyMarkup, error) {
+func (h *StartHandler) buildStart(
+	ctx context.Context,
+	c telebot.Context,
+) (string, *telebot.ReplyMarkup, error) {
 	user := c.Sender()
 
 	u, err := h.users.GetOrCreateSub(
-		context.Background(),
+		ctx,
 		strconv.FormatInt(user.ID, 10),
 		h.trialDays,
 	)
@@ -74,8 +80,6 @@ func (h *StartHandler) buildStart(c telebot.Context) (string, *telebot.ReplyMark
 		return "", nil, err
 	}
 
-	slog.Info("подписка получена", "user", u.Name)
-
 	// собираем меню из всех вкладчиков URL динамический через MenuContent
 	menu := h.registry.BuildStartMenu(MenuContent{SubURL: u.URL})
 
@@ -87,7 +91,8 @@ func (h *StartHandler) HandleBack(c telebot.Context) error {
 	if err := c.Respond(); err != nil {
 		return err
 	}
-	text, menu, err := h.buildStart(c)
+
+	text, menu, err := h.buildStart(context.Background(), c)
 	if err != nil {
 		return err
 	}

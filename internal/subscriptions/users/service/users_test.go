@@ -15,9 +15,9 @@ import (
 // который сразу укажет "бизнес-логика дёрнула то, чего не должна была".
 type fakeUserRepository struct {
 	getByUsernameFunc func(ctx context.Context, username string) (subdomain.UserResponse, error)
-	getByUUIDFunc     func(ctx context.Context, uuid string) (subdomain.UserResponse, error)
+	getByIDFunc       func(ctx context.Context, userID int) (subdomain.UserResponse, error)
 	createUserFunc    func(ctx context.Context, username string, days int) (subdomain.User, error)
-	extendExpire      func(ctx context.Context, uuid string, days time.Time) error
+	extendExpire      func(ctx context.Context, userID int, expireAt time.Time) error
 }
 
 func (f *fakeUserRepository) GetByUsername(
@@ -27,11 +27,11 @@ func (f *fakeUserRepository) GetByUsername(
 	return f.getByUsernameFunc(ctx, username)
 }
 
-func (f *fakeUserRepository) GetByUUID(
+func (f *fakeUserRepository) GetByID(
 	ctx context.Context,
-	uuid string,
+	userID int,
 ) (subdomain.UserResponse, error) {
-	return f.getByUUIDFunc(ctx, uuid)
+	return f.getByIDFunc(ctx, userID)
 }
 
 func (f *fakeUserRepository) CreateUser(
@@ -42,8 +42,12 @@ func (f *fakeUserRepository) CreateUser(
 	return f.createUserFunc(ctx, username, days)
 }
 
-func (f *fakeUserRepository) ExtendExpire(ctx context.Context, uuid string, days time.Time) error {
-	return f.extendExpire(ctx, uuid, days)
+func (f *fakeUserRepository) ExtendExpire(
+	ctx context.Context,
+	userID int,
+	expireAt time.Time,
+) error {
+	return f.extendExpire(ctx, userID, expireAt)
 }
 
 // nolint: funlen
@@ -63,10 +67,10 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "юзер не найден -> создаём нового на 30 дней",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{}, subdomain.ErrNoFindUser
 				},
-				createUserFunc: func(ctx context.Context, username string, days int) (subdomain.User, error) {
+				createUserFunc: func(_ context.Context, username string, days int) (subdomain.User, error) {
 					require.Equal(t, "vlad", username)
 					require.Equal(t, 30, days)
 
@@ -82,10 +86,10 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "создание нового юзера упало -> ошибка пробрасывается как есть",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{}, subdomain.ErrNoFindUser
 				},
-				createUserFunc: func(ctx context.Context, username string, days int) (subdomain.User, error) {
+				createUserFunc: func(_ context.Context, _ string, _ int) (subdomain.User, error) {
 					return subdomain.User{}, errors.New("create failed")
 				},
 			},
@@ -95,7 +99,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "репозиторий вернул произвольную ошибку -> пробрасывается как есть",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{}, errors.New("db unavailable")
 				},
 			},
@@ -105,7 +109,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "существующий юзер с валидной датой -> корректный маппинг + remainingDays",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "people1",
 						UUID:            "uuid-123",
@@ -126,7 +130,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "панель вернула 0 устройств -> подставляем defaultDeviceLimit из env",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "people1",
 						UUID:            "uuid-123",
@@ -144,7 +148,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "панель вернула 0 устройств и env не задан -> остаётся 0",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "people1",
 						HWIDDeviceLimit: 0,
@@ -160,7 +164,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "панель вернула свой лимит -> defaultDeviceLimit из env игнорируется",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "people1",
 						HWIDDeviceLimit: 5,
@@ -176,7 +180,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 		{
 			name: "битая дата ExpireAt -> ошибка парсинга",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{Username: "people1", ExpireAt: "not-a-date"}, nil
 				},
 			},
@@ -220,7 +224,7 @@ func TestUserUseCase_GetURL(t *testing.T) {
 		{
 			name: "успех",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "vlad",
 						UUID:            "uuid-123",
@@ -239,7 +243,7 @@ func TestUserUseCase_GetURL(t *testing.T) {
 		{
 			name: "панель вернула 0 устройств -> подставляем defaultDeviceLimit из env",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "vlad",
 						HWIDDeviceLimit: 0,
@@ -257,7 +261,7 @@ func TestUserUseCase_GetURL(t *testing.T) {
 		{
 			name: "панель вернула 0 устройств и env не задан -> остаётся 0",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{
 						Username:        "vlad",
 						HWIDDeviceLimit: 0,
@@ -275,7 +279,7 @@ func TestUserUseCase_GetURL(t *testing.T) {
 		{
 			name: "ошибка репозитория пробрасывается",
 			repo: &fakeUserRepository{
-				getByUsernameFunc: func(ctx context.Context, username string) (subdomain.UserResponse, error) {
+				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{}, errors.New("timeout")
 				},
 			},

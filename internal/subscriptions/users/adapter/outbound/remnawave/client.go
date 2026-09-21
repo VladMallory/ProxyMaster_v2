@@ -1,8 +1,6 @@
 package remnawave
 
 import (
-	"errors"
-
 	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 )
 
@@ -18,10 +16,10 @@ func NewRemnawaveClient(client *platformremnawave.Client, apiKey string) *Remnaw
 	}
 }
 
-func mapErr(err error) error {
-	if errors.Is(err, platformremnawave.ErrNotFound) {
-		return platformremnawave.ErrNotFound
-	}
-
-	return err
-}
+// func mapErr(err error) error {
+// 	if errors.Is(err, platformremnawave.ErrNotFound) {
+// 		return platformremnawave.ErrNotFound
+// 	}
+//
+// 	return err
+// }

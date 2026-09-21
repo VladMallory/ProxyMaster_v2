@@ -7,10 +7,14 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
+	"unsafe"
 
+	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
+	zaplogger "github.com/VladMallory/ProxyMaster_v2/pkg/zap"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,6 +42,31 @@ func jsonResponse(status int, v any) *http.Response {
 		Body:       io.NopCloser(bytes.NewReader(raw)),
 		Header:     make(http.Header),
 	}
+}
+
+// newPlatformClientForTest — собирает platform-клиент с подменённым транспортом.
+// Поля baseURL/token/http в platformremnawave.Client приватные, прод менять нельзя,
+// поэтому подменяем *http.Client через reflect/unsafe только в тестах.
+// В проде так делать не надо — там клиент создаётся через New() и ходит в реальную панель.
+func newPlatformClientForTest(
+	baseURL, token string,
+	rt http.RoundTripper,
+) *platformremnawave.Client {
+	// zap-логгер: withLogging внутри New требует не-nil логгер, иначе паника.
+	// Транспорт всё равно подменяем фейком ниже, поэтому логгер реально не пишет.
+	logger := zaplogger.New(zaplogger.Config{
+		LogLevel: "error",
+		Encoding: "console",
+	})
+	c := platformremnawave.New(baseURL, token, logger)
+
+	// Меняем приватное поле http на клиент с фейковым транспортом.
+	v := reflect.ValueOf(c).Elem().FieldByName("http")
+	reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem().Set(
+		reflect.ValueOf(&http.Client{Transport: rt}),
+	)
+
+	return c
 }
 
 // failingReadCloser - тело ответа, которое ломается на чтении.
@@ -103,8 +132,8 @@ func TestDoRequest(t *testing.T) {
 			want:    subdomain.APIResponse{},
 		},
 		{
-			name: "несериализуемое тело -> ошибка marshal body",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "несериализуемое тело -> ошибка marshal",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				t.Error("запрос не должен дойти до транспорта")
 
 				return nil, errors.New("unreachable")
@@ -114,11 +143,11 @@ func TestDoRequest(t *testing.T) {
 			path:          "/api/users",
 			body:          make(chan int),
 			wantErr:       true,
-			wantErrSubstr: "marshal body",
+			wantErrSubstr: "unsupported type",
 		},
 		{
-			name: "невалидный HTTP-метод -> ошибка create request",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "невалидный HTTP-метод -> ошибка создания запроса",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				t.Error("запрос не должен дойти до транспорта")
 
 				return nil, errors.New("unreachable")
@@ -127,22 +156,22 @@ func TestDoRequest(t *testing.T) {
 			method:        "GE T",
 			path:          "/api/users",
 			wantErr:       true,
-			wantErrSubstr: "create request",
+			wantErrSubstr: "invalid method",
 		},
 		{
-			name: "транспорт вернул ошибку -> ошибка do request",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "транспорт вернул ошибку -> ошибка пробрасывается как есть",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return nil, errors.New("connection refused")
 			},
 			baseURL:       "https://remna.example",
 			method:        http.MethodGet,
 			path:          "/api/users",
 			wantErr:       true,
-			wantErrSubstr: "do request",
+			wantErrSubstr: "connection refused",
 		},
 		{
-			name: "тело ответа не читается -> ошибка read body",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "тело ответа не читается -> ошибка чтения пробрасывается как есть",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Status:     http.StatusText(http.StatusOK),
@@ -154,22 +183,22 @@ func TestDoRequest(t *testing.T) {
 			method:        http.MethodGet,
 			path:          "/api/users",
 			wantErr:       true,
-			wantErrSubstr: "read body",
+			wantErrSubstr: "read boom",
 		},
 		{
-			name: "статус 404 -> ErrNoFindUser без попытки распарсить ответ",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "статус 404 -> ErrNotFound без попытки распарсить ответ",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusNotFound, "не валидный JSON, но это не важно"), nil
 			},
 			baseURL:       "https://remna.example",
 			method:        http.MethodGet,
 			path:          "/api/users",
 			wantErr:       true,
-			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
+			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
 		},
 		{
-			name: "статус 500 -> request failed с кодом и телом ответа",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "статус 500 -> ошибка запроса с кодом и телом ответа",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(
 					http.StatusInternalServerError,
 					map[string]string{"error": "boom"},
@@ -179,11 +208,11 @@ func TestDoRequest(t *testing.T) {
 			method:        http.MethodGet,
 			path:          "/api/users",
 			wantErr:       true,
-			wantErrSubstr: "request failed 500",
+			wantErrSubstr: "ошибка запроса: 500",
 		},
 		{
-			name: "невалидный JSON в ответе -> ошибка unmarshal response",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "невалидный JSON в ответе -> ошибка unmarshal пробрасывается как есть",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Status:     http.StatusText(http.StatusOK),
@@ -195,7 +224,7 @@ func TestDoRequest(t *testing.T) {
 			method:        http.MethodGet,
 			path:          "/api/users",
 			wantErr:       true,
-			wantErrSubstr: "unmarshal response",
+			wantErrSubstr: "invalid character",
 		},
 	}
 
@@ -203,13 +232,17 @@ func TestDoRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			client := &http.Client{Transport: &fakeRoundTripper{roundTripFunc: tt.roundTrip}}
-
-			got, err := doRequest[subdomain.APIResponse](
-				ctx,
-				client,
+			// Клиент собирается через platform-конструктор, транспорт подменяем фейком.
+			// Тестируем platformremnawave.Do — именно его дёргает адаптер в users.go.
+			pc := newPlatformClientForTest(
 				tt.baseURL,
 				"tok",
+				&fakeRoundTripper{roundTripFunc: tt.roundTrip},
+			)
+
+			got, err := platformremnawave.Do[subdomain.APIResponse](
+				ctx,
+				pc,
 				tt.method,
 				tt.path,
 				tt.body,

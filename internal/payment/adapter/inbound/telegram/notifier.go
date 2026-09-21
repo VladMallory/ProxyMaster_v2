@@ -20,7 +20,7 @@ func NewNotifier(bot *telebot.Bot) *Notifier {
 	}
 }
 
-func (n *Notifier) NotifySuccess(userID string, months int) {
+func (n *Notifier) NotifySuccess(userID string) {
 	n.mu.Lock()
 
 	msg, ok := n.msgs[userID]
@@ -33,7 +33,7 @@ func (n *Notifier) NotifySuccess(userID string, months int) {
 		return
 	}
 
-	_, err := n.bot.Edit(msg, "✅Оплата прошла успешно ",
+	_, err := n.bot.Edit(msg, "✅Оплата прошла успешно!",
 		backMenu(), telebot.ModeHTML)
 	if err != nil {
 		slog.Error("не отправился success-нотифай", "user", userID, "err", err)

@@ -50,6 +50,8 @@ linters:
     - paralleltest
     - perfsprint
     - errcheck
+    - unparam
+    - revive
   disable:
     - containedctx
     - depguard
@@ -76,6 +78,19 @@ linters:
     - nosprintfhostport
     - nonamedreturns
     - gomoddirectives
+
+  settings:
+    revive:
+      enable-default-rules: true
+      rules:
+        - name: package-comments
+          disabled: true
+        - name: exported
+          disabled: true
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
 
 formatters:
   # Enable specific formatter.

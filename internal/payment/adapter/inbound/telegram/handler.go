@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/traceid"
 	"gopkg.in/telebot.v4"
 )
 
@@ -69,7 +70,9 @@ func (h *Handler) handleTariff(c telebot.Context) error {
 
 	h.notifier.Remember(userID, c.Message())
 
-	payURL, err := h.svc.CreatePayment(context.Background(), userID, idx)
+	ctx := traceid.WithUsername(context.Background(), userID)
+
+	payURL, err := h.svc.CreatePayment(ctx, userID, idx)
 	if err != nil {
 		return c.Send(err.Error())
 	}

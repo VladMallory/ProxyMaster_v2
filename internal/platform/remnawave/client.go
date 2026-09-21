@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var ErrNotFound = errors.New("страница не найдена")
@@ -20,11 +22,16 @@ type Client struct {
 	http *http.Client
 }
 
-func New(baseURL, token string) *Client {
+func New(baseURL, token string, logger *zap.Logger) *Client {
+	transport := chain(http.DefaultTransport, withLogging(logger))
+
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
-		http:    &http.Client{Timeout: 30 * time.Second},
+		http: &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: transport,
+		},
 	}
 }
 

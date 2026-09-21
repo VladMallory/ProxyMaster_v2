@@ -9,19 +9,25 @@ import (
 	"testing"
 	"time"
 
+	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	"github.com/stretchr/testify/require"
 )
 
-// newTestClient — собирает RemnawaveClient с подменённым транспортом.
+// newTestClient — собирает RemnawaveAdapter с подменённым транспортом.
+// Поля platform-клиента приватные, поэтому транспорт подменяем через
+// хелпер newPlatformClientForTest из client_test.go (reflect/unsafe, только для тестов).
 // Каждый подтест создаёт свой экземпляр — без расшаренного состояния.
 func newTestClient(roundTrip func(req *http.Request) (*http.Response, error)) *RemnawaveAdapter {
-	return &RemnawaveAdapter{
-		baseURL: "https://remna.example",
-		token:   "tok",
-		apiKey:  "apiKey=x",
-		client:  &http.Client{Transport: &fakeRoundTripper{roundTripFunc: roundTrip}},
-	}
+	// baseURL/token/apiKey совпадают с тем, что ждут проверки внутри roundTrip:
+	// путь "/api/users", query "apiKey=x", заголовок "Bearer tok".
+	pc := newPlatformClientForTest(
+		"https://remna.example",
+		"tok",
+		&fakeRoundTripper{roundTripFunc: roundTrip},
+	)
+
+	return NewRemnawaveClient(pc, "apiKey=x")
 }
 
 // nolint: funlen
@@ -122,23 +128,23 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 		},
 		{
 			name: "сервер ответил 404 -> ErrNoFindUser пробрасывается как есть",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusNotFound, "{}"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
+			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
 		},
 		{
 			name: "сервер ответил 500 -> ошибка request failed пробрасывается как есть",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusInternalServerError, "boom"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: "request failed 500",
+			wantErrSubstr: "ошибка запроса: 500",
 		},
 		{
-			name: "битый JSON в ответе -> ошибка unmarshal response",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "битый JSON в ответе -> ошибка invalid character",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: http.StatusCreated,
 					Status:     http.StatusText(http.StatusCreated),
@@ -147,7 +153,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				}, nil
 			},
 			wantErr:       true,
-			wantErrSubstr: "unmarshal response",
+			wantErrSubstr: "invalid character",
 		},
 	}
 
@@ -227,23 +233,23 @@ func TestRemnawaveClient_GetByUsername(t *testing.T) {
 		},
 		{
 			name: "юзер не найден -> ErrNoFindUser как есть",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusNotFound, "{}"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
+			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
 		},
 		{
 			name: "сервер ответил 500 -> ошибка пробрасывается без обёртки",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusInternalServerError, "boom"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: "request failed 500",
+			wantErrSubstr: "ошибка запроса: 500",
 		},
 		{
-			name: "битый JSON в ответе -> ошибка unmarshal response",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "битый JSON в ответе -> ошибка invalid character",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Status:     http.StatusText(http.StatusOK),
@@ -252,7 +258,7 @@ func TestRemnawaveClient_GetByUsername(t *testing.T) {
 				}, nil
 			},
 			wantErr:       true,
-			wantErrSubstr: "unmarshal response",
+			wantErrSubstr: "invalid character",
 		},
 	}
 
@@ -275,7 +281,7 @@ func TestRemnawaveClient_GetByUsername(t *testing.T) {
 }
 
 // nolint: funlen
-func TestRemnawaveClient_GetByUUID(t *testing.T) {
+func TestRemnawaveClient_GetByID(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -289,13 +295,13 @@ func TestRemnawaveClient_GetByUUID(t *testing.T) {
 			name: "юзер существует -> ответ маппится как есть",
 			roundTrip: func(req *http.Request) (*http.Response, error) {
 				require.Equal(t, http.MethodGet, req.Method)
-				require.Equal(t, "/api/users/uuid-123", req.URL.Path)
+				require.Equal(t, "/api/users/1813", req.URL.Path)
 				require.Equal(t, "apiKey=x", req.URL.RawQuery)
 				require.Nil(t, req.Body)
 
 				return jsonResponse(http.StatusOK, subdomain.APIResponse{
 					UserResponse: subdomain.UserResponse{
-						UUID:            "uuid-123",
+						ID:              1813,
 						Username:        "vlad",
 						HWIDDeviceLimit: 3,
 						SubscriptionURL: "https://sub.example.com/vlad",
@@ -303,7 +309,7 @@ func TestRemnawaveClient_GetByUUID(t *testing.T) {
 				}), nil
 			},
 			want: subdomain.UserResponse{
-				UUID:            "uuid-123",
+				ID:              1813,
 				Username:        "vlad",
 				HWIDDeviceLimit: 3,
 				SubscriptionURL: "https://sub.example.com/vlad",
@@ -311,23 +317,23 @@ func TestRemnawaveClient_GetByUUID(t *testing.T) {
 		},
 		{
 			name: "юзер не найден -> ErrNoFindUser как есть",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusNotFound, "{}"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
+			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
 		},
 		{
 			name: "сервер ответил 500 -> ошибка пробрасывается без обёртки",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return jsonResponse(http.StatusInternalServerError, "boom"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: "request failed 500",
+			wantErrSubstr: "ошибка запроса: 500",
 		},
 		{
-			name: "битый JSON в ответе -> ошибка unmarshal response",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
+			name: "битый JSON в ответе -> ошибка invalid character",
+			roundTrip: func(_ *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Status:     http.StatusText(http.StatusOK),
@@ -336,7 +342,7 @@ func TestRemnawaveClient_GetByUUID(t *testing.T) {
 				}, nil
 			},
 			wantErr:       true,
-			wantErrSubstr: "unmarshal response",
+			wantErrSubstr: "invalid character",
 		},
 	}
 
@@ -344,83 +350,7 @@ func TestRemnawaveClient_GetByUUID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := newTestClient(tt.roundTrip).GetByUUID(context.Background(), "uuid-123")
-
-			if tt.wantErr {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErrSubstr)
-
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
-		})
-	}
-}
-
-// nolint: funlen
-func TestRemnawaveClient_GetUUIDByUsername(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name          string
-		roundTrip     func(req *http.Request) (*http.Response, error)
-		wantErr       bool
-		wantErrSubstr string
-		want          string
-	}{
-		{
-			name: "панель отдала uuid -> возвращаем uuid как есть",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
-				require.Equal(t, http.MethodGet, req.Method)
-				require.Equal(t, "/api/users/by-username/vlad", req.URL.Path)
-				require.Equal(t, "apiKey=x", req.URL.RawQuery)
-
-				return jsonResponse(http.StatusOK, subdomain.APIResponse{
-					UserResponse: subdomain.UserResponse{
-						UUID:     "uuid-123",
-						ID:       42,
-						Username: "vlad",
-					},
-				}), nil
-			},
-			want: "uuid-123",
-		},
-		{
-			name: "панель без uuid (новое api) -> возвращаем числовой id строкой",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
-				return jsonResponse(http.StatusOK, subdomain.APIResponse{
-					UserResponse: subdomain.UserResponse{
-						ID:       1813,
-						Username: "vlad",
-					},
-				}), nil
-			},
-			want: "1813",
-		},
-		{
-			name: "юзер не найден -> ErrNoFindUser как есть",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
-				return jsonResponse(http.StatusNotFound, "{}"), nil
-			},
-			wantErr:       true,
-			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
-		},
-		{
-			name: "сервер ответил 500 -> ошибка пробрасывается без обёртки",
-			roundTrip: func(req *http.Request) (*http.Response, error) {
-				return jsonResponse(http.StatusInternalServerError, "boom"), nil
-			},
-			wantErr:       true,
-			wantErrSubstr: "request failed 500",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := newTestClient(tt.roundTrip).GetUUIDByUsername(context.Background(), "vlad")
+			got, err := newTestClient(tt.roundTrip).GetByID(context.Background(), 1813)
 
 			if tt.wantErr {
 				require.Error(t, err)

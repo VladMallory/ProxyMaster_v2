@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config env проекта.
 type Config struct {
 	// === REMNAWAVE ===
 	RemnaPanel string `env:"REMNA_PANEL,required"`
@@ -41,7 +42,8 @@ type Config struct {
 	ResetTrafficPrice string `env:"RESET_TRAFFIC_PRICE"`
 	TrialDays         int    `env:"TRIAL_DAYS"`
 
-	LoggerLevel string `env:"LOGGER_LEVEL" default:"info"`
+	LoggerLevel string `env:"LOGGER_LEVEL" envDefault:"info"`
+	Encoding    string `env:"ENCODING"     envDefault:"console"`
 }
 
 func Load() Config {

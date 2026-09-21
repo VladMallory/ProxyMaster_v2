@@ -78,31 +78,13 @@ func (r RemnawaveAdapter) GetByUsername(
 	return resp.UserResponse, nil
 }
 
-// GetUUIDByUsername — возвращает идентификатор пользователя по имени.
-// Старый API отдавал uuid, новый — только числовой id.
-// Возвращаем строку: на старой панели это uuid, на новой — id строкой.
-// Вызывать только там, где идентификатор реально нужен.
-func (r RemnawaveAdapter) GetUUIDByUsername(
+// GetByID — ищет пользователя по числовому id (v3: GET /api/users/{userId}).
+// Единственный идентификатор в новом API, uuid больше нет.
+func (r RemnawaveAdapter) GetByID(
 	ctx context.Context,
-	username string,
-) (string, error) {
-	resp, err := r.GetByUsername(ctx, username)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.UUID != "" {
-		return resp.UUID, nil
-	}
-
-	return strconv.Itoa(resp.ID), nil
-}
-
-func (r RemnawaveAdapter) GetByUUID(
-	ctx context.Context,
-	uuid string,
+	userID int,
 ) (subdomain.UserResponse, error) {
-	path := "/api/users/" + uuid + "?" + r.apiKey
+	path := "/api/users/" + strconv.Itoa(userID) + "?" + r.apiKey
 
 	resp, err := platformremnawave.Do[subdomain.APIResponse](
 		ctx,
@@ -118,25 +100,21 @@ func (r RemnawaveAdapter) GetByUUID(
 	return resp.UserResponse, nil
 }
 
-// ExtendExpire продлевает существующего клиента в Remnawave по uuid.
+// ExtendExpire продлевает пользователя в Remnawave по числовому id.
+// PATCH /api/users принимает {"id", "expireAt"} — никакого Atoi больше нет.
 func (r *RemnawaveAdapter) ExtendExpire(
 	ctx context.Context,
-	uuid string,
+	userID int,
 	expireAt time.Time,
 ) error {
-	id, err := strconv.Atoi(uuid)
-	if err != nil {
-		return err
-	}
-
 	path := "/api/users/?" + r.apiKey
 
 	body := map[string]any{
-		"id":       id,
+		"id":       userID,
 		"expireAt": expireAt.Format(time.RFC3339),
 	}
 
-	_, err = platformremnawave.Do[subdomain.APIResponse](
+	_, err := platformremnawave.Do[subdomain.APIResponse](
 		ctx,
 		r.client,
 		http.MethodPatch,
@@ -147,5 +125,5 @@ func (r *RemnawaveAdapter) ExtendExpire(
 		return err
 	}
 
-	return err
+	return nil
 }

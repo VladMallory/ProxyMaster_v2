@@ -83,7 +83,7 @@ func (c *Client) CreateInvoice(
 	body, err := c.doRequest(
 		ctx,
 		http.MethodPost,
-		c.baseURL+"/transaction/process",
+		"/transaction/process",
 		bytes.NewReader(raw),
 	)
 	if err != nil {
@@ -102,7 +102,7 @@ func (c *Client) CheckStatus(ctx context.Context, transactionID string) (bool, e
 	body, err := c.doRequest(
 		ctx,
 		http.MethodGet,
-		c.baseURL+"/transaction/"+transactionID,
+		"/transaction/"+transactionID,
 		nil,
 	)
 	if err != nil {

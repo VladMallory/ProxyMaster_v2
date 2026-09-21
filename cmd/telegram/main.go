@@ -6,6 +6,7 @@ import (
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	telegramhandler "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/fake"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
 	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
@@ -14,6 +15,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
+	zaplogger "github.com/VladMallory/ProxyMaster_v2/pkg/zap"
 	"gopkg.in/telebot.v4"
 )
 
@@ -38,7 +40,12 @@ func newApp() (app, error) {
 		return app{}, err
 	}
 
-	remnawavePlatform := platformremnawave.New(cfg.RemnawaveBaseURL, cfg.RemnawaveToken)
+	logger := zaplogger.New(zaplogger.Config{
+		LogLevel: cfg.LoggerLevel,
+		Encoding: cfg.Encoding,
+	})
+
+	remnawavePlatform := platformremnawave.New(cfg.RemnawaveBaseURL, cfg.RemnawaveToken, logger)
 
 	remnawaveAdapter := remnawave.NewRemnawaveClient(
 		remnawavePlatform,
@@ -87,13 +94,27 @@ func setupPayment(
 	extender paymentsvc.SubscriptionExtender,
 	notifier *telegramhandler.Notifier,
 ) platformtg.MenuContributor {
-	plategaClient := platega.NewClient(
-		cfg.PlategaBaseURL,
-		cfg.PlategaMerchantID,
-		cfg.PlategaSecret,
-		cfg.PlategaReturnURL,
-		cfg.PlategaReturnURL,
-	)
+	// Фабрика провайдера: сервис зависит от интерфейса PaymentService (DIP),
+	// поэтому platega/yookassa взаимозаменяемы (LSP) — выбираем по PAYMENT_PROVIDER из .env.
+	var paymentService paymentsvc.PaymentService
+
+	switch cfg.PaymentProvider {
+	case "platega":
+		paymentService = platega.NewClient(
+			cfg.PlategaBaseURL,
+			cfg.PlategaMerchantID,
+			cfg.PlategaSecret,
+			cfg.PlategaReturnURL,
+			cfg.PlategaReturnURL,
+		)
+	case "fake":
+		paymentService = fake.NewClient(15 * time.Second)
+	default:
+		log.Fatalf(
+			"Неизвестный провайдер %q: нужен platega в .env",
+			cfg.PaymentProvider,
+		)
+	}
 
 	tariffs := []paymentdomain.Tariff{
 		{Months: 1, PriceRub: cfg.PricePerMonth},
@@ -102,7 +123,7 @@ func setupPayment(
 		{Months: 5, PriceRub: cfg.PricePerMonth * 5},
 	}
 
-	paySvc := paymentsvc.NewPayment(plategaClient, extender, notifier, tariffs)
+	paySvc := paymentsvc.NewPayment(paymentService, extender, notifier, tariffs)
 	handler := telegramhandler.NewHandler(paySvc, notifier)
 
 	return telegramhandler.NewPaymentContributor(handler)
