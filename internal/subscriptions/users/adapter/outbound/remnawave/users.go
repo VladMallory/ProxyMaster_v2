@@ -2,6 +2,7 @@ package remnawave
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,7 +46,10 @@ func (r *RemnawaveAdapter) CreateUser(
 		user,
 	)
 	if err != nil {
-		return subdomain.User{}, err
+		return subdomain.User{}, r.notifierAdmin.Map(ctx, err, ErrorMeta{
+			Op:       "CreateUser",
+			Username: username,
+		})
 	}
 
 	return subdomain.User{
@@ -58,6 +62,7 @@ func (r *RemnawaveAdapter) CreateUser(
 	}, nil
 }
 
+// GetByUsername получение информации о пользователе через username.
 func (r RemnawaveAdapter) GetByUsername(
 	ctx context.Context,
 	username string,
@@ -71,15 +76,23 @@ func (r RemnawaveAdapter) GetByUsername(
 		path,
 		nil,
 	)
+	err2 := errors.New("asdddd")
+	err = errors.Join(err, err2)
 	if err != nil {
-		return subdomain.UserResponse{}, err
+		return subdomain.UserResponse{}, r.notifierAdmin.Map(
+			ctx,
+			err,
+			ErrorMeta{
+				Op:       "GetByUsername",
+				Username: username,
+			},
+		)
 	}
 
 	return resp.UserResponse, nil
 }
 
-// GetByID — ищет пользователя по числовому id (v3: GET /api/users/{userId}).
-// Единственный идентификатор в новом API, uuid больше нет.
+// GetByID получение информации о пользователе через ID.
 func (r RemnawaveAdapter) GetByID(
 	ctx context.Context,
 	userID int,
@@ -94,14 +107,17 @@ func (r RemnawaveAdapter) GetByID(
 		nil,
 	)
 	if err != nil {
-		return subdomain.UserResponse{}, err
+		return subdomain.UserResponse{}, r.notifierAdmin.Map(
+			ctx,
+			err,
+			ErrorMeta{Op: "GetByID"},
+		)
 	}
 
 	return resp.UserResponse, nil
 }
 
-// ExtendExpire продлевает пользователя в Remnawave по числовому id.
-// PATCH /api/users принимает {"id", "expireAt"} — никакого Atoi больше нет.
+// ExtendExpire продлевает пользователя в Remnawave.
 func (r *RemnawaveAdapter) ExtendExpire(
 	ctx context.Context,
 	userID int,
@@ -122,7 +138,11 @@ func (r *RemnawaveAdapter) ExtendExpire(
 		body,
 	)
 	if err != nil {
-		return err
+		return r.notifierAdmin.Map(
+			ctx,
+			err,
+			ErrorMeta{Op: "ExtendExpire"},
+		)
 	}
 
 	return nil

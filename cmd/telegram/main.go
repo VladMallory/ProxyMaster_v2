@@ -47,9 +47,13 @@ func newApp() (app, error) {
 
 	remnawavePlatform := platformremnawave.New(cfg.RemnawaveBaseURL, cfg.RemnawaveToken, logger)
 
+	adminNotifier := remnawave.NewAdminNotifier(bot, remnawave.ParseAdminID(cfg.TelegramAdminID))
+
 	remnawaveAdapter := remnawave.NewRemnawaveClient(
 		remnawavePlatform,
 		cfg.RemnawaveAPIKey,
+		logger,
+		adminNotifier,
 	)
 	telegramNotifier := telegramhandler.NewNotifier(bot)
 	usersUseCase := userscase.NewUserUseCase(remnawaveAdapter, cfg.DeviceLimit)
@@ -101,7 +105,6 @@ func setupPayment(
 	switch cfg.PaymentProvider {
 	case "platega":
 		paymentService = platega.NewClient(
-			cfg.PlategaBaseURL,
 			cfg.PlategaMerchantID,
 			cfg.PlategaSecret,
 			cfg.PlategaReturnURL,

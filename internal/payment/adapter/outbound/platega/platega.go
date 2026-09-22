@@ -23,9 +23,9 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(baseURL, merchantID, secret, urlSuccess, urlField string) *Client {
+func NewClient(merchantID, secret, urlSuccess, urlField string) *Client {
 	return &Client{
-		baseURL:    baseURL,
+		baseURL:    "https://app.platega.io",
 		merchantID: merchantID,
 		secret:     secret,
 		urlSuccess: urlSuccess,

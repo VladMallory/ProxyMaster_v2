@@ -18,8 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeRoundTripper - ручная реализация http.RoundTripper для тестов.
-// Поле-функция: не задал roundTripFunc, а метод вызвался -> nil pointer panic.
 type fakeRoundTripper struct {
 	roundTripFunc func(req *http.Request) (*http.Response, error)
 }
@@ -28,8 +26,11 @@ func (f *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	return f.roundTripFunc(req)
 }
 
-// jsonResponse - собирает http.Response с JSON-телом.
-// Значения всегда сериализуемые, поэтому паника вместо проброса ошибки.
+type stubNotifier struct{}
+
+func (stubNotifier) Notify(_ context.Context, _ error, _ ErrorMeta) {
+}
+
 func jsonResponse(status int, v any) *http.Response {
 	raw, err := json.Marshal(v)
 	if err != nil {
@@ -44,23 +45,16 @@ func jsonResponse(status int, v any) *http.Response {
 	}
 }
 
-// newPlatformClientForTest — собирает platform-клиент с подменённым транспортом.
-// Поля baseURL/token/http в platformremnawave.Client приватные, прод менять нельзя,
-// поэтому подменяем *http.Client через reflect/unsafe только в тестах.
-// В проде так делать не надо — там клиент создаётся через New() и ходит в реальную панель.
 func newPlatformClientForTest(
 	baseURL, token string,
 	rt http.RoundTripper,
 ) *platformremnawave.Client {
-	// zap-логгер: withLogging внутри New требует не-nil логгер, иначе паника.
-	// Транспорт всё равно подменяем фейком ниже, поэтому логгер реально не пишет.
 	logger := zaplogger.New(zaplogger.Config{
 		LogLevel: "error",
 		Encoding: "console",
 	})
 	c := platformremnawave.New(baseURL, token, logger)
 
-	// Меняем приватное поле http на клиент с фейковым транспортом.
 	v := reflect.ValueOf(c).Elem().FieldByName("http")
 	reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem().Set(
 		reflect.ValueOf(&http.Client{Transport: rt}),
@@ -69,7 +63,6 @@ func newPlatformClientForTest(
 	return c
 }
 
-// failingReadCloser - тело ответа, которое ломается на чтении.
 type failingReadCloser struct{}
 
 func (failingReadCloser) Read(_ []byte) (int, error) {
@@ -80,7 +73,7 @@ func (failingReadCloser) Close() error {
 	return nil
 }
 
-// nolint: funlen
+//nolint:funlen
 func TestDoRequest(t *testing.T) {
 	t.Parallel()
 
@@ -109,7 +102,7 @@ func TestDoRequest(t *testing.T) {
 					UserResponse: subdomain.UserResponse{Username: "vlad", UUID: "u1"},
 				}), nil
 			},
-			baseURL: "https://remna.example/", // трейлинг-слеш должен отрезаться
+			baseURL: "https://remna.example/",
 			method:  http.MethodGet,
 			path:    "/api/users/u1?key=1",
 			want: subdomain.APIResponse{
@@ -232,8 +225,6 @@ func TestDoRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Клиент собирается через platform-конструктор, транспорт подменяем фейком.
-			// Тестируем platformremnawave.Do — именно его дёргает адаптер в users.go.
 			pc := newPlatformClientForTest(
 				tt.baseURL,
 				"tok",

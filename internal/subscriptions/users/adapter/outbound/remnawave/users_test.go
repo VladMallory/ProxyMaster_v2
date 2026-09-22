@@ -9,28 +9,22 @@ import (
 	"testing"
 	"time"
 
-	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
-// newTestClient — собирает RemnawaveAdapter с подменённым транспортом.
-// Поля platform-клиента приватные, поэтому транспорт подменяем через
-// хелпер newPlatformClientForTest из client_test.go (reflect/unsafe, только для тестов).
-// Каждый подтест создаёт свой экземпляр — без расшаренного состояния.
 func newTestClient(roundTrip func(req *http.Request) (*http.Response, error)) *RemnawaveAdapter {
-	// baseURL/token/apiKey совпадают с тем, что ждут проверки внутри roundTrip:
-	// путь "/api/users", query "apiKey=x", заголовок "Bearer tok".
 	pc := newPlatformClientForTest(
 		"https://remna.example",
 		"tok",
 		&fakeRoundTripper{roundTripFunc: roundTrip},
 	)
 
-	return NewRemnawaveClient(pc, "apiKey=x")
+	return NewRemnawaveClient(pc, "apiKey=x", zap.NewNop(), stubNotifier{})
 }
 
-// nolint: funlen
+//nolint:funlen
 func TestRemnawaveClient_CreateUser(t *testing.T) {
 	t.Parallel()
 
@@ -64,11 +58,9 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				require.Equal(t, "MONTH", got.TrafficLimitStrategy)
 				require.Empty(t, got.ActiveInternalSquads)
 
-				// даты считаются от time.Now() -> сравниваем с допуском
 				require.InDelta(t, time.Now().AddDate(0, 0, 30).Unix(), got.ExpireAt.Unix(), 5)
 				require.InDelta(t, time.Now().Unix(), got.CreatedAt.Unix(), 5)
 
-				// lastTrafficResetAt обязан быть валидным RFC3339 и равняться now
 				parsed, err := time.Parse(time.RFC3339, got.LastTrafficResetAt)
 				require.NoError(t, err)
 				require.InDelta(t, time.Now().Unix(), parsed.Unix(), 5)
@@ -132,7 +124,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				return jsonResponse(http.StatusNotFound, "{}"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
+			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
 		},
 		{
 			name: "сервер ответил 500 -> ошибка request failed пробрасывается как есть",
@@ -179,7 +171,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 	}
 }
 
-// nolint: funlen
+//nolint:funlen
 func TestRemnawaveClient_GetByUsername(t *testing.T) {
 	t.Parallel()
 
@@ -237,7 +229,7 @@ func TestRemnawaveClient_GetByUsername(t *testing.T) {
 				return jsonResponse(http.StatusNotFound, "{}"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
+			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
 		},
 		{
 			name: "сервер ответил 500 -> ошибка пробрасывается без обёртки",
@@ -280,7 +272,7 @@ func TestRemnawaveClient_GetByUsername(t *testing.T) {
 	}
 }
 
-// nolint: funlen
+//nolint:funlen
 func TestRemnawaveClient_GetByID(t *testing.T) {
 	t.Parallel()
 
@@ -321,7 +313,7 @@ func TestRemnawaveClient_GetByID(t *testing.T) {
 				return jsonResponse(http.StatusNotFound, "{}"), nil
 			},
 			wantErr:       true,
-			wantErrSubstr: platformremnawave.ErrNotFound.Error(),
+			wantErrSubstr: subdomain.ErrNoFindUser.Error(),
 		},
 		{
 			name: "сервер ответил 500 -> ошибка пробрасывается без обёртки",

@@ -10,9 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeUserRepository — ручная реализация UserRepository для тестов.
-// Каждый метод — функция-поле: не задал функцию, но метод вызвался -> nil pointer panic,
-// который сразу укажет "бизнес-логика дёрнула то, чего не должна была".
 type fakeUserRepository struct {
 	getByUsernameFunc func(ctx context.Context, username string) (subdomain.UserResponse, error)
 	getByIDFunc       func(ctx context.Context, userID int) (subdomain.UserResponse, error)
@@ -50,7 +47,7 @@ func (f *fakeUserRepository) ExtendExpire(
 	return f.extendExpire(ctx, userID, expireAt)
 }
 
-// nolint: funlen
+//nolint:funlen
 func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 	t.Parallel()
 
@@ -124,7 +121,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 				require.Equal(t, "uuid-123", got.UUID)
 				require.Equal(t, 3, got.Device)
 				require.Equal(t, "https://sub.example.com/vlad", got.URL)
-				require.InDelta(t, 3, got.Days, 1) // допуск на округление до суток
+				require.InDelta(t, 3, got.Days, 1)
 			},
 		},
 		{
@@ -209,7 +206,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 	}
 }
 
-// nolint: funlen
+//nolint:funlen
 func TestUserUseCase_GetURL(t *testing.T) {
 	t.Parallel()
 
@@ -350,7 +347,7 @@ func TestRemainingDays(t *testing.T) {
 		{
 			name:     "будущая дата -> положительное число",
 			expireAt: now.Add(3 * 24 * time.Hour).Format(time.RFC3339),
-			// RFC3339 режет наносекунды -> допуск на ±1 день
+
 			check: func(t *testing.T, got int) {
 				require.InDelta(t, 3, got, 1)
 			},

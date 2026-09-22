@@ -44,7 +44,8 @@ func New(cfg Config) *zap.Logger {
 
 	logger, err := zapConfig.Build(
 		zap.AddCaller(),
-		zap.AddStacktrace(zapcore.ErrorLevel),
+		// zap.AddStacktrace(zapcore.ErrorLevel),
+		zap.AddStacktrace(zapcore.DPanicLevel),
 	)
 	if err != nil {
 		panic("build logger")

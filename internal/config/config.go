@@ -15,18 +15,17 @@ type Config struct {
 
 	RemnawaveBaseURL   string
 	RemnawaveAPIKey    string
-	RemnawaveToken     string `env:"REMNA_TOKEN"`
-	RemnawaveSquadUUID string `env:"REMNA_SQUAD_UUID"`
+	RemnawaveToken     string `env:"REMNA_TOKEN,required"`
+	RemnawaveSquadUUID string `env:"REMNA_SQUAD_UUID,required"`
 
 	// === TELEGRAM ===
-	TelegramToken   string `env:"TELEGRAM_TOKEN"`
-	TelegramSupport string `env:"TELEGRAM_SUPPORT"`
+	TelegramToken   string `env:"TELEGRAM_TOKEN,required"`
+	TelegramSupport string `env:"TELEGRAM_SUPPORT,required"`
 	TelegramAdminID string `env:"TELEGRAM_ADMIN_ID"`
 
 	// === PAYMENT ===
-	PaymentProvider string `env:"PAYMENT_PROVIDER"`
+	PaymentProvider string `env:"PAYMENT_PROVIDER,required"`
 	// PLATEGA
-	PlategaBaseURL    string `env:"PLATEGA_BASE_URL"    envDefault:"https://app.platega.io"`
 	PlategaMerchantID string `env:"PLATEGA_MERCHANT_ID"`
 	PlategaSecret     string `env:"PLATEGA_API_KEY"`
 	PlategaReturnURL  string `env:"PLATEGA_RETURN_URL"`
