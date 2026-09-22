@@ -2,7 +2,6 @@ package remnawave
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -76,8 +75,6 @@ func (r RemnawaveAdapter) GetByUsername(
 		path,
 		nil,
 	)
-	err2 := errors.New("asdddd")
-	err = errors.Join(err, err2)
 	if err != nil {
 		return subdomain.UserResponse{}, r.notifierAdmin.Map(
 			ctx,
