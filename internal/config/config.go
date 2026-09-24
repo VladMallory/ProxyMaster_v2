@@ -55,10 +55,7 @@ func Load() Config {
 		log.Fatalln(err)
 	}
 
-	baseURL, apiKey, err := parseRemna(cfg.RemnaPanel)
-	if err != nil {
-		return Config{}
-	}
+	baseURL, apiKey := parseRemna(cfg.RemnaPanel)
 
 	cfg.RemnawaveBaseURL = baseURL
 	cfg.RemnawaveAPIKey = apiKey
@@ -66,21 +63,21 @@ func Load() Config {
 	return cfg
 }
 
-func parseRemna(raw string) (baseURL, secretToken string, err error) {
+func parseRemna(raw string) (baseURL, secretToken string) {
 	u, err := url.Parse(raw)
 	if err != nil {
-		return "", "", err
+		log.Fatalln(err)
 	}
 
 	if u.Scheme == "" || u.Host == "" {
-		return "", "", err
+		log.Fatalln(err)
 	}
 
 	if u.RawQuery == "" {
-		return "", "", err
+		log.Fatalln(err)
 	}
 
 	base := url.URL{Scheme: u.Scheme, Host: u.Host}
 
-	return base.String(), u.RawQuery, nil
+	return base.String(), u.RawQuery
 }
