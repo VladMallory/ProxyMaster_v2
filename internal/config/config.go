@@ -39,7 +39,7 @@ type Config struct {
 	MaxDeviceLimit    string `env:"MAX_DEVICE_LIMIT"`
 	ExtraDevicePrice  string `env:"EXTRA_DEVICE_PRICE"`
 	ResetTrafficPrice string `env:"RESET_TRAFFIC_PRICE"`
-	TrialDays         int    `env:"TRIAL_DAYS"`
+	TrialDays         int    `env:"TRIAL_DAYS"          envDefault:"30"`
 
 	LoggerLevel string `env:"LOGGER_LEVEL" envDefault:"info"`
 	Encoding    string `env:"ENCODING"     envDefault:"console"`
