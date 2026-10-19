@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log"
 	"time"
 
@@ -10,8 +12,15 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
 	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/closer"
+	platform "github.com/VladMallory/ProxyMaster_v2/internal/platform/postgres"
 	platformremnawave "github.com/VladMallory/ProxyMaster_v2/internal/platform/remnawave"
 	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device"
+	devicetg "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/inbound/telegram"
+	devicepay "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/payment"
+	postgresremnawave "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/postgres"
+	remnawavedevice "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
@@ -20,7 +29,9 @@ import (
 )
 
 type app struct {
-	bot *telebot.Bot
+	bot       *telebot.Bot
+	db        *sql.DB
+	deviceSvc *device.Service
 }
 
 func main() {
@@ -29,14 +40,33 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	defer closer.HelpClose(myApp.db, &err)
+
 	myApp.run()
 }
 
+//nolint:funlen
 func newApp() (app, error) {
 	cfg := config.Load()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	db, err := platform.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return app{}, err
+	}
+
+	if cerr := platform.Migrate(ctx, db); cerr != nil {
+		_ = db.Close()
+
+		return app{}, cerr
+	}
+
 	bot, err := newBot(cfg)
 	if err != nil {
+		_ = db.Close()
+
 		return app{}, err
 	}
 
@@ -60,17 +90,56 @@ func newApp() (app, error) {
 
 	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
 
-	payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
+	deviceRepo := postgresremnawave.New(db)
+	devicePanel := remnawavedevice.New(remnawavePlatform, cfg.RemnawaveAPIKey)
+	deviceSvc := device.New(deviceRepo, devicePanel, logger)
+
+	paySvc, payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
+
+	deviceStarter := devicepay.New(paySvc, deviceSvc, telegramNotifier, cfg.ExtraDevicePriceRub)
+	deviceContributor := devicetg.NewContributor(
+		devicetg.NewHandler(deviceSvc, deviceStarter, logger),
+	)
 
 	registry := &platformtg.Registry{}
 	registry.Register(subContributor)
+	registry.Register(deviceContributor)
 	registry.Register(payContributor)
 
 	startHandler := platformtg.NewStartHandler(bot, registry, userProvider, cfg.TrialDays)
 	platformtg.Setup(bot, registry, startHandler)
 	platformtg.SetupCommands(bot)
 
-	return app{bot: bot}, nil
+	return app{
+		bot:       bot,
+		db:        db,
+		deviceSvc: deviceSvc,
+	}, nil
+}
+
+func (a app) run() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go runReconcile(ctx, a.deviceSvc)
+
+	a.bot.Start()
+}
+
+func runReconcile(ctx context.Context, svc *device.Service) {
+	t := time.NewTicker(time.Minute)
+	since := time.Now().UTC()
+	for {
+		select {
+		case <-ctx.Done():
+			t.Stop()
+
+			return
+		case now := <-t.C:
+			_ = svc.Reconcile(ctx, since)
+			since = now
+		}
+	}
 }
 
 func newBot(cfg config.Config) (*telebot.Bot, error) {
@@ -92,14 +161,12 @@ func setupSubscriptions(
 	return contributor, userProvider
 }
 
-// setupPayment собирает всё для фичи payment и отдаёт её Contributor.
+// setupPayment собирает фичу payment: сервис оплаты + Contributor для реестра.
 func setupPayment(
 	cfg config.Config,
-	extender paymentsvc.SubscriptionExtender,
+	subs userscase.UserUseCase,
 	notifier *telegramhandler.Notifier,
-) platformtg.MenuContributor {
-	// Фабрика провайдера: сервис зависит от интерфейса PaymentService (DIP),
-	// поэтому platega/yookassa взаимозаменяемы (LSP) — выбираем по PAYMENT_PROVIDER из .env.
+) (*paymentsvc.Service, platformtg.MenuContributor) {
 	var paymentService paymentsvc.PaymentService
 
 	switch cfg.PaymentProvider {
@@ -111,10 +178,10 @@ func setupPayment(
 			cfg.PlategaReturnURL,
 		)
 	case "fake":
-		paymentService = fake.NewClient(15 * time.Second)
+		paymentService = fake.NewClient(5 * time.Second)
 	default:
 		log.Fatalf(
-			"Неизвестный провайдер %q: нужен platega в .env",
+			"Неизвестный провайдер %q: нужен platega или fake в .env",
 			cfg.PaymentProvider,
 		)
 	}
@@ -126,12 +193,8 @@ func setupPayment(
 		{Months: 5, PriceRub: cfg.PricePerMonth * 5},
 	}
 
-	paySvc := paymentsvc.NewPayment(paymentService, extender, notifier, tariffs)
-	handler := telegramhandler.NewHandler(paySvc, notifier)
+	paySvc := paymentsvc.NewPayment(paymentService, notifier, tariffs)
+	handler := telegramhandler.NewHandler(paySvc, notifier, subs)
 
-	return telegramhandler.NewPaymentContributor(handler)
-}
-
-func (a app) run() {
-	a.bot.Start()
+	return paySvc, telegramhandler.NewPaymentContributor(handler)
 }

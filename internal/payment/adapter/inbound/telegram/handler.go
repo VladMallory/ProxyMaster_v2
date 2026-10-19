@@ -6,23 +6,28 @@ import (
 	"strconv"
 
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
-	"github.com/VladMallory/ProxyMaster_v2/internal/platform/traceid"
 	"gopkg.in/telebot.v4"
 )
+
+type subscriptionExtender interface {
+	ExtendSubscription(ctx context.Context, username string, month int) error
+}
 
 type Handler struct {
 	svc      *paymentsvc.Service
 	notifier rememberer
+	subs     subscriptionExtender
 }
 
 type rememberer interface {
 	Remember(userID string, msg telebot.Editable)
 }
 
-func NewHandler(svc *paymentsvc.Service, notifier rememberer) *Handler {
+func NewHandler(svc *paymentsvc.Service, notifier rememberer, subs subscriptionExtender) *Handler {
 	return &Handler{
 		svc:      svc,
 		notifier: notifier,
+		subs:     subs,
 	}
 }
 
@@ -31,14 +36,14 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 		return err
 	}
 
-	tariffs := h.svc.Tariffs()
 	menu := &telebot.ReplyMarkup{}
+	tariffs := h.svc.Tariffs()
 
 	rows := make([]telebot.Row, 0, 4)
 	row := make([]telebot.Btn, 0, 2)
 
 	for i, t := range tariffs {
-		text := fmt.Sprintf("💰%d₽ - %d месяца", t.PriceRub, t.Months)
+		text := fmt.Sprintf("💰%d₽ - %d мес.", t.PriceRub, t.Months)
 		btn := menu.Data(text, "pay_tariff", strconv.Itoa(i))
 		row = append(row, btn)
 
@@ -48,12 +53,10 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 		}
 	}
 
-	btnBack := menu.Data("🏠В главное меню", "users_back")
-	rows = append(rows, menu.Row(btnBack))
-
+	rows = append(rows, menu.Row(menu.Data("🏠 В главное меню", "users_back")))
 	menu.Inline(rows...)
 
-	return c.Edit("Выберите сумму для пополнения баланса", menu)
+	return c.Edit("Выберите срок подписки:", menu)
 }
 
 func (h *Handler) handleTariff(c telebot.Context) error {
@@ -66,20 +69,23 @@ func (h *Handler) handleTariff(c telebot.Context) error {
 		return c.Send("Неверный тариф, нажмите /start")
 	}
 
-	userID := strconv.FormatInt(c.Sender().ID, 10)
+	tariff := h.svc.Tariffs()[idx]
+	username := strconv.FormatInt(c.Sender().ID, 10)
 
-	h.notifier.Remember(userID, c.Message())
+	h.notifier.Remember(username, c.Message())
 
-	ctx := traceid.WithUsername(context.Background(), userID)
+	onPaid := func(ctx context.Context, _ string) error {
+		return h.subs.ExtendSubscription(ctx, username, tariff.Months)
+	}
 
-	payURL, err := h.svc.CreatePayment(ctx, userID, idx)
+	payURL, err := h.svc.CreatePayment(context.Background(), username, tariff.PriceRub, onPaid)
 	if err != nil {
 		return c.Send(err.Error())
 	}
 
 	menu := &telebot.ReplyMarkup{}
 	btnPay := menu.URL("🔗 Оплатить", payURL)
-	btnBack := menu.Data("🏠В главное меню", "users_back")
+	btnBack := menu.Data("🏠 В главное меню", "users_back")
 	menu.Inline(menu.Row(btnPay), menu.Row(btnBack))
 
 	return c.Edit("Нажмите чтобы оплатить:", menu)

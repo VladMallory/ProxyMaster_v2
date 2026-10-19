@@ -15,6 +15,7 @@ type Client struct {
 	delay   time.Duration
 }
 
+// NewClient создаёт фейковый провайдер.
 func NewClient(delay time.Duration) *Client {
 	return &Client{
 		created: make(map[string]time.Time),

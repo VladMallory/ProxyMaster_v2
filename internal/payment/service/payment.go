@@ -2,7 +2,7 @@ package paymentsvc
 
 import (
 	"context"
-	"log/slog"
+	"errors"
 	"time"
 
 	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
@@ -17,36 +17,30 @@ type PaymentService interface {
 	CheckStatus(ctx context.Context, invoiceID string) (success bool, err error)
 }
 
-type SubscriptionExtender interface {
-	ExtendSubscription(ctx context.Context, userID string, days int) error
-}
-
+// ResultNotifier уведомляет клиента об итоге оплаты.
 type ResultNotifier interface {
 	NotifySuccess(userID string)
 	NotifyTimeout(userID string)
 }
 
 const (
-	pollInterval = 10 * time.Second
+	pollInterval = time.Second
 	pollTimeout  = 20 * time.Minute
 )
 
 type Service struct {
 	paymentService PaymentService
-	extender       SubscriptionExtender
 	notifier       ResultNotifier
 	tariffs        []paymentdomain.Tariff
 }
 
 func NewPayment(
 	paymentService PaymentService,
-	extender SubscriptionExtender,
 	notifier ResultNotifier,
 	tariffs []paymentdomain.Tariff,
 ) *Service {
 	return &Service{
 		paymentService: paymentService,
-		extender:       extender,
 		notifier:       notifier,
 		tariffs:        tariffs,
 	}
@@ -56,26 +50,35 @@ func (s *Service) Tariffs() []paymentdomain.Tariff {
 	return s.tariffs
 }
 
-func (s *Service) CreatePayment(ctx context.Context, userID string, tariffIdx int) (string, error) {
-	tariff := s.tariffs[tariffIdx]
-	amount := tariff.PriceRub * 100
+// CreatePayment создает оплату и проверяет ее.
+func (s *Service) CreatePayment(
+	ctx context.Context,
+	userID string,
+	amountRub int,
+	onPaid func(ctx context.Context, paymentID string) error,
+) (string, error) {
+	if userID == "" || amountRub <= 0 {
+		return "", errors.New("invalid payment arguments")
+	}
+
+	// Провайдер ждёт копейки, поэтому рубли в копейки.
+	amount := amountRub * 100
 
 	invoiceID, payURL, err := s.paymentService.CreateInvoice(ctx, userID, amount)
 	if err != nil {
 		return "", err
 	}
 
-	// Имеет свой контекст
-	go s.watchPayment(context.WithoutCancel(ctx), invoiceID, userID, tariff.Months)
+	go s.watchPayment(context.WithoutCancel(ctx), invoiceID, userID, onPaid)
 
 	return payURL, nil
 }
 
+// watchPayment опрашивает статус, если успешно, вызывает успех.
 func (s *Service) watchPayment(
 	ctx context.Context,
-	invoiceID,
-	userID string,
-	months int,
+	invoiceID, userID string,
+	onPaid func(ctx context.Context, paymentID string) error,
 ) {
 	ctx, cancel := context.WithTimeout(ctx, pollTimeout)
 	defer cancel()
@@ -96,15 +99,11 @@ func (s *Service) watchPayment(
 				continue
 			}
 
-			// Если платеж еще не ok, то заново идем в цикл
 			if !ok {
 				continue
 			}
 
-			// Если платеж ok:
-			if err := s.extender.ExtendSubscription(ctx, userID, months); err != nil {
-				slog.Error("оплата прошла, продление не удалось", "user", userID, "err", err)
-
+			if err := onPaid(ctx, invoiceID); err != nil {
 				return
 			}
 

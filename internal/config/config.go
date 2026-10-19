@@ -30,14 +30,15 @@ type Config struct {
 	PlategaSecret     string `env:"PLATEGA_API_KEY"`
 	PlategaReturnURL  string `env:"PLATEGA_RETURN_URL"`
 
-	DatabaseURL string `env:"DATABASE_URL"`
+	DatabaseURL string `env:"DATABASE_URL" envDefault:"postgres://app:change_me@localhost:5432/app?sslmode=disable"`
 
 	// === SETTINGS ===
-	PricePerMonth     int    `env:"PRICE_PER_MONTH"`
-	DeviceLimit       int    `env:"DEVICE_LIMIT"`
-	TrafficLimit      string `env:"TRAFFIC_LIMIT"`
-	MaxDeviceLimit    string `env:"MAX_DEVICE_LIMIT"`
-	ExtraDevicePrice  string `env:"EXTRA_DEVICE_PRICE"`
+	PricePerMonth       int    `env:"PRICE_PER_MONTH"`
+	DeviceLimit         int    `env:"DEVICE_LIMIT"`
+	TrafficLimit        string `env:"TRAFFIC_LIMIT"`
+	MaxDeviceLimit      string `env:"MAX_DEVICE_LIMIT"`
+	ExtraDevicePriceRub int    `env:"EXTRA_DEVICE_PRICE_RUB" envDefault:"50"`
+	// ExtraDevicePrice    string `env:"EXTRA_DEVICE_PRICE"`
 	ResetTrafficPrice string `env:"RESET_TRAFFIC_PRICE"`
 	TrialDays         int    `env:"TRIAL_DAYS"          envDefault:"30"`
 
@@ -70,7 +71,7 @@ func parseRemna(raw string) (baseURL, secretToken string) {
 	}
 
 	if u.Scheme == "" || u.Host == "" {
-		log.Fatalln(err)
+		log.Fatalln("Scheme и Host не указаны")
 	}
 
 	if u.RawQuery == "" {

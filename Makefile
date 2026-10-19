@@ -7,8 +7,8 @@ run:
 	@clear
 	@go run $(cmdMacosAndLinux)
 
-windows:
-	go run $(cmdWindows)
+base:
+	docker compose up -d 
 
 # Прогнать e2e-тесты 
 e2e:

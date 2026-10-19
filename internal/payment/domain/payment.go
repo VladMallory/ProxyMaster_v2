@@ -19,11 +19,6 @@ type Invoice struct {
 	CreatedAt time.Time
 }
 
-// type stored struct {
-// 	msg  telebot.Editable
-// 	name string
-// }
-
 type Out struct {
 	Status string `json:"status"`
 }
