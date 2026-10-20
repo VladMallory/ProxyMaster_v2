@@ -3,6 +3,7 @@ package telegramdevice
 import (
 	"context"
 	"fmt"
+	"html"
 	"strconv"
 	"strings"
 
@@ -40,30 +41,49 @@ func (h *HandlerTelegram) handleList(c telebot.Context) error {
 
 // devicesText рендер текста для "Ваши устройства".
 func devicesText(devices []device.Device) string {
-	if len(devices) == 0 {
-		return "📱 Ваши устройства\n\nПока пусто."
-	}
-
 	var b strings.Builder
-	b.WriteString("📱 Ваши устройства\n\n")
 
-	// Проверяем какие есть
-	for i, d := range devices {
-		fmt.Fprintf(&b, "%d: %s\n", i+1, devicesTitle(d))
+	b.WriteString("📱 <b>Ваши устройства</b>\n\n")
+
+	if len(devices) == 0 {
+		b.WriteString("Пока нет ни одного устройства\n\n")
+		b.WriteString("<i>Появится тут после подключения</i>")
+
+		return b.String()
 	}
+
+	// Занятые места
+	var bound int
+
+	for i, d := range devices {
+		if d.Bound() {
+			bound++
+
+			fmt.Fprintf(
+				&b,
+				"🟢 <b>%d. %s</b>\n\n",
+				i+1,
+				html.EscapeString(devicesTitle(d)),
+			)
+
+			continue
+		}
+
+		fmt.Fprintf(&b, "⚪ <b>%d. Свободное место</b>\n\n", i+1)
+	}
+
+	b.WriteString("───────────\n")
+
+	fmt.Fprintf(&b, "Занято: <b>%d</b> из <b>%d</b>", bound, len(devices))
 
 	return b.String()
 }
 
 // devicesTitle решает как показать место.
 func devicesTitle(d device.Device) string {
-	if !d.Bound() {
-		return "Свободное место"
-	}
-
 	if d.Name != "" {
 		return d.Name
 	}
 
-	return d.HWID
+	return "Устройство"
 }
