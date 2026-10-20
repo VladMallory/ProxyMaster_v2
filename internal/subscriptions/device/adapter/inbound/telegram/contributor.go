@@ -1,32 +1,33 @@
-package devicetg
+package telegramdevice
 
 import (
-	platformtg "github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/telegram"
 	"gopkg.in/telebot.v4"
 )
 
 type Contributor struct {
-	handler *Handler
+	handler *HandlerTelegram
 }
 
-func NewContributor(h *Handler) *Contributor {
-	return &Contributor{handler: h}
-}
-
-func (d *Contributor) Order() int { return 15 }
-
-func (d *Contributor) Rows(menu *telebot.ReplyMarkup, _ platformtg.MenuContent) [][]telebot.Btn {
-	return [][]telebot.Btn{
-		{menu.Data("📱 Ваши устройства", "devices_list")},
+func NewContributor(handler *HandlerTelegram) *Contributor {
+	return &Contributor{
+		handler: handler,
 	}
 }
 
-func (d *Contributor) Handlers() map[string]telebot.HandlerFunc {
+func (c *Contributor) Order() int { return 15 }
+
+func (c *Contributor) Rows(
+	menu *telebot.ReplyMarkup,
+	_ telegram.MenuContent,
+) [][]telebot.Btn {
+	btnDevice := menu.Data("📱 Ваши устройства", "device_list")
+
+	return [][]telebot.Btn{{btnDevice}}
+}
+
+func (c *Contributor) Handlers() map[string]telebot.HandlerFunc {
 	return map[string]telebot.HandlerFunc{
-		"devices_list":       d.handler.handleList,
-		"devices_del":        d.handler.handleDelete,
-		"devices_extend_ask": d.handler.handleExtendAsk,
-		"devices_extend":     d.handler.handleExtend,
-		"devices_buy":        d.handler.handleBuy,
+		"device_list": c.handler.handleList,
 	}
 }
