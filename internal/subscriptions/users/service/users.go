@@ -11,7 +11,12 @@ import (
 type UserRepository interface {
 	GetByUsername(ctx context.Context, username string) (subdomain.UserResponse, error)
 	GetByID(ctx context.Context, userID int) (subdomain.UserResponse, error)
-	CreateUser(ctx context.Context, username string, days int) (subdomain.User, error)
+	CreateUser(
+		ctx context.Context,
+		username string,
+		days int,
+		trafficLimit int64,
+	) (subdomain.User, error)
 	ExtendExpire(ctx context.Context, userID int, expireAt time.Time) error
 }
 
@@ -42,10 +47,11 @@ func (u UserUseCase) GetOrCreateSub(
 	ctx context.Context,
 	username string,
 	trialDays int,
+	trafficLimit int64,
 ) (subdomain.User, error) {
 	resp, err := u.repo.GetByUsername(ctx, username)
 	if errors.Is(err, subdomain.ErrNoFindUser) {
-		createtUser, cerr := u.repo.CreateUser(ctx, username, trialDays)
+		createtUser, cerr := u.repo.CreateUser(ctx, username, trialDays, trafficLimit)
 		if cerr != nil {
 			return subdomain.User{}, cerr
 		}

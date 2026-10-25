@@ -19,8 +19,9 @@ func (a PlatformUserAdapter) GetOrCreateSub(
 	ctx context.Context,
 	username string,
 	trialDays int,
+	trafficLimits int64,
 ) (platformtg.UserView, error) {
-	u, err := a.uc.GetOrCreateSub(ctx, username, trialDays)
+	u, err := a.uc.GetOrCreateSub(ctx, username, trialDays, trafficLimits)
 	if err != nil {
 		return platformtg.UserView{}, err
 	}

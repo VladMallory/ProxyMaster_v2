@@ -85,7 +85,13 @@ func e2eClient(t *testing.T) *e2eFixture {
 	}))
 
 	return &e2eFixture{
-		adapter: NewRemnawaveClient(pc, apiKey, zap.NewNop(), stubNotifier{}),
+		adapter: NewRemnawaveClient(
+			pc,
+			apiKey,
+			os.Getenv("REMNA_SQUAD_UUID"),
+			zap.NewNop(),
+			stubNotifier{},
+		),
 		baseURL: baseURL,
 		token:   token,
 		apiKey:  apiKey,
@@ -155,7 +161,7 @@ func TestE2E_FullLifecycle(t *testing.T) {
 
 	t.Cleanup(func() { e2eDeleteUserByName(t, fx, username) })
 
-	created, err := client.CreateUser(ctx, username, days)
+	created, err := client.CreateUser(ctx, username, days, 0)
 	require.NoError(t, err, "контракт POST /api/users мог поменяться: %v", err)
 	require.Equal(t, username, created.Name)
 	require.Equal(t, days, created.Days)
@@ -202,7 +208,7 @@ func TestE2E_ExtendExpire(t *testing.T) {
 
 	t.Cleanup(func() { e2eDeleteUserByName(t, fx, username) })
 
-	_, err := client.CreateUser(ctx, username, 1)
+	_, err := client.CreateUser(ctx, username, 1, 0)
 	log.Println("user create: ", username)
 	require.NoError(t, err)
 

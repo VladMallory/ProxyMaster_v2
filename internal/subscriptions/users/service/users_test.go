@@ -13,7 +13,7 @@ import (
 type fakeUserRepository struct {
 	getByUsernameFunc func(ctx context.Context, username string) (subdomain.UserResponse, error)
 	getByIDFunc       func(ctx context.Context, userID int) (subdomain.UserResponse, error)
-	createUserFunc    func(ctx context.Context, username string, days int) (subdomain.User, error)
+	createUserFunc    func(ctx context.Context, username string, days int, trafficLimit int64) (subdomain.User, error)
 	extendExpire      func(ctx context.Context, userID int, expireAt time.Time) error
 }
 
@@ -35,8 +35,9 @@ func (f *fakeUserRepository) CreateUser(
 	ctx context.Context,
 	username string,
 	days int,
+	trafficLimit int64,
 ) (subdomain.User, error) {
-	return f.createUserFunc(ctx, username, days)
+	return f.createUserFunc(ctx, username, days, trafficLimit)
 }
 
 func (f *fakeUserRepository) ExtendExpire(
@@ -67,7 +68,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{}, subdomain.ErrNoFindUser
 				},
-				createUserFunc: func(_ context.Context, username string, days int) (subdomain.User, error) {
+				createUserFunc: func(_ context.Context, username string, days int, _ int64) (subdomain.User, error) {
 					require.Equal(t, "vlad", username)
 					require.Equal(t, 30, days)
 
@@ -86,7 +87,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 				getByUsernameFunc: func(_ context.Context, _ string) (subdomain.UserResponse, error) {
 					return subdomain.UserResponse{}, subdomain.ErrNoFindUser
 				},
-				createUserFunc: func(_ context.Context, _ string, _ int) (subdomain.User, error) {
+				createUserFunc: func(_ context.Context, _ string, _ int, _ int64) (subdomain.User, error) {
 					return subdomain.User{}, errors.New("create failed")
 				},
 			},
@@ -190,7 +191,7 @@ func TestUserUseCase_GetOrCreateSub(t *testing.T) {
 			t.Parallel()
 
 			uc := NewUserUseCase(tt.repo, tt.defaultDeviceLimit)
-			got, err := uc.GetOrCreateSub(context.Background(), "vlad", 30)
+			got, err := uc.GetOrCreateSub(context.Background(), "vlad", 30, 0)
 
 			if tt.wantErr {
 				require.Error(t, err)

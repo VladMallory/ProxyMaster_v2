@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const testSquadUUID = "squad-test-123"
+
 func newTestClient(roundTrip func(req *http.Request) (*http.Response, error)) *RemnawaveAdapter {
 	pc := newPlatformClientForTest(
 		"https://remna.example",
@@ -21,7 +23,7 @@ func newTestClient(roundTrip func(req *http.Request) (*http.Response, error)) *R
 		&fakeRoundTripper{roundTripFunc: roundTrip},
 	)
 
-	return NewRemnawaveClient(pc, "apiKey=x", zap.NewNop(), stubNotifier{})
+	return NewRemnawaveClient(pc, "apiKey=x", testSquadUUID, zap.NewNop(), stubNotifier{})
 }
 
 //nolint:funlen
@@ -55,8 +57,9 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				require.Len(t, got.TrojanPassword, 12)
 				require.Len(t, got.SSPassword, 12)
 				require.Zero(t, got.TrafficLimitBytes)
+				require.Zero(t, got.HWIDDeviceLimit)
 				require.Equal(t, "MONTH", got.TrafficLimitStrategy)
-				require.Empty(t, got.ActiveInternalSquads)
+				require.Equal(t, []string{testSquadUUID}, got.ActiveInternalSquads)
 
 				require.InDelta(t, time.Now().AddDate(0, 0, 30).Unix(), got.ExpireAt.Unix(), 5)
 				require.InDelta(t, time.Now().Unix(), got.CreatedAt.Unix(), 5)
@@ -157,6 +160,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				context.Background(),
 				"vlad",
 				tt.days,
+				0,
 			)
 
 			if tt.wantErr {

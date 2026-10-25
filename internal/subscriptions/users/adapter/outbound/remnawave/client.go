@@ -7,6 +7,7 @@ import (
 
 type RemnawaveAdapter struct {
 	apiKey        string
+	squadUUID     string
 	client        *platformremnawave.Client
 	notifierAdmin *ErrorHandler
 }
@@ -14,12 +15,14 @@ type RemnawaveAdapter struct {
 func NewRemnawaveClient(
 	client *platformremnawave.Client,
 	apiKey string,
+	squadUUID string,
 	logger *zap.Logger,
 	notifier Notifier,
 ) *RemnawaveAdapter {
 	return &RemnawaveAdapter{
 		client:        client,
 		apiKey:        apiKey,
+		squadUUID:     squadUUID,
 		notifierAdmin: NewErrorHandler(logger, notifier),
 	}
 }

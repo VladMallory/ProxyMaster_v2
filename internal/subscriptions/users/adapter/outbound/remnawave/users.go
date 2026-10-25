@@ -2,6 +2,7 @@ package remnawave
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,8 +18,17 @@ func (r *RemnawaveAdapter) CreateUser(
 	ctx context.Context,
 	username string,
 	days int,
+	trafficLimit int64,
 ) (subdomain.User, error) {
 	now := time.Now()
+
+	trafficLimit *= 1024 * 1024 * 1024
+
+	description := fmt.Sprintf(
+		"Имя клиента: %s \nСоздан: %s",
+		username,
+		now.Format(time.DateOnly),
+	)
 
 	user := subdomain.CreateUserRequest{
 		Username:             username,
@@ -27,12 +37,13 @@ func (r *RemnawaveAdapter) CreateUser(
 		VLESSUUID:            uuid.NewString(),
 		TrojanPassword:       strings.ReplaceAll(uuid.NewString(), "-", "")[:12],
 		SSPassword:           strings.ReplaceAll(uuid.NewString(), "-", "")[:12],
-		TrafficLimitBytes:    0,
+		TrafficLimitBytes:    trafficLimit,
 		TrafficLimitStrategy: "MONTH",
 		ExpireAt:             now.AddDate(0, 0, days),
 		CreatedAt:            now,
+		Description:          description,
 		LastTrafficResetAt:   now.Format(time.RFC3339),
-		ActiveInternalSquads: []string{},
+		ActiveInternalSquads: []string{r.squadUUID},
 	}
 
 	path := "/api/users?" + r.apiKey

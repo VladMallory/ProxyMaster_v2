@@ -60,7 +60,7 @@ type CreateUserRequest struct {
 	Tag                  *string   `json:"tag"`
 	TelegramID           *int64    `json:"telegramId"`
 	Email                *string   `json:"email"`
-	HWIDDeviceLimit      int       `json:"hwidDeviceLimit"`
+	HWIDDeviceLimit      int       `json:"hwidDeviceLimit,omitempty"`
 	ActiveInternalSquads []string  `json:"activeInternalSquads"`
 	UUID                 string    `json:"uuid"`
 	ExternalSquadUUID    *string   `json:"externalSquadUuid"`
