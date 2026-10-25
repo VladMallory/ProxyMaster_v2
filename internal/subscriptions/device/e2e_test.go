@@ -121,9 +121,21 @@ func setup(t *testing.T) *e2eEnv {
 	maxLimit := envInt("MAX_DEVICE_LIMIT", 5)
 
 	return &e2eEnv{
-		svc:     device.NewService(devicepostgres.NewDeviceDB(db), panel, base, maxLimit, zap.NewNop()),
-		panel:   panel,
-		users:   usersremnawave.NewRemnawaveClient(client, apiKey, squad, zap.NewNop(), noopNotifier{}),
+		svc: device.NewService(
+			devicepostgres.NewDeviceDB(db),
+			panel,
+			base,
+			maxLimit,
+			zap.NewNop(),
+		),
+		panel: panel,
+		users: usersremnawave.NewRemnawaveClient(
+			client,
+			apiKey,
+			squad,
+			zap.NewNop(),
+			noopNotifier{},
+		),
 		db:      db,
 		baseURL: baseURL,
 		token:   token,
@@ -147,14 +159,14 @@ func openDB(t *testing.T) *sql.DB {
 	admin, err := sql.Open("pgx", dsn)
 	require.NoError(t, err)
 
-	if err := admin.PingContext(ctx); err != nil {
+	if err = admin.PingContext(ctx); err != nil {
 		_ = admin.Close()
 		t.Fatalf("e2e: Postgres недоступен (%v), подними docker compose", err)
 	}
 
 	schema := fmt.Sprintf("device_e2e_%d", time.Now().UnixNano())
 
-	if _, err := admin.ExecContext(ctx, "CREATE SCHEMA "+schema); err != nil {
+	if _, err = admin.ExecContext(ctx, "CREATE SCHEMA "+schema); err != nil {
 		_ = admin.Close()
 		t.Fatalf("e2e: создать схему: %v", err)
 	}
@@ -588,7 +600,11 @@ func TestE2E_ExtraSeatsRespectMaxLimit(t *testing.T) {
 	env := setup(t)
 
 	if env.max <= env.base {
-		t.Skipf("MAX_DEVICE_LIMIT=%d не больше DEVICE_LIMIT=%d, проверять нечего", env.max, env.base)
+		t.Skipf(
+			"MAX_DEVICE_LIMIT=%d не больше DEVICE_LIMIT=%d, проверять нечего",
+			env.max,
+			env.base,
+		)
 	}
 
 	ctx := context.Background()
