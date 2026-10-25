@@ -1,6 +1,6 @@
 module github.com/VladMallory/ProxyMaster_v2
 
-go 1.26.0
+go 1.27.3
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -35,12 +35,11 @@ type Config struct {
 	// === SETTINGS ===
 	PricePerMonth       int    `env:"PRICE_PER_MONTH"`
 	DeviceLimit         int    `env:"DEVICE_LIMIT"`
-	TrafficLimit        string `env:"TRAFFIC_LIMIT"`
-	MaxDeviceLimit      string `env:"MAX_DEVICE_LIMIT"`
-	ExtraDevicePriceRub int    `env:"EXTRA_DEVICE_PRICE_RUB" envDefault:"50"`
-	// ExtraDevicePrice    string `env:"EXTRA_DEVICE_PRICE"`
-	ResetTrafficPrice string `env:"RESET_TRAFFIC_PRICE"`
-	TrialDays         int    `env:"TRIAL_DAYS"          envDefault:"30"`
+	TrafficLimit        int64  `env:"TRAFFIC_LIMIT"`
+	MaxDeviceLimit      int    `env:"MAX_DEVICE_LIMIT"    envDefault:"5"`
+	ExtraDevicePriceRub int    `env:"EXTRA_DEVICE_PRICE"  envDefault:"50"`
+	ResetTrafficPrice   string `env:"RESET_TRAFFIC_PRICE"`
+	TrialDays           int    `env:"TRIAL_DAYS"          envDefault:"30"`
 
 	LoggerLevel string `env:"LOGGER_LEVEL" envDefault:"info"`
 	Encoding    string `env:"ENCODING"     envDefault:"console"`

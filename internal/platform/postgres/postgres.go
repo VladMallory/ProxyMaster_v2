@@ -19,7 +19,6 @@ func Open(ctx context.Context, dsn string) (*sql.DB, error) {
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		// %w сохраняет цепочку для errors.Is/As.
 		return nil, fmt.Errorf("postgres open: %w", err)
 	}
 
@@ -44,29 +43,37 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	// Модель «каждое устройство отдельно»: одна строка devices = одно
 	// оплаченное место со своим сроком. hwid пуст, пока устройство не подключилось.
 	const devices = `
-CREATE TABLE IF NOT EXISTS devices (
+	CREATE TABLE IF NOT EXISTS devices (
     id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username   TEXT        NOT NULL,
     hwid       TEXT,
     label      TEXT,
+    kind       TEXT        NOT NULL DEFAULT 'base',
     expires_at TIMESTAMPTZ NOT NULL,
     revoked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)`
+	)`
+	// Для уже существующих баз: дописываем колонку вида места.
+	const devicesKind = `
+	ALTER TABLE devices ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'base'`
 	// Уникальность (username, hwid) только для привязанных мест: свободных
 	// строк с hwid IS NULL может быть сколько угодно, поэтому индекс частичный.
 	const devicesUsernameHwid = `
-CREATE UNIQUE INDEX IF NOT EXISTS devices_username_hwid_uq
+	CREATE UNIQUE INDEX IF NOT EXISTS devices_username_hwid_uq
     ON devices (username, hwid) WHERE hwid IS NOT NULL`
 	const devicesUsername = `
-CREATE INDEX IF NOT EXISTS devices_username_idx ON devices (username)`
+	CREATE INDEX IF NOT EXISTS devices_username_idx ON devices (username)`
 	const devicesToRevoke = `
-CREATE INDEX IF NOT EXISTS devices_to_revoke_idx
+	CREATE INDEX IF NOT EXISTS devices_to_revoke_idx
     ON devices (expires_at) WHERE revoked_at IS NULL`
+	// По нему ходит воркер отзыва истёкших дополнительных мест.
+	const devicesExtraToRevoke = `
+	CREATE INDEX IF NOT EXISTS devices_extra_to_revoke_idx
+    ON devices (expires_at) WHERE kind = 'extra' AND revoked_at IS NULL`
 	// Дедупликация оплат: одна строка на платёж, вставляется В ТРАНЗАКЦИИ покупки,
 	// поэтому повторный вебхук не создаст места дважды.
 	const processedPayments = `
-CREATE TABLE IF NOT EXISTS processed_payments (
+	CREATE TABLE IF NOT EXISTS processed_payments (
     payment_id TEXT PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )`
@@ -77,9 +84,11 @@ CREATE TABLE IF NOT EXISTS processed_payments (
 		sql  string
 	}{
 		{"devices", devices},
+		{"devices_kind", devicesKind},
 		{"devices_username_hwid_uq", devicesUsernameHwid},
 		{"devices_username_idx", devicesUsername},
 		{"devices_to_revoke_idx", devicesToRevoke},
+		{"devices_extra_to_revoke_idx", devicesExtraToRevoke},
 		{"processed_payments", processedPayments},
 	}
 

@@ -11,7 +11,12 @@ import (
 )
 
 type UserProvider interface {
-	GetOrCreateSub(ctx context.Context, username string, trialDays int) (UserView, error)
+	GetOrCreateSub(
+		ctx context.Context,
+		username string,
+		trialDays int,
+		trafficLimit int64,
+	) (UserView, error)
 }
 
 type UserView struct {
@@ -22,10 +27,11 @@ type UserView struct {
 }
 
 type StartHandler struct {
-	bot       *telebot.Bot
-	registry  *Registry
-	users     UserProvider
-	trialDays int
+	bot          *telebot.Bot
+	registry     *Registry
+	users        UserProvider
+	trialDays    int
+	trafficLimit int64
 }
 
 func NewStartHandler(
@@ -33,12 +39,14 @@ func NewStartHandler(
 	registry *Registry,
 	users UserProvider,
 	trialDays int,
+	trafficLimit int64,
 ) *StartHandler {
 	return &StartHandler{
-		bot:       bot,
-		registry:  registry,
-		users:     users,
-		trialDays: trialDays,
+		bot:          bot,
+		registry:     registry,
+		users:        users,
+		trialDays:    trialDays,
+		trafficLimit: trafficLimit,
 	}
 }
 
@@ -66,6 +74,7 @@ func (h *StartHandler) buildStart(
 		ctx,
 		strconv.FormatInt(user.ID, 10),
 		h.trialDays,
+		h.trafficLimit,
 	)
 	if err != nil {
 		return "", nil, err

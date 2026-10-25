@@ -18,6 +18,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device"
 	telegramdevice "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/inbound/telegram"
 	devicepostgres "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/postgres"
+	deviceremnawave "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
@@ -57,10 +58,10 @@ func newApp() (app, error) {
 		return app{}, err
 	}
 
-	if cerr := platform.Migrate(ctx, db); cerr != nil {
+	if err = platform.Migrate(ctx, db); err != nil {
 		_ = db.Close()
 
-		return app{}, cerr
+		return app{}, err
 	}
 
 	bot, err := newBot(cfg)
@@ -82,6 +83,7 @@ func newApp() (app, error) {
 	remnawaveAdapter := remnawave.NewRemnawaveClient(
 		remnawavePlatform,
 		cfg.RemnawaveAPIKey,
+		cfg.RemnawaveSquadUUID,
 		logger,
 		adminNotifier,
 	)
@@ -89,21 +91,43 @@ func newApp() (app, error) {
 	usersUseCase := userscase.NewUserUseCase(remnawaveAdapter, cfg.DeviceLimit)
 
 	deviceRepo := devicepostgres.NewDeviceDB(db)
+	devicePanel := deviceremnawave.NewPanel(remnawavePlatform, cfg.RemnawaveAPIKey)
 
-	deviceUseCase := device.NewService(deviceRepo)
-	telegramHandler := telegramdevice.NewHandlerTelegram(deviceUseCase)
+	deviceUseCase := device.NewService(
+		deviceRepo,
+		devicePanel,
+		cfg.DeviceLimit,
+		cfg.MaxDeviceLimit,
+		logger,
+	)
+
+	paySvc, payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
+	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
+
+	telegramHandler := telegramdevice.NewHandlerTelegram(
+		deviceUseCase,
+		paySvc,
+		telegramNotifier,
+		cfg.ExtraDevicePriceRub,
+	)
+
+	go deviceUseCase.RunExpiryWorker(context.Background(), device.DefaultExpiryInterval)
 
 	// === CONTRIBUTOR ===
 	deviceContributor := telegramdevice.NewContributor(telegramHandler)
-	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
-	payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
 
 	registry := &platformtg.Registry{}
 	registry.Register(subContributor)
 	registry.Register(deviceContributor)
 	registry.Register(payContributor)
 
-	startHandler := platformtg.NewStartHandler(bot, registry, userProvider, cfg.TrialDays)
+	startHandler := platformtg.NewStartHandler(
+		bot,
+		registry,
+		userProvider,
+		cfg.TrialDays,
+		cfg.TrafficLimit,
+	)
 	platformtg.Setup(bot, registry, startHandler)
 	platformtg.SetupCommands(bot)
 
@@ -139,7 +163,7 @@ func setupPayment(
 	cfg config.Config,
 	subs userscase.UserUseCase,
 	notifier *telegramhandler.Notifier,
-) platformtg.MenuContributor {
+) (*paymentsvc.Service, platformtg.MenuContributor) {
 	var paymentService paymentsvc.PaymentService
 
 	switch cfg.PaymentProvider {
@@ -169,5 +193,5 @@ func setupPayment(
 	paySvc := paymentsvc.NewPayment(paymentService, notifier, tariffs)
 	handler := telegramhandler.NewHandler(paySvc, notifier, subs)
 
-	return telegramhandler.NewPaymentContributor(handler)
+	return paySvc, telegramhandler.NewPaymentContributor(handler)
 }

@@ -28,6 +28,12 @@ func (c *Contributor) Rows(
 
 func (c *Contributor) Handlers() map[string]telebot.HandlerFunc {
 	return map[string]telebot.HandlerFunc{
-		"device_list": c.handler.handleList,
+		"device_list":     c.handler.handleList,
+		"device_open":     c.handler.handleOpen,
+		"devices_del":     c.handler.handleDelete,
+		"device_extend":   c.handler.handleExtend,
+		"device_term":     c.handler.handleTerm,
+		"device_add":      c.handler.handleAdd,
+		"device_add_term": c.handler.handleAddTerm,
 	}
 }
