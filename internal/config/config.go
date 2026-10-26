@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"io/fs"
 	"log"
 	"net/url"
 
@@ -46,7 +48,7 @@ type Config struct {
 }
 
 func Load() Config {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		log.Fatalln(err)
 	}
 

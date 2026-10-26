@@ -38,8 +38,8 @@ func main() {
 	}
 
 	defer func() {
-		if cerr := myApp.db.Close(); cerr != nil {
-			log.Println("ошибка закрытия базы!!!", cerr)
+		if err := myApp.db.Close(); err != nil {
+			log.Println("ошибка закрытия базы!!!", err)
 		}
 	}()
 
