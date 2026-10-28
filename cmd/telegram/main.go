@@ -7,6 +7,10 @@ import (
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
+	"github.com/VladMallory/ProxyMaster_v2/internal/distribution"
+	disttg "github.com/VladMallory/ProxyMaster_v2/internal/distribution/adapter/inbound/telegram"
+	distremnawave "github.com/VladMallory/ProxyMaster_v2/internal/distribution/adapter/outbound/remnawave"
+	disttelegram "github.com/VladMallory/ProxyMaster_v2/internal/distribution/adapter/outbound/telegram"
 	telegramhandler "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/fake"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
@@ -78,6 +82,16 @@ func newApp() (app, error) {
 
 	remnawavePlatform := platformremnawave.New(cfg.RemnawaveBaseURL, cfg.RemnawaveToken, logger)
 
+	distRecipients := distremnawave.NewUsers(remnawavePlatform, cfg.RemnawaveAPIKey, logger)
+	distSender := disttelegram.NewSender(bot)
+	distService := distribution.NewService(distRecipients, distSender, logger)
+	distHandler := disttg.NewHandler(
+		distService,
+		distSender,
+		remnawave.ParseAdminID(cfg.TelegramAdminID),
+		logger,
+	)
+
 	adminNotifier := remnawave.NewAdminNotifier(bot, remnawave.ParseAdminID(cfg.TelegramAdminID))
 
 	remnawaveAdapter := remnawave.NewRemnawaveClient(
@@ -129,6 +143,7 @@ func newApp() (app, error) {
 		cfg.TrafficLimit,
 	)
 	platformtg.Setup(bot, registry, startHandler)
+	bot.Handle(disttg.Command, distHandler.Handle)
 	platformtg.SetupCommands(bot)
 
 	return app{

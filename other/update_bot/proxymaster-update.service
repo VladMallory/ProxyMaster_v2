@@ -1,0 +1,9 @@
+[Unit]
+Description=Update and restart the ProxyMaster Telegram bot
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/ProxyMaster_v2
+ExecStart=/root/ProxyMaster_v2/other/update_bot/update_bot.sh

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run ProxyMaster updater every two days
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=2d
+AccuracySec=5min
+Unit=proxymaster-update.service
+
+[Install]
+WantedBy=timers.target
