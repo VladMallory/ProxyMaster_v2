@@ -71,8 +71,55 @@ die() { echo "ОШИБКА: $*" >&2; exit 1; }
 
 running() { docker ps --format '{{.Names}}' | grep -qx "$1"; }
 
+# Строки сервиса базы из compose: от его имени до следующего сервиса.
+compose_service() {
+  local svc="$APP_SERVICE"
+  awk -v svc="$svc" '
+    /^[[:space:]]*[a-z_]+:[[:space:]]*$/ {
+      name=$1; gsub(/[:[:space:]]/, "", name)
+      if (name == svc) { on=1; next }
+      if (!on) { next }
+      if ($0 !~ /^[[:space:]]/) { on=0 }
+    }
+    on' "$COMPOSE_DIR/docker-compose.yml" 2>/dev/null
+}
+
+# Порт, на который compose хочет посадить базу: "5432" или "127.0.0.1:5433".
+# У запущенного контейнера берём фактический, иначе значение из compose.
+compose_port() {
+  local cid
+  cid="$("${COMPOSE[@]}" ps -q "$APP_SERVICE" 2>/dev/null | head -1 || true)"
+  if [[ -n "$cid" ]]; then
+    docker port "$cid" 5432/tcp 2>/dev/null | head -1 | sed 's/.*://'
+    return
+  fi
+  compose_service | awk '/^[[:space:]]+-[[:space:]]*"/ && /:5432"/ {
+    line=$0; gsub(/["[:space:]]/, "", line)
+    n=split(line, a, ":"); print a[n]; exit }'
+}
+
+compose_field() {
+  compose_service | sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" | head -1
+}
+
+compose_volume() {
+  compose_service | awk '/^[[:space:]]*-/ && /\/var\/lib\/postgresql/ { print $2 }' | head -1 | sed 's/:.*//'
+}
+
+port_busy() {
+  ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$" \
+    || (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+}
+
 # env контейнера: доступы официального образа postgres лежат в POSTGRES_*.
-cenv() { docker exec "$1" printenv "$2" 2>/dev/null || true; }
+# У временного контейнера они перебиты на unused, поэтому берём исходные
+# значения из pg_hba/initdb нельзя — читаем их из старого контейнера.
+cenv() {
+  local src="$1"
+  [[ "$src" == *"_readonly" ]] && src="${src%_readonly}"
+  docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" "$src" 2>/dev/null \
+    | sed -n "s/^$2=//p" | head -1
+}
 
 psql_in() {
   local c="$1" u="$2" d="$3"
@@ -93,6 +140,7 @@ wait_db() {
 
 # --- 0. где compose новой версии ---
 
+DB_STANDALONE=0
 COMPOSE_DIR=""
 for d in "$PWD" "$SCRIPT_DIR" "$SCRIPT_DIR/.." "$SCRIPT_DIR/../.."; do
   d="$(cd "$d" 2>/dev/null && pwd)" || continue
@@ -123,12 +171,27 @@ if [[ "$BASE_LIMIT" == "" ]]; then
   BASE_LIMIT="2"
   if [[ -n "$COMPOSE_DIR" && -f "$COMPOSE_DIR/.env" ]]; then
     v="$(grep -E '^DEVICE_LIMIT=' "$COMPOSE_DIR/.env" | tail -1 | cut -d= -f2- | xargs || true)"
-    [[ -n "${v:-}" ]] && BASE_LIMIT="$v"
+    v="${v%%[[:space:]#]*}"
+    # Мусор в DEVICE_LIMIT молча не подменяем: иначе лимиты уедут в другие места.
+    if [[ -n "${v:-}" ]]; then
+      [[ "$v" =~ ^[0-9]+$ ]] && [[ "$v" -gt 0 ]] || die "DEVICE_LIMIT в .env не число: '$v'"
+      BASE_LIMIT="$v"
+    fi
     unset v
   fi
 fi
 
 # --- 0b. хватает ли настроек новому боту ---
+
+if [[ -n "$COMPOSE_DIR" && ! -f "$COMPOSE_DIR/.env" ]]; then
+  if [[ -f "$COMPOSE_DIR/../ProxyMaster_v2/.env" ]]; then
+    cp "$COMPOSE_DIR/../ProxyMaster_v2/.env" "$COMPOSE_DIR/.env"
+    chmod 600 "$COMPOSE_DIR/.env"
+    log "взял .env у старой версии: $COMPOSE_DIR/../ProxyMaster_v2/.env"
+  else
+    die "нет $COMPOSE_DIR/.env: скопируйте туда .env старой версии"
+  fi
+fi
 
 if [[ -n "$COMPOSE_DIR" && -f "$COMPOSE_DIR/.env" ]]; then
   MISSING=()
@@ -142,17 +205,78 @@ fi
 
 # --- 1. что запущено ---
 
-running "$OLD_CONTAINER" || die "контейнер старой базы $OLD_CONTAINER не запущен"
 running "$PANEL_CONTAINER" || die "контейнер панели $PANEL_CONTAINER не запущен"
+
+# Старую базу читаем, пока она запущена. Если её уже остановили (освобождая
+# порт 5432), читаем с того же тома через временный контейнер: данные от этого
+# не меняются, а вернуть старую базу на место можно в любой момент.
+OLD_TEMP=0
+if ! running "$OLD_CONTAINER"; then
+  OLD_IMAGE="$(docker inspect -f '{{.Config.Image}}' "$OLD_CONTAINER" 2>/dev/null || true)"
+  OLD_VOLUME="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Name}}{{end}}{{end}}' "$OLD_CONTAINER" 2>/dev/null || true)"
+  if [[ -z "$OLD_IMAGE" || -z "$OLD_VOLUME" ]]; then
+    die "контейнер старой базы $OLD_CONTAINER не запущен и его том не найден"
+  fi
+
+  docker rm -f "${OLD_CONTAINER}_readonly" >/dev/null 2>&1 || true
+  docker run -d --name "${OLD_CONTAINER}_readonly" \
+    -e POSTGRES_USER=unused -e POSTGRES_PASSWORD=unused \
+    -v "$OLD_VOLUME:/var/lib/postgresql/data" "$OLD_IMAGE" >/dev/null
+  OLD_CONTAINER="${OLD_CONTAINER}_readonly"
+  OLD_TEMP=1
+fi
+
+readonly_cleanup() {
+  if [[ "$OLD_TEMP" == "1" ]]; then
+    docker rm -f "$OLD_CONTAINER" >/dev/null 2>&1 || true
+  fi
+}
+trap 'readonly_cleanup; cleanup' EXIT
 
 if [[ -n "$APP_CONTAINER" ]]; then
   running "$APP_CONTAINER" || die "контейнер новой базы $APP_CONTAINER не запущен"
 else
   APP_CONTAINER="$("${COMPOSE[@]}" ps -q "$APP_SERVICE" 2>/dev/null || true)"
   if [[ -z "$APP_CONTAINER" ]]; then
-    log "поднимаю новую базу (${COMPOSE_DIR##*/}/$APP_SERVICE)"
-    "${COMPOSE[@]}" up -d "$APP_SERVICE"
-    APP_CONTAINER="$("${COMPOSE[@]}" ps -q "$APP_SERVICE")"
+    # compose публикует базу на 5432, а там уже старая версия. Чужой compose
+    # не правим: поднимаем базу напрямую с теми же env и томом, что в compose,
+    # только на свободном порту.
+    WANT_PORT="$(compose_port)"
+    [[ -n "$WANT_PORT" ]] || WANT_PORT=5432
+    PUB_PORT="$WANT_PORT"
+    if port_busy "$WANT_PORT"; then
+      PUB_PORT=""
+      for p in 5433 5434 5435 5440 5442; do
+        port_busy "$p" || { PUB_PORT="$p"; break; }
+      done
+      [[ -n "$PUB_PORT" ]] || die "нет свободного порта рядом с $WANT_PORT для новой базы"
+
+      DB_IMAGE="$(compose_field image)"
+      DB_VOLUME="$(compose_volume)"
+      [[ -n "$DB_IMAGE" ]] || die "не нашёл image для $APP_SERVICE в $COMPOSE_DIR/docker-compose.yml"
+      [[ -n "$DB_VOLUME" ]] || die "не нашёл volume данных для $APP_SERVICE в $COMPOSE_DIR/docker-compose.yml"
+
+      APP_NAME="${COMPOSE_DIR##*/}_$APP_SERVICE"
+      DB_PASS="change_me"
+      if [[ -f "$COMPOSE_DIR/.env" ]]; then
+        v="$(grep -E '^POSTGRES_PASSWORD=' "$COMPOSE_DIR/.env" | tail -1 | cut -d= -f2- | xargs || true)"
+        v="${v%%[[:space:]#]*}"
+        [[ -n "${v:-}" ]] && DB_PASS="$v"
+        unset v
+      fi
+
+      log "порт $WANT_PORT занят (старая версия): поднимаю базу на $PUB_PORT как $APP_NAME"
+      docker run -d --name "$APP_NAME" --restart unless-stopped \
+        -e POSTGRES_DB=app -e POSTGRES_USER=app -e POSTGRES_PASSWORD="$DB_PASS" \
+        -p "127.0.0.1:$PUB_PORT:5432" -v "$DB_VOLUME:/var/lib/postgresql" \
+        "$DB_IMAGE" >/dev/null
+      APP_CONTAINER="$APP_NAME"
+      DB_STANDALONE=1
+    else
+      log "поднимаю новую базу (${COMPOSE_DIR##*/}/$APP_SERVICE)"
+      "${COMPOSE[@]}" up -d "$APP_SERVICE"
+      APP_CONTAINER="$("${COMPOSE[@]}" ps -q "$APP_SERVICE")"
+    fi
   fi
   [[ -n "$APP_CONTAINER" ]] || die "не удалось поднять $APP_SERVICE из $COMPOSE_DIR/docker-compose.yml"
 fi
@@ -187,7 +311,7 @@ cleanup() {
   fi
   rm -rf "$TMPD"
 }
-trap cleanup EXIT
+trap 'readonly_cleanup; cleanup' EXIT
 
 # Времена старых таблиц без пояса: переводим в абсолютный момент по поясу
 # самой базы и отдаём в UTC, чтобы новая база не гадала.
@@ -456,6 +580,16 @@ rollback() {
 log "собираю образ нового бота (до остановки старого, чтобы не растягивать простой)"
 "${COMPOSE[@]}" build "$BOT_SERVICE" || die "сборка не прошла, старый бот не тронут"
 
+# База, поднятая docker run, compose не видит: он попытался бы поднять вторую
+# на том же томе. Поэтому поднимаем бота без зависимостей и сами говорим,
+# где база — по имени контейнера.
+BOT_UP=(up -d)
+BOT_EXTRA=()
+if [[ "$DB_STANDALONE" == "1" ]]; then
+  BOT_UP=(up -d --no-deps)
+  BOT_EXTRA=(-e "DATABASE_URL=postgres://app:$APP_PASS@$APP_NAME:5432/app?sslmode=disable")
+fi
+
 if running "$OLD_BOT_CONTAINER"; then
   log "останавливаю старого бота $OLD_BOT_CONTAINER"
   docker stop "$OLD_BOT_CONTAINER" >/dev/null
@@ -464,7 +598,11 @@ else
 fi
 
 log "поднимаю нового бота"
-"${COMPOSE[@]}" up -d "$BOT_SERVICE"
+if ! "${COMPOSE[@]}" "${BOT_UP[@]}" "${BOT_EXTRA[@]}" "$BOT_SERVICE"; then
+  rollback
+
+  die "compose не смог поднять $BOT_SERVICE, старый бот возвращён"
+fi
 
 BOT_CID="$("${COMPOSE[@]}" ps -q "$BOT_SERVICE")"
 [[ -n "$BOT_CID" ]] || die "новый бот не появился в compose"
