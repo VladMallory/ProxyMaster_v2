@@ -96,7 +96,10 @@ wait_db() {
 COMPOSE_DIR=""
 for d in "$PWD" "$SCRIPT_DIR" "$SCRIPT_DIR/.." "$SCRIPT_DIR/../.."; do
   d="$(cd "$d" 2>/dev/null && pwd)" || continue
-  if [[ -f "$d/docker-compose.yml" ]] && grep -qE '^[[:space:]]+postgres:' "$d/docker-compose.yml"; then
+  # compose старой версии тоже содержит сервис postgres: он не подходит.
+  if [[ -f "$d/docker-compose.yml" ]] \
+     && grep -qE '^[[:space:]]+postgres:' "$d/docker-compose.yml" \
+     && grep -qE '^[[:space:]]+bot:' "$d/docker-compose.yml"; then
     COMPOSE_DIR="$d"
     break
   fi
