@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
@@ -31,14 +34,19 @@ import (
 )
 
 type app struct {
-	bot *telebot.Bot
-	db  *sql.DB
+	bot        *telebot.Bot
+	db         *sql.DB
+	stopWorker context.CancelFunc
+	workerDone chan struct{}
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	myApp, err := newApp()
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	defer func() {
@@ -47,7 +55,7 @@ func main() {
 		}
 	}()
 
-	myApp.run()
+	myApp.run(ctx)
 }
 
 //nolint:funlen
@@ -125,8 +133,6 @@ func newApp() (app, error) {
 		cfg.ExtraDevicePriceRub,
 	)
 
-	go deviceUseCase.RunExpiryWorker(context.Background(), device.DefaultExpiryInterval)
-
 	// === CONTRIBUTOR ===
 	deviceContributor := telegramdevice.NewContributor(telegramHandler)
 
@@ -146,14 +152,28 @@ func newApp() (app, error) {
 	bot.Handle(disttg.Command, distHandler.Handle)
 	platformtg.SetupCommands(bot)
 
+	workerCtx, stopWorker := context.WithCancel(context.Background())
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		deviceUseCase.RunExpiryWorker(workerCtx, device.DefaultExpiryInterval)
+	}()
+
 	return app{
-		bot: bot,
-		db:  db,
+		bot:        bot,
+		db:         db,
+		stopWorker: stopWorker,
+		workerDone: workerDone,
 	}, nil
 }
 
-func (a app) run() {
-	a.bot.Start()
+func (a app) run(ctx context.Context) {
+	go a.bot.Start()
+
+	<-ctx.Done()
+	a.bot.Stop()
+	a.stopWorker()
+	<-a.workerDone
 }
 
 func newBot(cfg config.Config) (*telebot.Bot, error) {
