@@ -17,6 +17,7 @@ import (
 	telegramhandler "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/fake"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
+	"github.com/VladMallory/ProxyMaster_v2/internal/payment/autopay"
 	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
 	platform "github.com/VladMallory/ProxyMaster_v2/internal/platform/postgres"
@@ -123,7 +124,13 @@ func newApp() (app, error) {
 		logger,
 	)
 
-	paySvc, payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
+	paySvc, payContributor := setupPayment(
+		ctx,
+		cfg,
+		db,
+		usersUseCase,
+		telegramNotifier,
+	)
 	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
 
 	telegramHandler := telegramdevice.NewHandlerTelegram(
@@ -195,28 +202,15 @@ func setupSubscriptions(
 }
 
 func setupPayment(
+	ctx context.Context,
 	cfg config.Config,
+	db *sql.DB,
 	subs userscase.UserUseCase,
 	notifier *telegramhandler.Notifier,
 ) (*paymentsvc.Service, platformtg.MenuContributor) {
-	var paymentService paymentsvc.PaymentService
-
-	switch cfg.PaymentProvider {
-	case "platega":
-		paymentService = platega.NewClient(
-			cfg.PlategaMerchantID,
-			cfg.PlategaSecret,
-			cfg.PlategaReturnURL,
-			cfg.PlategaReturnURL,
-		)
-	case "fake":
-		paymentService = fake.NewClient(5 * time.Second)
-	default:
-		log.Fatalf(
-			"Неизвестный провайдер %q: нужен platega или fake в .env",
-			cfg.PaymentProvider,
-		)
-	}
+	paymentService := withAutopay(ctx, db, func() paymentsvc.PaymentService {
+		return newDefaultPaymentService(cfg)
+	})
 
 	tariffs := []paymentdomain.Tariff{
 		{Months: 1, PriceRub: cfg.PricePerMonth},
@@ -229,4 +223,51 @@ func setupPayment(
 	handler := telegramhandler.NewHandler(paySvc, notifier, subs)
 
 	return paySvc, telegramhandler.NewPaymentContributor(handler)
+}
+
+func newDefaultPaymentService(cfg config.Config) paymentsvc.PaymentService {
+	switch cfg.PaymentProvider {
+	case "platega":
+		return platega.NewClient(
+			cfg.PlategaMerchantID,
+			cfg.PlategaSecret,
+			cfg.PlategaReturnURL,
+			cfg.PlategaReturnURL,
+		)
+	case "fake":
+		return fake.NewClient(5 * time.Second)
+	default:
+		log.Fatalf(
+			"Неизвестный провайдер %q: нужен platega или fake в .env",
+			cfg.PaymentProvider,
+		)
+	}
+
+	return nil
+}
+
+func withAutopay(
+	ctx context.Context,
+	db *sql.DB,
+	fallback func() paymentsvc.PaymentService,
+) paymentsvc.PaymentService {
+	if !autopay.Enabled() {
+		return fallback()
+	}
+
+	cfg, err := autopay.LoadConfig()
+	if err != nil {
+		log.Printf("автоплатёж выключен: %v", err)
+
+		return fallback()
+	}
+
+	router, err := autopay.NewRouter(ctx, cfg, db)
+	if err != nil {
+		log.Printf("автоплатёж выключен: %v", err)
+
+		return fallback()
+	}
+
+	return router
 }
