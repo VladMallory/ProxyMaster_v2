@@ -26,6 +26,9 @@ services:
     environment:
       # Перебиваем дефолт из config: внутри сети compose хост базы — имя сервиса.
       DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-change_me}@postgres:5432/app?sslmode=disable
+    ports:
+      # host:container. Приложение внутри слушает WEB_ADDR=:8080.
+      - "${WEB_PORT:-8081}:8080"
     depends_on:
       postgres:
         condition: service_healthy

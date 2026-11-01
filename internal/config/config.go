@@ -43,6 +43,13 @@ type Config struct {
 	ResetTrafficPrice   string `env:"RESET_TRAFFIC_PRICE"`
 	TrialDays           int    `env:"TRIAL_DAYS"          envDefault:"30"`
 
+	ProviderName string `env:"PROVIDER_NAME"`
+
+	// === AUTOCONNECT ===
+	WebAddr        string `env:"WEB_ADDR"         envDefault:":8081"`
+	AutoConnectSub string `env:"AUTO_CONNECT_SUB"`
+	LinkSecret     string `env:"LINK_SECRET"`
+
 	LoggerLevel string `env:"LOGGER_LEVEL" envDefault:"info"`
 	Encoding    string `env:"ENCODING"     envDefault:"console"`
 }

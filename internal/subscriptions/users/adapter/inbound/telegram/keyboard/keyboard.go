@@ -1,33 +1,13 @@
 package keyboard
 
 import (
-	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	"gopkg.in/telebot.v4"
 )
 
-type Keyboard struct {
-	supportURL string
-}
+type Keyboard struct{}
 
-func New(supportURL string) *Keyboard {
-	return &Keyboard{supportURL: supportURL}
-}
-
-// Start клавиатура главного меню /start.
-func (k *Keyboard) Start(users subdomain.User) *telebot.ReplyMarkup {
-	menu := &telebot.ReplyMarkup{}
-
-	btnDownload := menu.Data("📲 Скачать приложение", "users_download")
-	btnURL := menu.URL("🚀 Подключиться", users.URL)
-	btnSupport := menu.URL("🛟 Поддержка", k.supportURL)
-
-	menu.Inline(
-		menu.Row(btnDownload),
-		menu.Row(btnURL),
-		menu.Row(btnSupport),
-	)
-
-	return menu
+func New() *Keyboard {
+	return &Keyboard{}
 }
 
 // DownloadApps клавиатура выбора платформы.

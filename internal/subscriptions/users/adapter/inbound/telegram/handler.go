@@ -13,12 +13,11 @@ type Handler struct {
 
 func NewHandler(
 	useCase userscase.UserUseCase,
-	supportURL string,
 	trialDays int,
 ) *Handler {
 	return &Handler{
 		useCase:   useCase,
 		trialDays: trialDays,
-		keys:      keyboard.New(supportURL),
+		keys:      keyboard.New(),
 	}
 }

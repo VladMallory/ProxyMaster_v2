@@ -35,7 +35,7 @@ func (r *Repository) ListByUser(
 	if err != nil {
 		return nil, err
 	}
-	defer closer.HelpClose(rows, &err)
+	defer func() { closer.HelpClose(rows, &err) }()
 
 	for rows.Next() {
 		var (
@@ -388,7 +388,7 @@ func (r *Repository) ListExpiredUsernames(
 	if err != nil {
 		return nil, err
 	}
-	defer closer.HelpClose(rows, &err)
+	defer func() { closer.HelpClose(rows, &err) }()
 
 	for rows.Next() {
 		var username string

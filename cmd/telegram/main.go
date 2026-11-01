@@ -3,12 +3,19 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/autoconnect"
+	autoconnecthapp "github.com/VladMallory/ProxyMaster_v2/internal/autoconnect/adapter/inbound/http/happ"
+	autoconnectincy "github.com/VladMallory/ProxyMaster_v2/internal/autoconnect/adapter/inbound/http/incy"
+	autoconnecttg "github.com/VladMallory/ProxyMaster_v2/internal/autoconnect/adapter/inbound/telegram"
+	autoconnectcrypto "github.com/VladMallory/ProxyMaster_v2/internal/autoconnect/adapter/outbound/happcrypto"
 	"github.com/VladMallory/ProxyMaster_v2/internal/config"
 	"github.com/VladMallory/ProxyMaster_v2/internal/distribution"
 	disttg "github.com/VladMallory/ProxyMaster_v2/internal/distribution/adapter/inbound/telegram"
@@ -29,6 +36,7 @@ import (
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
+	supportbtn "github.com/VladMallory/ProxyMaster_v2/internal/support/adapter/inbound/telegram"
 	zaplogger "github.com/VladMallory/ProxyMaster_v2/pkg/zap"
 	"gopkg.in/telebot.v4"
 )
@@ -36,6 +44,7 @@ import (
 type app struct {
 	bot        *telebot.Bot
 	db         *sql.DB
+	web        *http.Server
 	stopWorker context.CancelFunc
 	workerDone chan struct{}
 }
@@ -61,6 +70,9 @@ func main() {
 //nolint:funlen
 func newApp() (app, error) {
 	cfg := config.Load()
+
+	autoConnect := autoconnect.New(cfg.AutoConnectSub, cfg.LinkSecret)
+	webServer := newWebServer(cfg.WebAddr, autoConnect, cfg.ProviderName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -135,9 +147,11 @@ func newApp() (app, error) {
 
 	// === CONTRIBUTOR ===
 	deviceContributor := telegramdevice.NewContributor(telegramHandler)
+	autoConnectContributor := autoconnecttg.NewContributor(autoConnect)
 
 	registry := &platformtg.Registry{}
 	registry.Register(subContributor)
+	registry.Register(autoConnectContributor)
 	registry.Register(deviceContributor)
 	registry.Register(payContributor)
 
@@ -159,9 +173,14 @@ func newApp() (app, error) {
 		deviceUseCase.RunExpiryWorker(workerCtx, device.DefaultExpiryInterval)
 	}()
 
+	// === SUPPORTBTN ===
+	supportBtn := supportbtn.NewSupportBtn(cfg.TelegramSupport)
+	registry.Register(supportBtn)
+
 	return app{
 		bot:        bot,
 		db:         db,
+		web:        webServer,
 		stopWorker: stopWorker,
 		workerDone: workerDone,
 	}, nil
@@ -170,10 +189,51 @@ func newApp() (app, error) {
 func (a app) run(ctx context.Context) {
 	go a.bot.Start()
 
+	if a.web != nil {
+		go func() {
+			if err := a.web.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Printf("web: %v", err)
+			}
+		}()
+	}
+
 	<-ctx.Done()
+
+	if a.web != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		err := a.web.Shutdown(shutdownCtx)
+		cancel()
+
+		if err != nil {
+			log.Printf("web shutdown: %v", err)
+		}
+	}
+
 	a.bot.Stop()
 	a.stopWorker()
 	<-a.workerDone
+}
+
+// newWebServer порт для автоимпорта подписок.
+func newWebServer(addr string, links *autoconnect.Service, providerName string) *http.Server {
+	if addr == "" || !links.CheckEnabled() {
+		return nil
+	}
+
+	happCrypto := autoconnectcrypto.NewClient("https://crypto.happ.su/api-v2.php")
+
+	mux := http.NewServeMux()
+	autoconnecthapp.NewHandler(links, happCrypto).Register(mux, "/happ")
+	autoconnectincy.NewHandler(links, providerName).Register(mux, "/incy")
+
+	return &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       30 * time.Second,
+	}
 }
 
 func newBot(cfg config.Config) (*telebot.Bot, error) {
@@ -187,8 +247,8 @@ func setupSubscriptions(
 	cfg config.Config,
 	usersUseCase userscase.UserUseCase,
 ) (platformtg.MenuContributor, platformtg.UserProvider) {
-	handler := telegram.NewHandler(usersUseCase, cfg.TelegramSupport, cfg.TrialDays)
-	contributor := telegram.NewSubscriptionContributor(cfg.TelegramSupport, handler)
+	handler := telegram.NewHandler(usersUseCase, cfg.TrialDays)
+	contributor := telegram.NewSubscriptionContributor(handler)
 	userProvider := telegram.NewPlatformUserAdapter(usersUseCase)
 
 	return contributor, userProvider

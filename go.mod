@@ -13,10 +13,11 @@ require (
 )
 
 require (
+	github.com/INCY-DEV/incy-link-encoder/go v1.3.0
 	github.com/a-h/templ v0.3.1100
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0

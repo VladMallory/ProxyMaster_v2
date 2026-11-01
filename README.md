@@ -42,6 +42,13 @@ MAX_DEVICE_LIMIT=5
 EXTRA_DEVICE_PRICE=10
 RESET_TRAFFIC_PRICE=50
 TRIAL_DAYS=30
+
+# Автоподключение Happ/Incy. 
+# WEB_ADDR адрес HTTP-страницы внутри контейнера,
+# AUTO_CONNECT_SUB домен для подписки. LINK_SECRET ключ подписи, указать рандомные символы.
+WEB_ADDR=:8080
+AUTO_CONNECT_SUB=your-domain.ngrok-free.dev
+LINK_SECRET=change_me
 ```
 
 ## Запуск

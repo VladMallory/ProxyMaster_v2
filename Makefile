@@ -9,3 +9,6 @@ logs:
 
 restart:
 	docker compose down && docker compose up -d --build --force-recreate --remove-orphans
+
+dev:
+	docker compose -f docker-compose-min.yml up -d 
