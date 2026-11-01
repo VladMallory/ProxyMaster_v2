@@ -23,8 +23,16 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    labels:
+      # Роутер для страницы автоподключения. Домен из .env,
+      # Traefik сравнивает Host без порта
+      - "traefik.enable=true"
+      - "traefik.http.routers.autoconnect.rule=Host(`${AUTO_CONNECT_DOMAIN}`)"
+      - "traefik.http.routers.autoconnect.entrypoints=websecure"
+      - "traefik.http.routers.autoconnect.tls.certresolver=le"
+      - "traefik.http.services.autoconnect.loadbalancer.server.port=8080"
     environment:
-      # Перебиваем дефолт из config: внутри сети compose хост базы — имя сервиса.
+      # Перебиваем дефолт из config: внутри сети compose хост базы имя сервиса
       DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:-change_me}@postgres:5432/app?sslmode=disable
     ports:
       # host:container. Приложение внутри слушает WEB_ADDR=:8080.
@@ -33,5 +41,31 @@ services:
       postgres:
         condition: service_healthy
 
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      # websecure публичный TLS вход на нестандартном порту
+      - --entrypoints.websecure.address=:444
+      # web только для ACME HTTP-01: наружу не публикуется, nginx
+      # проксирует сюда /.well-known/acme-challenge/ с 80 порта
+      - --entrypoints.web.address=:8080
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - "444:444"
+      - "127.0.0.1:8090:8080"
+    volumes:
+      # Docker provider смотрит на метки контейнеров
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Сертификаты и аккаунт ACME переживают пересоздание контейнера
+      - traefik_acme:/letsencrypt
+
 volumes:
   postgres_data:
+  traefik_acme:
