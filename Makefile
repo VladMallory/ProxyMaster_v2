@@ -12,3 +12,6 @@ restart:
 
 dev:
 	docker compose -f docker-compose-min.yml up -d 
+
+server: 
+	git pull && docker compose pull && make restart

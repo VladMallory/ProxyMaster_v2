@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"log"
+	"strings"
 
 	"gopkg.in/telebot.v4"
 )
@@ -19,6 +20,20 @@ func Setup(bot *telebot.Bot, registry *Registry, start *StartHandler) {
 		}
 	}
 
+	// Старые меню присылают callback без \f-префикса, поэтому telebot не находит
+	// для них Unique-обработчик и отдаёт сюда. Ведём такие нажатия в актуальное /start.
+	bot.Handle(telebot.OnCallback, func(c telebot.Context) error {
+		if !isLegacyPaymentCallback(c.Data()) {
+			return c.Respond()
+		}
+
+		if err := c.Respond(); err != nil {
+			return err
+		}
+
+		return start.HandleStart(c)
+	})
+
 	// Должен быть последним. Перехватит неизвестнный текст
 	bot.Handle(telebot.OnText, func(c telebot.Context) error {
 		return c.Send("Неизвестная команда, введите /start")
@@ -26,6 +41,17 @@ func Setup(bot *telebot.Bot, registry *Registry, start *StartHandler) {
 }
 
 // SetupCommands команды бота.
+// isLegacyPaymentCallback узнаёт вход в оплату из меню старого бота.
+// Старые callback-и приходили голой строкой, без \f-префикса telebot.
+func isLegacyPaymentCallback(data string) bool {
+	switch data {
+	case "btn_balance", "topup_balance", "payment_menu":
+		return true
+	default:
+		return strings.HasPrefix(data, "btn_topUp_")
+	}
+}
+
 func SetupCommands(bot *telebot.Bot) {
 	if err := bot.SetCommands([]telebot.Command{
 		{Text: "start", Description: "Вызывать главное меню"},
