@@ -83,7 +83,7 @@ func parseRemna(raw string) (baseURL, secretToken string) {
 	}
 
 	if u.RawQuery == "" {
-		log.Fatalln(err)
+		log.Fatalln("ссылка не указана")
 	}
 
 	base := url.URL{Scheme: u.Scheme, Host: u.Host}
