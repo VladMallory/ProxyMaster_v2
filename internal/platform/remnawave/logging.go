@@ -21,8 +21,6 @@ func withLogging(logger *zap.Logger) Middleware {
 			duration := time.Since(start)
 
 			fields := []zap.Field{
-				// zap.String("req_id", reqID),
-				// zap.String("method", r.Method),
 				zap.String("username", username),
 				zap.String("path", r.URL.Path),
 				zap.Duration("duration_ms", duration),
@@ -37,7 +35,6 @@ func withLogging(logger *zap.Logger) Middleware {
 				return nil, err
 			}
 
-			// fields = append(fields, zap.Int("status", resp.StatusCode))
 			switch {
 			case resp.StatusCode >= 500:
 				logger.Error(
