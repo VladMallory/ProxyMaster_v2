@@ -36,6 +36,10 @@ type Config struct {
 
 	// === SETTINGS ===
 	PricePerMonth       int    `env:"PRICE_PER_MONTH"`
+	InitialPriceDays1   int    `env:"INITIAL_PRICE_DAYS1"`
+	InitialPriceDays2   int    `env:"INITIAL_PRICE_DAYS2"`
+	InitialPriceDays3   int    `env:"INITIAL_PRICE_DAYS3"`
+	InitialPriceDays4   int    `env:"INITIAL_PRICE_DAYS4"`
 	DeviceLimit         int    `env:"DEVICE_LIMIT"`
 	TrafficLimit        int64  `env:"TRAFFIC_LIMIT"`
 	MaxDeviceLimit      int    `env:"MAX_DEVICE_LIMIT"    envDefault:"5"`

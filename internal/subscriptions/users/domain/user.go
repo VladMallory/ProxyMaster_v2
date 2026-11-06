@@ -7,7 +7,7 @@ import (
 
 var (
 	ErrNoFindUser = errors.New("пользователь не найден")
-	ErrMontsMust  = errors.New("days must be > 0")
+	ErrTermMust   = errors.New("невалидные данные Term")
 )
 
 type User struct {

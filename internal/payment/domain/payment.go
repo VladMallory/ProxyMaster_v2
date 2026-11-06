@@ -3,10 +3,12 @@ package paymentdomain
 
 import (
 	"time"
+
+	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 )
 
 type Tariff struct {
-	Months   int
+	Term     subdomain.Term
 	PriceRub int
 }
 
@@ -14,7 +16,7 @@ type Invoice struct {
 	ID        string
 	UserID    string
 	Amount    int
-	Months    int
+	Days      int
 	Status    string
 	CreatedAt time.Time
 }

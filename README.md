@@ -25,7 +25,6 @@ TELEGRAM_TOKEN=
 TELEGRAM_SUPPORT=
 TELEGRAM_ADMIN_ID=
 
-
 # Платежная система. Вписать platega или fake. Fake подходит для 
 # тестирования, платежи считатаются удачными через 5 секунд
 PAYMENT_PROVIDER=platega
@@ -35,7 +34,14 @@ PLATEGA_RETURN_URL=https://t.me/
 PLATEGA_API_KEY=
 PLATEGA_MERCHANT_ID=
 
+# Цена за 30 дней. Остальные сроки считаются пропорционально:
 PRICE_PER_MONTH=200
+
+INITIAL_PRICE_DAYS1=30
+INITIAL_PRICE_DAYS2=60
+INITIAL_PRICE_DAYS3=90
+INITIAL_PRICE_DAYS4=120
+
 DEVICE_LIMIT=2
 TRAFFIC_LIMIT=350
 MAX_DEVICE_LIMIT=5
@@ -48,4 +54,9 @@ TRIAL_DAYS=30
 Дальше всегда запускать и перезагружать через
 ```bash
 make restart
+```
+
+## Обновление
+```bash
+make server
 ```

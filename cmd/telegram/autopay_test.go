@@ -1,3 +1,6 @@
+// deadcode yookassa: тесты временной интеграции автоплатежа.
+// Удалить вместе с autopay_wiring.go и internal/payment/autopay/.
+
 package main
 
 import (

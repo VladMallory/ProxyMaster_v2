@@ -17,7 +17,6 @@ import (
 	telegramhandler "github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/fake"
 	"github.com/VladMallory/ProxyMaster_v2/internal/payment/adapter/outbound/platega"
-	"github.com/VladMallory/ProxyMaster_v2/internal/payment/autopay"
 	paymentdomain "github.com/VladMallory/ProxyMaster_v2/internal/payment/domain"
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
 	platform "github.com/VladMallory/ProxyMaster_v2/internal/platform/postgres"
@@ -29,6 +28,7 @@ import (
 	deviceremnawave "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
+	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
 	zaplogger "github.com/VladMallory/ProxyMaster_v2/pkg/zap"
 	"gopkg.in/telebot.v4"
@@ -124,12 +124,19 @@ func newApp() (app, error) {
 		logger,
 	)
 
+	// deadcode yookassa: временная кнопка отключения автоплатежа.
+	autopayContributor, autopayButton := newAutopayButton(ctx, db)
+	// end deadcode yookassa
+
 	paySvc, payContributor := setupPayment(
 		ctx,
 		cfg,
 		db,
 		usersUseCase,
 		telegramNotifier,
+		// deadcode yookassa: временная кнопка отключения автоплатежа.
+		autopayButton,
+		// end dead code
 	)
 	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
 
@@ -147,6 +154,12 @@ func newApp() (app, error) {
 	registry.Register(subContributor)
 	registry.Register(deviceContributor)
 	registry.Register(payContributor)
+
+	// deadcode yookassa: регистрация временной кнопки отключения автоплатежа.
+	if autopayContributor != nil {
+		registry.Register(autopayContributor)
+	}
+	// end deadcode yookassa
 
 	startHandler := platformtg.NewStartHandler(
 		bot,
@@ -201,26 +214,70 @@ func setupSubscriptions(
 	return contributor, userProvider
 }
 
+// paymentServiceFactory собирает провайдера оплат по конфигу.
+var paymentServiceFactory = func(
+	_ context.Context,
+	cfg config.Config,
+	_ *sql.DB,
+) paymentsvc.PaymentService {
+	return newDefaultPaymentService(cfg)
+}
+
+// buildTariffs собирает тарифы из PRICE_PER_MONTH и сроков в днях.
+// Цена пропорциональна сроку: 30 дней стоят ровно PRICE_PER_MONTH.
+func buildTariffs(cfg config.Config) []paymentdomain.Tariff {
+	if cfg.PricePerMonth <= 0 {
+		log.Fatalf("PRICE_PER_MONTH должен быть больше нуля")
+	}
+
+	days := []int{
+		cfg.InitialPriceDays1,
+		cfg.InitialPriceDays2,
+		cfg.InitialPriceDays3,
+		cfg.InitialPriceDays4,
+	}
+
+	tariffs := make([]paymentdomain.Tariff, 0, len(days))
+
+	for _, d := range days {
+		if d <= 0 {
+			continue
+		}
+
+		tariffs = append(tariffs, paymentdomain.Tariff{
+			Term:     subdomain.Days(d),
+			PriceRub: priceForDays(cfg.PricePerMonth, d),
+		})
+	}
+
+	if len(tariffs) == 0 {
+		log.Fatalf("не задан ни один INITIAL_PRICE_DAYS1..4")
+	}
+
+	return tariffs
+}
+
+// priceForDays цена за срок без скидки: месяц это 30 дней.
+func priceForDays(pricePerMonth, days int) int {
+	return (pricePerMonth*days + 15) / 30
+}
+
 func setupPayment(
 	ctx context.Context,
 	cfg config.Config,
 	db *sql.DB,
 	subs userscase.UserUseCase,
 	notifier *telegramhandler.Notifier,
+	autopayButton telegramhandler.AutopayButton, // deadcode yookassa: временная кнопка отключения автоплатежа.
 ) (*paymentsvc.Service, platformtg.MenuContributor) {
-	paymentService := withAutopay(ctx, db, func() paymentsvc.PaymentService {
-		return newDefaultPaymentService(cfg)
-	})
+	paymentService := paymentServiceFactory(ctx, cfg, db)
 
-	tariffs := []paymentdomain.Tariff{
-		{Months: 1, PriceRub: cfg.PricePerMonth},
-		{Months: 2, PriceRub: cfg.PricePerMonth * 2},
-		{Months: 3, PriceRub: cfg.PricePerMonth * 3},
-		{Months: 5, PriceRub: cfg.PricePerMonth * 5},
-	}
+	tariffs := buildTariffs(cfg)
 
 	paySvc := paymentsvc.NewPayment(paymentService, notifier, tariffs)
-	handler := telegramhandler.NewHandler(paySvc, notifier, subs)
+	// deadcode yookassa: при удалении вернуть NewHandler(paySvc, notifier, subs).
+	handler := telegramhandler.NewHandler(paySvc, notifier, subs, autopayButton)
+	// end deadcode
 
 	return paySvc, telegramhandler.NewPaymentContributor(handler)
 }
@@ -244,30 +301,4 @@ func newDefaultPaymentService(cfg config.Config) paymentsvc.PaymentService {
 	}
 
 	return nil
-}
-
-func withAutopay(
-	ctx context.Context,
-	db *sql.DB,
-	fallback func() paymentsvc.PaymentService,
-) paymentsvc.PaymentService {
-	if !autopay.Enabled() {
-		return fallback()
-	}
-
-	cfg, err := autopay.LoadConfig()
-	if err != nil {
-		log.Printf("автоплатёж выключен: %v", err)
-
-		return fallback()
-	}
-
-	router, err := autopay.NewRouter(ctx, cfg, db)
-	if err != nil {
-		log.Printf("автоплатёж выключен: %v", err)
-
-		return fallback()
-	}
-
-	return router
 }

@@ -3,6 +3,7 @@ package autopay
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -136,6 +137,45 @@ func (s *store) ClearPending(ctx context.Context, username string) error {
 	_, err := s.db.ExecContext(ctx, q, username)
 
 	return err
+}
+
+// Get читает автоплатёж пользователя. Второй результат — есть ли запись:
+// отсутствие записи это не ошибка, а нормальное состояние «не подключён».
+func (s *store) Get(
+	ctx context.Context,
+	username string,
+) (record, bool, error) {
+	const q = `
+	SELECT username, method_id, months, amount_kopecks,
+		pending_payment_id, pending_target
+	FROM autopayments
+	WHERE username = $1`
+
+	var (
+		payment record
+		target  sql.NullTime
+	)
+
+	err := s.db.QueryRowContext(ctx, q, username).Scan(
+		&payment.Username,
+		&payment.MethodID,
+		&payment.Months,
+		&payment.AmountKopecks,
+		&payment.PendingPaymentID,
+		&target,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return record{}, false, nil
+	}
+	if err != nil {
+		return record{}, false, err
+	}
+
+	if target.Valid {
+		payment.PendingTarget = target.Time
+	}
+
+	return payment, true, nil
 }
 
 func (s *store) Delete(ctx context.Context, username string) error {
