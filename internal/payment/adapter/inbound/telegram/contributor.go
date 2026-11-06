@@ -13,7 +13,7 @@ func NewPaymentContributor(h *Handler) *PaymentContributor {
 	return &PaymentContributor{handler: h}
 }
 
-func (p *PaymentContributor) Order() int { return 20 }
+func (p *PaymentContributor) Order() int { return 15 }
 
 func (p *PaymentContributor) Rows(
 	menu *telebot.ReplyMarkup,

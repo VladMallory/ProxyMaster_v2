@@ -3,31 +3,11 @@ package keyboard
 import (
 	"testing"
 
-	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	"github.com/stretchr/testify/require"
 )
 
 func newTestKeyboard() *Keyboard {
-	return New("https://support.example")
-}
-
-func TestKeyboard_Start(t *testing.T) {
-	t.Parallel()
-
-	menu := newTestKeyboard().Start(subdomain.User{URL: "https://sub.example"})
-
-	require.Len(t, menu.InlineKeyboard, 3)
-
-	require.Len(t, menu.InlineKeyboard[0], 1)
-	require.Equal(t, "users_download", menu.InlineKeyboard[0][0].Unique)
-
-	require.Len(t, menu.InlineKeyboard[1], 1)
-	require.Equal(t, "🚀 Подключиться", menu.InlineKeyboard[1][0].Text)
-	require.Equal(t, "https://sub.example", menu.InlineKeyboard[1][0].URL)
-
-	require.Len(t, menu.InlineKeyboard[2], 1)
-	require.Equal(t, "🛟 Поддержка", menu.InlineKeyboard[2][0].Text)
-	require.Equal(t, "https://support.example", menu.InlineKeyboard[2][0].URL)
+	return New()
 }
 
 func TestKeyboard_DownloadApps(t *testing.T) {

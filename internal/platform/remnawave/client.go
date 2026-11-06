@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/VladMallory/ProxyMaster_v2/internal/platform/closer"
 	"go.uber.org/zap"
 )
 
@@ -62,7 +63,7 @@ func Do[T any](ctx context.Context, c *Client, method, path string, body any) (T
 	if err != nil {
 		return result, err
 	}
-	defer closer(resp.Body, &err)
+	defer func() { closer.HelpClose(resp.Body, &err) }()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -82,10 +83,4 @@ func Do[T any](ctx context.Context, c *Client, method, path string, body any) (T
 	}
 
 	return result, nil
-}
-
-func closer(closer io.Closer, err *error) {
-	if cerr := closer.Close(); cerr != nil {
-		*err = errors.Join(*err, cerr)
-	}
 }
