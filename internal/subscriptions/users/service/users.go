@@ -105,13 +105,17 @@ func remainingDays(expireAt string) int {
 }
 
 // ExtendSubscription продление подписки для существующего пользователя.
-func (u UserUseCase) ExtendSubscription(ctx context.Context, username string, months int) error {
+func (u UserUseCase) ExtendSubscription(
+	ctx context.Context,
+	username string,
+	term subdomain.Term,
+) error {
 	if username == "" {
 		return subdomain.ErrNoFindUser
 	}
 
-	if months <= 0 {
-		return subdomain.ErrMontsMust
+	if !term.Valid() {
+		return subdomain.ErrTermMust
 	}
 
 	resp, err := u.repo.GetByUsername(ctx, username)
@@ -129,5 +133,5 @@ func (u UserUseCase) ExtendSubscription(ctx context.Context, username string, mo
 		base = time.Now() // не даём остатку сгорать при просрочке
 	}
 
-	return u.repo.ExtendExpire(ctx, resp.ID, base.AddDate(0, months, 0))
+	return u.repo.ExtendExpire(ctx, resp.ID, term.AddTo(base))
 }

@@ -35,6 +35,7 @@ import (
 	deviceremnawave "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/device/adapter/outbound/remnawave"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/inbound/telegram"
 	"github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/adapter/outbound/remnawave"
+	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	userscase "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/service"
 	supportbtn "github.com/VladMallory/ProxyMaster_v2/internal/support/adapter/inbound/telegram"
 	zaplogger "github.com/VladMallory/ProxyMaster_v2/pkg/zap"
@@ -135,7 +136,20 @@ func newApp() (app, error) {
 		logger,
 	)
 
-	paySvc, payContributor := setupPayment(cfg, usersUseCase, telegramNotifier)
+	// deadcode yookassa: временная кнопка отключения автоплатежа.
+	autopayContributor, autopayButton := newAutopayButton(ctx, db)
+	// end deadcode yookassa
+
+	paySvc, payContributor := setupPayment(
+		ctx,
+		cfg,
+		db,
+		usersUseCase,
+		telegramNotifier,
+		// deadcode yookassa: временная кнопка отключения автоплатежа.
+		autopayButton,
+		// end dead code
+	)
 	subContributor, userProvider := setupSubscriptions(cfg, usersUseCase)
 
 	telegramHandler := telegramdevice.NewHandlerTelegram(
@@ -154,6 +168,12 @@ func newApp() (app, error) {
 	registry.Register(autoConnectContributor)
 	registry.Register(deviceContributor)
 	registry.Register(payContributor)
+
+	// deadcode yookassa: регистрация временной кнопки отключения автоплатежа.
+	if autopayContributor != nil {
+		registry.Register(autopayContributor)
+	}
+	// end deadcode yookassa
 
 	startHandler := platformtg.NewStartHandler(
 		bot,
@@ -254,23 +274,85 @@ func setupSubscriptions(
 	return contributor, userProvider
 }
 
-func setupPayment(
+// paymentServiceFactory собирает провайдера оплат по конфигу.
+var paymentServiceFactory = func(
+	_ context.Context,
 	cfg config.Config,
+	_ *sql.DB,
+) paymentsvc.PaymentService {
+	return newDefaultPaymentService(cfg)
+}
+
+// buildTariffs собирает тарифы из PRICE_PER_MONTH и сроков в днях.
+// Цена пропорциональна сроку: 30 дней стоят ровно PRICE_PER_MONTH.
+func buildTariffs(cfg config.Config) []paymentdomain.Tariff {
+	if cfg.PricePerMonth <= 0 {
+		log.Fatalf("PRICE_PER_MONTH должен быть больше нуля")
+	}
+
+	days := []int{
+		cfg.InitialPriceDays1,
+		cfg.InitialPriceDays2,
+		cfg.InitialPriceDays3,
+		cfg.InitialPriceDays4,
+	}
+
+	tariffs := make([]paymentdomain.Tariff, 0, len(days))
+
+	for _, d := range days {
+		if d <= 0 {
+			continue
+		}
+
+		tariffs = append(tariffs, paymentdomain.Tariff{
+			Term:     subdomain.Days(d),
+			PriceRub: priceForDays(cfg.PricePerMonth, d),
+		})
+	}
+
+	if len(tariffs) == 0 {
+		log.Fatalf("не задан ни один INITIAL_PRICE_DAYS1..4")
+	}
+
+	return tariffs
+}
+
+// priceForDays цена за срок без скидки: месяц это 30 дней.
+func priceForDays(pricePerMonth, days int) int {
+	return (pricePerMonth*days + 15) / 30
+}
+
+func setupPayment(
+	ctx context.Context,
+	cfg config.Config,
+	db *sql.DB,
 	subs userscase.UserUseCase,
 	notifier *telegramhandler.Notifier,
+	autopayButton telegramhandler.AutopayButton, // deadcode yookassa: временная кнопка отключения автоплатежа.
 ) (*paymentsvc.Service, platformtg.MenuContributor) {
-	var paymentService paymentsvc.PaymentService
+	paymentService := paymentServiceFactory(ctx, cfg, db)
 
+	tariffs := buildTariffs(cfg)
+
+	paySvc := paymentsvc.NewPayment(paymentService, notifier, tariffs)
+	// deadcode yookassa: при удалении вернуть NewHandler(paySvc, notifier, subs).
+	handler := telegramhandler.NewHandler(paySvc, notifier, subs, autopayButton)
+	// end deadcode
+
+	return paySvc, telegramhandler.NewPaymentContributor(handler)
+}
+
+func newDefaultPaymentService(cfg config.Config) paymentsvc.PaymentService {
 	switch cfg.PaymentProvider {
 	case "platega":
-		paymentService = platega.NewClient(
+		return platega.NewClient(
 			cfg.PlategaMerchantID,
 			cfg.PlategaSecret,
 			cfg.PlategaReturnURL,
 			cfg.PlategaReturnURL,
 		)
 	case "fake":
-		paymentService = fake.NewClient(5 * time.Second)
+		return fake.NewClient(5 * time.Second)
 	default:
 		log.Fatalf(
 			"Неизвестный провайдер %q: нужен platega или fake в .env",
@@ -278,15 +360,5 @@ func setupPayment(
 		)
 	}
 
-	tariffs := []paymentdomain.Tariff{
-		{Months: 1, PriceRub: cfg.PricePerMonth},
-		{Months: 2, PriceRub: cfg.PricePerMonth * 2},
-		{Months: 3, PriceRub: cfg.PricePerMonth * 3},
-		{Months: 5, PriceRub: cfg.PricePerMonth * 5},
-	}
-
-	paySvc := paymentsvc.NewPayment(paymentService, notifier, tariffs)
-	handler := telegramhandler.NewHandler(paySvc, notifier, subs)
-
-	return paySvc, telegramhandler.NewPaymentContributor(handler)
+	return nil
 }

@@ -6,28 +6,47 @@ import (
 	"strconv"
 
 	paymentsvc "github.com/VladMallory/ProxyMaster_v2/internal/payment/service"
+	subdomain "github.com/VladMallory/ProxyMaster_v2/internal/subscriptions/users/domain"
 	"gopkg.in/telebot.v4"
 )
 
 type subscriptionExtender interface {
-	ExtendSubscription(ctx context.Context, username string, month int) error
+	ExtendSubscription(ctx context.Context, username string, term subdomain.Term) error
+}
+
+// AutopayButton кнопка автоподключения.
+// deadcode yookassa: интерфейс существует только ради временной кнопки автоплатежа.
+type AutopayButton interface {
+	Button(
+		menu *telebot.ReplyMarkup,
+		username string,
+	) (telebot.Btn, bool)
 }
 
 type Handler struct {
 	svc      *paymentsvc.Service
 	notifier rememberer
 	subs     subscriptionExtender
+	// deadcode yookassa: временная кнопка отключения автоплатежа.
+	autopayButton AutopayButton
 }
 
 type rememberer interface {
 	Remember(userID string, msg telebot.Editable)
 }
 
-func NewHandler(svc *paymentsvc.Service, notifier rememberer, subs subscriptionExtender) *Handler {
+func NewHandler(
+	svc *paymentsvc.Service,
+	notifier rememberer,
+	subs subscriptionExtender,
+	// deadcode yookassa: параметр временной кнопки автоплатежа.
+	autopayButton AutopayButton,
+) *Handler {
 	return &Handler{
-		svc:      svc,
-		notifier: notifier,
-		subs:     subs,
+		svc:           svc,
+		notifier:      notifier,
+		subs:          subs,
+		autopayButton: autopayButton, // deadcode yookassa
 	}
 }
 
@@ -43,7 +62,7 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 	row := make([]telebot.Btn, 0, 2)
 
 	for i, t := range tariffs {
-		text := fmt.Sprintf("💰%d₽ - %d мес.", t.PriceRub, t.Months)
+		text := fmt.Sprintf("💰%d₽ - %s", t.PriceRub, t.Term.Label())
 		btn := menu.Data(text, "pay_tariff", strconv.Itoa(i))
 		row = append(row, btn)
 
@@ -52,6 +71,15 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 			row = nil
 		}
 	}
+
+	// deadcode yookassa: временная кнопка отключения автоплатежа.
+	if h.autopayButton != nil {
+		username := strconv.FormatInt(c.Sender().ID, 10)
+		if btn, ok := h.autopayButton.Button(menu, username); ok {
+			rows = append(rows, menu.Row(btn))
+		}
+	}
+	// end deadcode yookassa
 
 	rows = append(rows, menu.Row(menu.Data("🏠 В главное меню", "users_back")))
 	menu.Inline(rows...)
@@ -75,7 +103,7 @@ func (h *Handler) handleTariff(c telebot.Context) error {
 	h.notifier.Remember(username, c.Message())
 
 	onPaid := func(ctx context.Context, _ string) error {
-		return h.subs.ExtendSubscription(ctx, username, tariff.Months)
+		return h.subs.ExtendSubscription(ctx, username, tariff.Term)
 	}
 
 	payURL, err := h.svc.CreatePayment(context.Background(), username, tariff.PriceRub, onPaid)
