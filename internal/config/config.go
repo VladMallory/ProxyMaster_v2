@@ -46,6 +46,8 @@ type Config struct {
 	ExtraDevicePriceRub int    `env:"EXTRA_DEVICE_PRICE"  envDefault:"50"`
 	ResetTrafficPrice   string `env:"RESET_TRAFFIC_PRICE"`
 	TrialDays           int    `env:"TRIAL_DAYS"          envDefault:"30"`
+	// PrintPeriod как показывать срок в тарифах: days или months.
+	PrintPeriod string `env:"PRINT_PERIOD" envDefault:"days"`
 
 	ProviderName string `env:"PROVIDER_NAME"`
 

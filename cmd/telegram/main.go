@@ -335,8 +335,8 @@ func setupPayment(
 	tariffs := buildTariffs(cfg)
 
 	paySvc := paymentsvc.NewPayment(paymentService, notifier, tariffs)
-	// deadcode yookassa: при удалении вернуть NewHandler(paySvc, notifier, subs).
-	handler := telegramhandler.NewHandler(paySvc, notifier, subs, autopayButton)
+	// deadcode yookassa: при удалении вернуть NewHandler(paySvc, notifier, subs, cfg.PrintPeriod).
+	handler := telegramhandler.NewHandler(paySvc, notifier, subs, autopayButton, cfg.PrintPeriod)
 	// end deadcode
 
 	return paySvc, telegramhandler.NewPaymentContributor(handler)

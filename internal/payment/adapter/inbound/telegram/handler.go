@@ -29,6 +29,7 @@ type Handler struct {
 	subs     subscriptionExtender
 	// deadcode yookassa: временная кнопка отключения автоплатежа.
 	autopayButton AutopayButton
+	printPeriod   string
 }
 
 type rememberer interface {
@@ -41,12 +42,14 @@ func NewHandler(
 	subs subscriptionExtender,
 	// deadcode yookassa: параметр временной кнопки автоплатежа.
 	autopayButton AutopayButton,
+	printPeriod string,
 ) *Handler {
 	return &Handler{
 		svc:           svc,
 		notifier:      notifier,
 		subs:          subs,
 		autopayButton: autopayButton, // deadcode yookassa
+		printPeriod:   printPeriod,
 	}
 }
 
@@ -62,7 +65,7 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 	row := make([]telebot.Btn, 0, 2)
 
 	for i, t := range tariffs {
-		text := fmt.Sprintf("💰%d₽ - %s", t.PriceRub, t.Term.Label())
+		text := fmt.Sprintf("💰%d₽ - %s", t.PriceRub, h.termLabel(t.Term))
 		btn := menu.Data(text, "pay_tariff", strconv.Itoa(i))
 		row = append(row, btn)
 
@@ -85,6 +88,16 @@ func (h *Handler) handleCheckout(c telebot.Context) error {
 	menu.Inline(rows...)
 
 	return c.Edit("Выберите срок подписки:", menu)
+}
+
+// termLabel подпись срока на кнопке тарифа. При PRINT_PERIOD=months
+// целые 30-дневные сроки показываются месяцами, но сам срок остаётся в днях.
+func (h *Handler) termLabel(t subdomain.Term) string {
+	if h.printPeriod == "months" && t.Days > 0 && t.Days%30 == 0 {
+		return fmt.Sprintf("%d мес.", t.Days/30)
+	}
+
+	return t.Label()
 }
 
 func (h *Handler) handleTariff(c telebot.Context) error {

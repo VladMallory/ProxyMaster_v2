@@ -42,6 +42,10 @@ INITIAL_PRICE_DAYS2=60
 INITIAL_PRICE_DAYS3=90
 INITIAL_PRICE_DAYS4=120
 
+# Как показывать срок в тарифах: days или months.
+# months показывает целые 30-дневные сроки как 1 мес., 2 мес. и т.д.
+PRINT_PERIOD=months
+
 DEVICE_LIMIT=2
 TRAFFIC_LIMIT=350
 MAX_DEVICE_LIMIT=5
