@@ -159,7 +159,7 @@ func createPanelUser(t *testing.T, env *e2eEnv, days int) string {
 
 	username := fmt.Sprintf("e2e-autopay-%d", time.Now().UnixNano())
 
-	_, err := users.CreateUser(context.Background(), username, days, 0)
+	_, err := users.CreateUser(context.Background(), username, "", days, 0)
 	require.NoError(t, err, "контракт POST /api/users мог поменяться")
 
 	t.Cleanup(func() { deletePanelUser(t, env, username) })

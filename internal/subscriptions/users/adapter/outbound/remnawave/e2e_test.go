@@ -161,7 +161,7 @@ func TestE2E_FullLifecycle(t *testing.T) {
 
 	t.Cleanup(func() { e2eDeleteUserByName(t, fx, username) })
 
-	created, err := client.CreateUser(ctx, username, days, 0)
+	created, err := client.CreateUser(ctx, username, "", days, 0)
 	require.NoError(t, err, "контракт POST /api/users мог поменяться: %v", err)
 	require.Equal(t, username, created.Name)
 	require.Equal(t, days, created.Days)
@@ -208,7 +208,7 @@ func TestE2E_ExtendExpire(t *testing.T) {
 
 	t.Cleanup(func() { e2eDeleteUserByName(t, fx, username) })
 
-	_, err := client.CreateUser(ctx, username, 1, 0)
+	_, err := client.CreateUser(ctx, username, "", 1, 0)
 	log.Println("user create: ", username)
 	require.NoError(t, err)
 

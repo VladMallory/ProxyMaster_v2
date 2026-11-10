@@ -17,6 +17,7 @@ import (
 func (r *RemnawaveAdapter) CreateUser(
 	ctx context.Context,
 	username string,
+	telegramUsername string,
 	days int,
 	trafficLimit int64,
 ) (subdomain.User, error) {
@@ -24,11 +25,16 @@ func (r *RemnawaveAdapter) CreateUser(
 
 	trafficLimit *= 1024 * 1024 * 1024
 
-	description := fmt.Sprintf(
-		"Имя клиента: %s \nСоздан: %s",
-		username,
-		now.Format(time.DateOnly),
-	)
+	// В заметку кладём только @ник. ID и так виден как логин пользователя в панели,
+	// а ник не годится как ключ: он меняется.
+	description := fmt.Sprintf("Создан: %s", now.Format(time.DateOnly))
+	if telegramUsername != "" {
+		description = fmt.Sprintf(
+			"Имя клиента: @%s \nСоздан: %s",
+			telegramUsername,
+			now.Format(time.DateOnly),
+		)
+	}
 
 	user := subdomain.CreateUserRequest{
 		Username:             username,

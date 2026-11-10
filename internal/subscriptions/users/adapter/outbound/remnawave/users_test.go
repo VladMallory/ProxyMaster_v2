@@ -31,16 +31,18 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		days          int
-		roundTrip     func(req *http.Request) (*http.Response, error)
-		wantErr       bool
-		wantErrSubstr string
-		check         func(t *testing.T, got subdomain.User)
+		name             string
+		telegramUsername string
+		days             int
+		roundTrip        func(req *http.Request) (*http.Response, error)
+		wantErr          bool
+		wantErrSubstr    string
+		check            func(t *testing.T, got subdomain.User)
 	}{
 		{
-			name: "сервер принял юзера -> корректный маппинг и тело запроса",
-			days: 30,
+			name:             "сервер принял юзера -> корректный маппинг и тело запроса",
+			telegramUsername: "vlad_tg",
+			days:             30,
 			roundTrip: func(req *http.Request) (*http.Response, error) {
 				require.Equal(t, http.MethodPost, req.Method)
 				require.Equal(t, "/api/users", req.URL.Path)
@@ -51,6 +53,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				require.NoError(t, json.NewDecoder(req.Body).Decode(&got))
 
 				require.Equal(t, "vlad", got.Username)
+				require.Equal(t, "Имя клиента: @vlad_tg \nСоздан: "+time.Now().Format(time.DateOnly), got.Description)
 				require.Equal(t, "ACTIVE", got.Status)
 				require.Len(t, got.UUID, 36)
 				require.Len(t, got.VLESSUUID, 36)
@@ -159,6 +162,7 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 			got, err := newTestClient(tt.roundTrip).CreateUser(
 				context.Background(),
 				"vlad",
+				tt.telegramUsername,
 				tt.days,
 				0,
 			)
@@ -173,6 +177,23 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 			tt.check(t, got)
 		})
 	}
+}
+
+func TestRemnawaveClient_CreateUser_DescriptionWithoutTelegramUsername(t *testing.T) {
+	t.Parallel()
+
+	client := newTestClient(func(req *http.Request) (*http.Response, error) {
+		var got subdomain.CreateUserRequest
+		require.NoError(t, json.NewDecoder(req.Body).Decode(&got))
+		require.Equal(t, "Создан: "+time.Now().Format(time.DateOnly), got.Description)
+
+		return jsonResponse(http.StatusCreated, subdomain.APIResponse{
+			UserResponse: subdomain.UserResponse{Username: "123456789", UUID: "uuid-123"},
+		}), nil
+	})
+
+	_, err := client.CreateUser(context.Background(), "123456789", "", 30, 0)
+	require.NoError(t, err)
 }
 
 //nolint:funlen

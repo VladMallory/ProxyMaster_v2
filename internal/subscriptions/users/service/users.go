@@ -14,6 +14,7 @@ type UserRepository interface {
 	CreateUser(
 		ctx context.Context,
 		username string,
+		telegramUsername string,
 		days int,
 		trafficLimit int64,
 	) (subdomain.User, error)
@@ -46,12 +47,13 @@ func (u UserUseCase) deviceCheck(defaultDeviceLimit int) int {
 func (u UserUseCase) GetOrCreateSub(
 	ctx context.Context,
 	username string,
+	telegramUsername string,
 	trialDays int,
 	trafficLimit int64,
 ) (subdomain.User, error) {
 	resp, err := u.repo.GetByUsername(ctx, username)
 	if errors.Is(err, subdomain.ErrNoFindUser) {
-		createtUser, cerr := u.repo.CreateUser(ctx, username, trialDays, trafficLimit)
+		createtUser, cerr := u.repo.CreateUser(ctx, username, telegramUsername, trialDays, trafficLimit)
 		if cerr != nil {
 			return subdomain.User{}, cerr
 		}

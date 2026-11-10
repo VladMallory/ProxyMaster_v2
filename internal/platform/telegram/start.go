@@ -14,6 +14,7 @@ type UserProvider interface {
 	GetOrCreateSub(
 		ctx context.Context,
 		username string,
+		telegramUsername string,
 		trialDays int,
 		trafficLimit int64,
 	) (UserView, error)
@@ -73,6 +74,7 @@ func (h *StartHandler) buildStart(
 	u, err := h.users.GetOrCreateSub(
 		ctx,
 		strconv.FormatInt(user.ID, 10),
+		user.Username,
 		h.trialDays,
 		h.trafficLimit,
 	)

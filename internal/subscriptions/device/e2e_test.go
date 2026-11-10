@@ -198,7 +198,7 @@ func createUser(t *testing.T, env *e2eEnv, days int) string {
 
 	username := fmt.Sprintf("e2e-dev-%d", time.Now().UnixNano())
 
-	_, err := env.users.CreateUser(context.Background(), username, days, 0)
+	_, err := env.users.CreateUser(context.Background(), username, "", days, 0)
 	require.NoError(t, err, "контракт POST /api/users мог поменяться")
 
 	t.Cleanup(func() { deleteUser(t, env, username) })
