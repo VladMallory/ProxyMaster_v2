@@ -25,3 +25,6 @@ dev:
 
 server:
 	git pull && docker compose pull && make restart
+
+e2e:
+	go test -tags=e2e ./...

@@ -228,3 +228,54 @@ func TestE2E_ExtendExpire(t *testing.T) {
 	require.NoError(t, err)
 	require.InDelta(t, newExpire.Unix(), parsed.Unix(), 60)
 }
+
+func TestE2E_UpdateDescription(t *testing.T) {
+	fx := e2eClient(t)
+	client := fx.adapter
+
+	ctx := context.Background()
+	username := "e2e-desc-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	t.Cleanup(func() { e2eDeleteUserByName(t, fx, username) })
+
+	_, err := client.CreateUser(ctx, username, "e2e_tg", 7, 0)
+	require.NoError(t, err, "контракт POST /api/users мог поменяться: %v", err)
+
+	before, err := client.GetByUsername(ctx, username)
+	require.NoError(t, err, "контракт GET /api/users/by-username мог поменяться: %v", err)
+	require.NotZero(t, before.ID)
+
+	const note = "заметка e2e"
+
+	err = client.UpdateDescription(ctx, username, note)
+	require.NoError(t, err, "контракт PATCH /api/users мог поменяться: %v", err)
+
+	after, err := client.GetByID(ctx, before.ID)
+	require.NoError(t, err)
+	require.Equal(t, note, after.Description, "заметка не обновилась")
+
+	// PATCH не должен задевать остальные поля пользователя.
+	require.Equal(t, before.ExpireAt, after.ExpireAt)
+	require.Equal(t, before.HWIDDeviceLimit, after.HWIDDeviceLimit)
+	require.Equal(t, before.Status, after.Status)
+	require.Equal(t, before.TelegramID, after.TelegramID)
+	require.Equal(t, before.Email, after.Email)
+	require.Equal(t, before.Tag, after.Tag)
+
+	// Пустая строка стирает заметку, а не оставляет прежнюю.
+	err = client.UpdateDescription(ctx, username, "")
+	require.NoError(t, err)
+
+	cleared, err := client.GetByID(ctx, before.ID)
+	require.NoError(t, err)
+	require.Empty(t, cleared.Description, "заметка не очистилась")
+}
+
+func TestE2E_UpdateDescription_NotFound(t *testing.T) {
+	fx := e2eClient(t)
+
+	username := "e2e-missing-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	err := fx.adapter.UpdateDescription(context.Background(), username, "x")
+	require.ErrorIs(t, err, subdomain.ErrNoFindUser)
+}

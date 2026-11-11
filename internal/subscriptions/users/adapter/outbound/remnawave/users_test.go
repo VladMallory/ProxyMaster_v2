@@ -1,6 +1,7 @@
 package remnawave
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -53,7 +54,11 @@ func TestRemnawaveClient_CreateUser(t *testing.T) {
 				require.NoError(t, json.NewDecoder(req.Body).Decode(&got))
 
 				require.Equal(t, "vlad", got.Username)
-				require.Equal(t, "Имя клиента: @vlad_tg \nСоздан: "+time.Now().Format(time.DateOnly), got.Description)
+				require.Equal(
+					t,
+					"username: @vlad_tg\ncreate::"+time.Now().Format(time.DateOnly),
+					got.Description,
+				)
 				require.Equal(t, "ACTIVE", got.Status)
 				require.Len(t, got.UUID, 36)
 				require.Len(t, got.VLESSUUID, 36)
@@ -379,4 +384,78 @@ func TestRemnawaveClient_GetByID(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func BenchmarkCreateUser(b *testing.B) {
+	respBody, err := json.Marshal(subdomain.APIResponse{
+		UserResponse: subdomain.UserResponse{
+			Username:        "test_user",
+			UUID:            "test-uuid",
+			HWIDDeviceLimit: 5,
+			SubscriptionURL: "https://test.local/sub",
+		},
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	adapter := newTestClient(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     http.StatusText(http.StatusOK),
+			Body:       io.NopCloser(bytes.NewReader(respBody)),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	ctx := context.Background()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for b.Loop() {
+		if _, err := adapter.CreateUser(ctx, "test_user", "test_telegram", 30, 10); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestRemnawaveClient_UpdateDescription(t *testing.T) {
+	t.Parallel()
+
+	t.Run("тело содержит только username и description", func(t *testing.T) {
+		t.Parallel()
+
+		client := newTestClient(func(req *http.Request) (*http.Response, error) {
+			require.Equal(t, http.MethodPatch, req.Method)
+			require.Equal(t, "/api/users", req.URL.Path)
+			require.Equal(t, "apiKey=x", req.URL.RawQuery)
+
+			var body map[string]json.RawMessage
+			require.NoError(t, json.NewDecoder(req.Body).Decode(&body))
+			require.Equal(t, map[string]json.RawMessage{
+				"username":    json.RawMessage(`"vlad"`),
+				"description": json.RawMessage(`"новая заметка"`),
+			}, body)
+
+			return jsonResponse(http.StatusOK, subdomain.APIResponse{}), nil
+		})
+
+		require.NoError(t, client.UpdateDescription(
+			context.Background(),
+			"vlad",
+			"новая заметка",
+		))
+	})
+
+	t.Run("пользователь не найден -> ErrNoFindUser", func(t *testing.T) {
+		t.Parallel()
+
+		client := newTestClient(func(_ *http.Request) (*http.Response, error) {
+			return jsonResponse(http.StatusNotFound, "{}"), nil
+		})
+
+		err := client.UpdateDescription(context.Background(), "vlad", "x")
+		require.ErrorIs(t, err, subdomain.ErrNoFindUser)
+	})
 }

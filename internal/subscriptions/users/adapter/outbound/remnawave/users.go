@@ -2,7 +2,6 @@ package remnawave
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,15 +24,10 @@ func (r *RemnawaveAdapter) CreateUser(
 
 	trafficLimit *= 1024 * 1024 * 1024
 
-	// В заметку кладём только @ник. ID и так виден как логин пользователя в панели,
-	// а ник не годится как ключ: он меняется.
-	description := fmt.Sprintf("Создан: %s", now.Format(time.DateOnly))
+	description := "Создан: " + now.Format(time.DateOnly)
 	if telegramUsername != "" {
-		description = fmt.Sprintf(
-			"Имя клиента: @%s \nСоздан: %s",
-			telegramUsername,
-			now.Format(time.DateOnly),
-		)
+		description = "username: @" + telegramUsername +
+			"\ncreate::" + now.Format(time.DateOnly)
 	}
 
 	user := subdomain.CreateUserRequest{
@@ -157,6 +151,34 @@ func (r *RemnawaveAdapter) ExtendExpire(
 			err,
 			ErrorMeta{Op: "ExtendExpire"},
 		)
+	}
+
+	return nil
+}
+
+// UpdateDescription заменяет заметку пользователя в панели.
+// Ключом служит username: панель принимает ровно одно из полей id/username.
+func (r *RemnawaveAdapter) UpdateDescription(
+	ctx context.Context,
+	username, description string,
+) error {
+	body := map[string]string{
+		"username":    username,
+		"description": description,
+	}
+
+	_, err := platformremnawave.Do[subdomain.APIResponse](
+		ctx,
+		r.client,
+		http.MethodPatch,
+		"/api/users?"+r.apiKey,
+		body,
+	)
+	if err != nil {
+		return r.notifierAdmin.Map(ctx, err, ErrorMeta{
+			Op:       "UpdateDescription",
+			Username: username,
+		})
 	}
 
 	return nil
