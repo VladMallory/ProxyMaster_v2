@@ -47,7 +47,7 @@ type Config struct {
 	ResetTrafficPrice   string `env:"RESET_TRAFFIC_PRICE"`
 	TrialDays           int    `env:"TRIAL_DAYS"          envDefault:"30"`
 	// PrintPeriod как показывать срок в тарифах: days или months.
-	PrintPeriod string `env:"PRINT_PERIOD" envDefault:"days"`
+	PrintPeriod string `env:"PRINT_PERIOD" envDefault:"months"`
 
 	ProviderName string `env:"PROVIDER_NAME"`
 
