@@ -61,13 +61,20 @@ AUTO_CONNECT_SUB=your-domain.ngrok-free.dev
 LINK_SECRET=change_me
 ```
 
-## Запуск
-Дальше всегда запускать и перезагружать через
+# Makefile
+**Перезапуск**
 ```bash
 make restart
 ```
 
+**Полное обновление бота**
 ## Обновление
 ```bash
 make server
 ```
+
+**Остановка бота**
+```bash
+make stop
+```
+
