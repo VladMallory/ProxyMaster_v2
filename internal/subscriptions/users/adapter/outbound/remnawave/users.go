@@ -157,7 +157,6 @@ func (r *RemnawaveAdapter) ExtendExpire(
 }
 
 // UpdateDescription заменяет заметку пользователя в панели.
-// Ключом служит username: панель принимает ровно одно из полей id/username.
 func (r *RemnawaveAdapter) UpdateDescription(
 	ctx context.Context,
 	username, description string,
